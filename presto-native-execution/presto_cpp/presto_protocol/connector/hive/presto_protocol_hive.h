@@ -29,45 +29,21 @@ enum class ColumnType { PARTITION_KEY, REGULAR, SYNTHESIZED, AGGREGATED };
 extern void to_json(json& j, const ColumnType& e);
 extern void from_json(const json& j, ColumnType& e);
 } // namespace facebook::presto::protocol::hive
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// HiveColumnHandle is special since it needs an implementation of
-// operator<().
-
 namespace facebook::presto::protocol::hive {
-
 struct HiveColumnHandle : public ColumnHandle {
   String name = {};
   HiveType hiveType = {};
   TypeSignature typeSignature = {};
   int hiveColumnIndex = {};
-  hive::ColumnType columnType = {};
+  ColumnType columnType = {};
   std::shared_ptr<String> comment = {};
   List<Subfield> requiredSubfields = {};
   std::shared_ptr<Aggregation> partialAggregation = {};
 
   HiveColumnHandle() noexcept;
-
-  bool operator<(const ColumnHandle& o) const override {
-    return name < dynamic_cast<const HiveColumnHandle&>(o).name;
-  }
 };
-
 void to_json(json& j, const HiveColumnHandle& p);
 void from_json(const json& j, HiveColumnHandle& p);
-
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
 struct BucketConversion {
@@ -158,118 +134,6 @@ namespace facebook::presto::protocol::hive {
 enum class HiveCompressionCodec { NONE, SNAPPY, GZIP, LZ4, ZSTD };
 extern void to_json(json& j, const HiveCompressionCodec& e);
 extern void from_json(const json& j, HiveCompressionCodec& e);
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-enum class PrestoTableType {
-  MANAGED_TABLE,
-  EXTERNAL_TABLE,
-  VIRTUAL_VIEW,
-  MATERIALIZED_VIEW,
-  TEMPORARY_TABLE,
-  OTHER
-};
-extern void to_json(json& j, const PrestoTableType& e);
-extern void from_json(const json& j, PrestoTableType& e);
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-struct StorageFormat {
-  String serDe = {};
-  String inputFormat = {};
-  String outputFormat = {};
-};
-void to_json(json& j, const StorageFormat& p);
-void from_json(const json& j, StorageFormat& p);
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-struct Storage {
-  StorageFormat storageFormat = {};
-  String location = {};
-  std::shared_ptr<HiveBucketProperty> bucketProperty = {};
-  bool skewed = {};
-  Map<String, String> serdeParameters = {};
-  Map<String, String> parameters = {};
-};
-void to_json(json& j, const Storage& p);
-void from_json(const json& j, Storage& p);
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-struct Table {
-  String databaseName = {};
-  String tableName = {};
-  String owner = {};
-  PrestoTableType tableType = {};
-  Storage storage = {};
-  List<Column> dataColumns = {};
-  List<Column> partitionColumns = {};
-  Map<String, String> parameters = {};
-  std::shared_ptr<String> viewOriginalText = {};
-  std::shared_ptr<String> viewExpandedText = {};
-};
-void to_json(json& j, const Table& p);
-void from_json(const json& j, Table& p);
-} // namespace facebook::presto::protocol::hive
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// dependency Table
-// dependency SchemaTableName
-
-namespace facebook::presto::protocol::hive {
-
-struct HivePageSinkMetadata {
-  SchemaTableName schemaTableName = {};
-  std::shared_ptr<hive::Table> table = {};
-  // TODO Add modifiedPartitions
-};
-void to_json(json& j, const HivePageSinkMetadata& p);
-void from_json(const json& j, HivePageSinkMetadata& p);
-
-} // namespace facebook::presto::protocol::hive
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-namespace facebook::presto::protocol::hive {
-
-enum class HiveStorageFormat {
-  ORC,
-  DWRF,
-  ALPHA,
-  PARQUET,
-  AVRO,
-  RCBINARY,
-  RCTEXT,
-  SEQUENCEFILE,
-  JSON,
-  TEXTFILE,
-  CSV,
-  PAGEFILE
-};
-
-void to_json(json& j, const HiveStorageFormat& p);
-void from_json(const json& j, HiveStorageFormat& p);
-
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
 enum class TableType { NEW, EXISTING, TEMPORARY };
@@ -373,6 +237,27 @@ void to_json(json& j, const HivePartitioningHandle& p);
 void from_json(const json& j, HivePartitioningHandle& p);
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
+struct StorageFormat {
+  String serDe = {};
+  String inputFormat = {};
+  String outputFormat = {};
+};
+void to_json(json& j, const StorageFormat& p);
+void from_json(const json& j, StorageFormat& p);
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+struct Storage {
+  StorageFormat storageFormat = {};
+  String location = {};
+  std::shared_ptr<HiveBucketProperty> bucketProperty = {};
+  bool skewed = {};
+  Map<String, String> serdeParameters = {};
+  Map<String, String> parameters = {};
+};
+void to_json(json& j, const Storage& p);
+void from_json(const json& j, Storage& p);
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
 struct TableToPartitionMapping {
   std::shared_ptr<Map<Integer, Integer>> tableToPartitionColumns = {};
   Map<Integer, Column> partitionSchemaDifference = {};
@@ -451,4 +336,32 @@ struct HiveTransactionHandle : public ConnectorTransactionHandle {
 };
 void to_json(json& j, const HiveTransactionHandle& p);
 void from_json(const json& j, HiveTransactionHandle& p);
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+enum class PrestoTableType {
+  MANAGED_TABLE,
+  EXTERNAL_TABLE,
+  VIRTUAL_VIEW,
+  MATERIALIZED_VIEW,
+  TEMPORARY_TABLE,
+  OTHER
+};
+extern void to_json(json& j, const PrestoTableType& e);
+extern void from_json(const json& j, PrestoTableType& e);
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+struct Table {
+  String databaseName = {};
+  String tableName = {};
+  String owner = {};
+  PrestoTableType tableType = {};
+  Storage storage = {};
+  List<Column> dataColumns = {};
+  List<Column> partitionColumns = {};
+  Map<String, String> parameters = {};
+  std::shared_ptr<String> viewOriginalText = {};
+  std::shared_ptr<String> viewExpandedText = {};
+};
+void to_json(json& j, const Table& p);
+void from_json(const json& j, Table& p);
 } // namespace facebook::presto::protocol::hive

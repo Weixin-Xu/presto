@@ -12,13 +12,13 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
+#include "presto_cpp/main/types/BoltPlanValidator.h"
 #include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
-bool planHasNestedJoinLoop(const velox::core::PlanNodePtr planNode) {
+bool planHasNestedJoinLoop(const bolt::core::PlanNodePtr planNode) {
   if (auto joinNode =
-          std::dynamic_pointer_cast<const velox::core::NestedLoopJoinNode>(
+          std::dynamic_pointer_cast<const bolt::core::NestedLoopJoinNode>(
               planNode)) {
     return true;
   }
@@ -32,17 +32,17 @@ bool planHasNestedJoinLoop(const velox::core::PlanNodePtr planNode) {
   return false;
 }
 
-void VeloxPlanValidator::validatePlanFragment(
-    const velox::core::PlanFragment& fragment) {
+void BoltPlanValidator::validatePlanFragment(
+    const bolt::core::PlanFragment& fragment) {
   const auto failOnNestedLoopJoin =
       SystemConfig::instance()
           ->optionalProperty<bool>(
               SystemConfig::kPlanValidatorFailOnNestedLoopJoin)
           .value_or(false);
   if (failOnNestedLoopJoin) {
-    VELOX_CHECK(
+    BOLT_CHECK(
         !planHasNestedJoinLoop(fragment.planNode),
-        "Velox plan uses nested join loop which isn't supported.");
+        "Bolt plan uses nested join loop which isn't supported.");
   }
 }
 

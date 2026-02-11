@@ -124,7 +124,7 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   }
 
   int64_t mallocBytes() const override {
-    VELOX_UNSUPPORTED();
+    BOLT_UNSUPPORTED();
   }
 
   void periodicCb() override {
@@ -132,11 +132,11 @@ class LinuxMemoryChecker : public PeriodicMemoryChecker {
   }
 
   bool heapDumpCb(const std::string& filePath) const override {
-    VELOX_UNSUPPORTED();
+    BOLT_UNSUPPORTED();
   }
 
   void removeDumpFile(const std::string& filePath) const override {
-    VELOX_UNSUPPORTED();
+    BOLT_UNSUPPORTED();
   }
 
  private:

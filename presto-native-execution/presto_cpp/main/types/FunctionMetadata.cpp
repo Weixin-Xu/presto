@@ -13,20 +13,20 @@
  */
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/exec/Aggregate.h"
-#include "velox/exec/AggregateFunctionRegistry.h"
-#include "velox/exec/WindowFunction.h"
-#include "velox/expression/SimpleFunctionRegistry.h"
-#include "velox/functions/FunctionRegistry.h"
+#include "bolt/exec/Aggregate.h"
+#include "bolt/exec/AggregateFunctionRegistry.h"
+#include "bolt/exec/WindowFunction.h"
+#include "bolt/expression/SimpleFunctionRegistry.h"
+#include "bolt/functions/FunctionRegistry.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::exec;
 
 namespace facebook::presto {
 
 namespace {
 
-// Check if the Velox type is supported in Presto.
+// Check if the Bolt type is supported in Presto.
 bool isValidPrestoType(const TypeSignature& typeSignature) {
   if (typeSignature.parameters().empty()) {
     // Hugeint type is not supported in Presto.
@@ -44,22 +44,22 @@ bool isValidPrestoType(const TypeSignature& typeSignature) {
   return true;
 }
 
-// The keys in velox function maps are of the format
+// The keys in bolt function maps are of the format
 // `catalog.schema.function_name`. This utility function extracts the
 // three parts, {catalog, schema, function_name}, from the registered function.
 const std::vector<std::string> getFunctionNameParts(
     const std::string& registeredFunction) {
   std::vector<std::string> parts;
   folly::split('.', registeredFunction, parts, true);
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       parts.size() == 3,
       fmt::format("Prefix missing for function {}", registeredFunction));
   return parts;
 }
 
 // TODO: Remove this function later and retrieve companion function information
-//  from velox. Approaches for this under discussion here:
-// https://github.com/facebookincubator/velox/discussions/11011.
+//  from bolt. Approaches for this under discussion here:
+// https://github.com/facebookincubator/bolt/discussions/11011.
 // A function name is a companion function's if the name is an existing
 // aggregation function name followed by specific suffixes.
 bool isCompanionFunctionName(
@@ -107,7 +107,7 @@ const exec::VectorFunctionMetadata getScalarMetadata(const std::string& name) {
   if (vectorFunctionMetadata.has_value()) {
     return vectorFunctionMetadata.value();
   }
-  VELOX_UNREACHABLE("Metadata for function {} not found", name);
+  BOLT_UNREACHABLE("Metadata for function {} not found", name);
 }
 
 const protocol::RoutineCharacteristics getRoutineCharacteristics(
@@ -195,7 +195,7 @@ json buildAggregateMetadata(
     const std::string& schema,
     const std::vector<AggregateFunctionSignaturePtr>& signatures) {
   // All aggregate functions can be used as window functions.
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       getWindowFunctionSignatures(name).has_value(),
       "Aggregate function {} not registered as a window function",
       name);
@@ -236,7 +236,7 @@ json buildWindowMetadata(
 json getFunctionsMetadata() {
   json j;
 
-  // Get metadata for all registered scalar functions in velox.
+  // Get metadata for all registered scalar functions in bolt.
   const auto signatures = getFunctionSignatures();
   static const std::unordered_set<std::string> kBlockList = {
       "row_constructor", "in", "is_null"};
@@ -258,7 +258,7 @@ json getFunctionsMetadata() {
     j[function] = buildScalarMetadata(name, schema, entry.second);
   }
 
-  // Get metadata for all registered aggregate functions in velox.
+  // Get metadata for all registered aggregate functions in bolt.
   for (const auto& entry : aggregateFunctions) {
     if (!isCompanionFunctionName(entry.first, aggregateFunctions)) {
       const auto name = entry.first;
@@ -270,7 +270,7 @@ json getFunctionsMetadata() {
     }
   }
 
-  // Get metadata for all registered window functions in velox. Skip aggregates
+  // Get metadata for all registered window functions in bolt. Skip aggregates
   // as they have been processed.
   const auto& functions = exec::windowFunctions();
   for (const auto& entry : functions) {

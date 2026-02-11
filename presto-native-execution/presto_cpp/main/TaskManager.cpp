@@ -19,17 +19,17 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
-#include <velox/core/PlanNode.h>
+#include "bolt/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/types/PrestoToVeloxSplit.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/time/Timer.h"
-#include "velox/exec/Exchange.h"
+#include "presto_cpp/main/types/PrestoToBoltSplit.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/time/Timer.h"
+#include "bolt/exec/Exchange.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 using facebook::presto::protocol::TaskId;
 using facebook::presto::protocol::TaskInfo;
@@ -167,7 +167,7 @@ void getData(
         int64_t bytes = 0;
         for (auto& page : pages) {
           if (page) {
-            VELOX_CHECK(!complete, "Received data after end marker");
+            BOLT_CHECK(!complete, "Received data after end marker");
             if (!iobuf) {
               iobuf = std::move(page);
               bytes = iobuf->length();
@@ -220,14 +220,14 @@ void getData(
 // Presto-on-Spark is expected to specify all splits at once along with
 // no-more-splits flag. Verify that all plan nodes that require splits
 // have received splits and no-more-splits flag. This check helps
-// prevent hard-to-debug query hangs caused by Velox Task waiting for
+// prevent hard-to-debug query hangs caused by Bolt Task waiting for
 // splits that never arrive.
 void checkSplitsForBatchTask(
-    const velox::core::PlanNodePtr& planNode,
+    const bolt::core::PlanNodePtr& planNode,
     const std::vector<protocol::TaskSource>& sources) {
-  std::unordered_set<velox::core::PlanNodeId> splitNodeIds;
-  velox::core::PlanNode::findFirstNode(
-      planNode.get(), [&](const velox::core::PlanNode* node) {
+  std::unordered_set<bolt::core::PlanNodeId> splitNodeIds;
+  bolt::core::PlanNode::findFirstNode(
+      planNode.get(), [&](const bolt::core::PlanNode* node) {
         if (node->requiresSplits()) {
           splitNodeIds.insert(node->id());
         }
@@ -235,14 +235,14 @@ void checkSplitsForBatchTask(
       });
 
   for (const auto& source : sources) {
-    VELOX_USER_CHECK(
+    BOLT_USER_CHECK(
         source.noMoreSplits,
         "Expected no-more-splits message for plan node {}",
         source.planNodeId);
     splitNodeIds.erase(source.planNodeId);
   }
 
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       splitNodeIds.empty(),
       "Expected all splits and no-more-splits message for all plan nodes: {}",
       folly::join(", ", splitNodeIds));
@@ -329,12 +329,12 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : bufferManager_(velox::exec::OutputBufferManager::getInstance().lock()),
+    : bufferManager_(bolt::exec::OutputBufferManager::getInstance().lock()),
       queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),
       httpSrvCpuExecutor_(httpSrvCpuExecutor) {
-  VELOX_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
+  BOLT_CHECK_NOT_NULL(bufferManager_, "invalid OutputBufferManager");
 }
 
 void TaskManager::setBaseUri(const std::string& baseUri) {
@@ -346,7 +346,7 @@ void TaskManager::setNodeId(const std::string& nodeId) {
 }
 
 void TaskManager::setBaseSpillDirectory(const std::string& baseSpillDirectory) {
-  VELOX_CHECK(!baseSpillDirectory.empty());
+  BOLT_CHECK(!baseSpillDirectory.empty());
   baseSpillDir_.withWLock(
       [&](auto& baseSpillDir) { baseSpillDir = baseSpillDirectory; });
 }
@@ -357,7 +357,7 @@ bool TaskManager::emptyBaseSpillDirectory() const {
 }
 
 void TaskManager::setOldTaskCleanUpMs(int32_t oldTaskCleanUpMs) {
-  VELOX_CHECK_GE(oldTaskCleanUpMs, 0);
+  BOLT_CHECK_GE(oldTaskCleanUpMs, 0);
   oldTaskCleanUpMs_ = oldTaskCleanUpMs;
 }
 
@@ -461,8 +461,8 @@ void TaskManager::getDataForResultRequests(
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
-    const velox::core::PlanFragment& planFragment,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    const bolt::core::PlanFragment& planFragment,
+    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
       taskId,
@@ -476,8 +476,8 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-    const velox::core::PlanFragment& planFragment,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    const bolt::core::PlanFragment& planFragment,
+    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
 
@@ -494,10 +494,10 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
-    const velox::core::PlanFragment& planFragment,
+    const bolt::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
-    std::shared_ptr<velox::core::QueryCtx> queryCtx,
+    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
@@ -512,10 +512,10 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
         return std::make_unique<TaskInfo>(prestoTask->updateInfoLocked());
       }
 
-      // Uses a temp variable to store the created velox task to destroy it
+      // Uses a temp variable to store the created bolt task to destroy it
       // under presto task lock if spill directory setup fails. Otherwise, the
       // concurrent task creation retry from the coordinator might see the
-      // unexpected state in presto task left by the previously failed velox
+      // unexpected state in presto task left by the previously failed bolt
       // task which hasn't been destroyed yet, such as the task pool in query's
       // root memory pool.
       auto newExecTask = exec::Task::create(
@@ -526,7 +526,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
           exec::Task::ExecutionMode::kParallel,
           static_cast<exec::Consumer>(nullptr),
           prestoTask->id.stageId());
-      // TODO: move spill directory creation inside velox task execution
+      // TODO: move spill directory creation inside bolt task execution
       // whenever spilling is triggered. It will reduce the unnecessary file
       // operations on remote storage.
       const auto baseSpillDir = *(baseSpillDir_.rlock());
@@ -539,7 +539,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     execTask = prestoTask->task;
   }
   // Outside of prestoTask->mutex.
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       execTask,
       "Task update received before setting a plan. The splits in "
       "this update could not be delivered for {}",
@@ -599,7 +599,7 @@ std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     // Keep track of the max sequence for this batch of splits.
     long maxSplitSequenceId{-1};
     for (const auto& protocolSplit : source.splits) {
-      auto split = toVeloxSplit(protocolSplit);
+      auto split = toBoltSplit(protocolSplit);
       if (split.hasConnectorSplit()) {
         maxSplitSequenceId =
             std::max(maxSplitSequenceId, protocolSplit.sequenceId);
@@ -667,7 +667,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
       execTask->requestAbort();
     }
     prestoTask->info.stats.endTime =
-        util::toISOTimestamp(velox::getCurrentTimeMs());
+        util::toISOTimestamp(bolt::getCurrentTimeMs());
     prestoTask->updateInfoLocked();
   } else {
     // If task is not found than we observe DELETE message coming before
@@ -693,7 +693,7 @@ size_t TaskManager::cleanOldTasks() {
 
   folly::F14FastSet<protocol::TaskId> taskIdsToClean;
 
-  ZombieTaskStatsSet zombieVeloxTaskCounts;
+  ZombieTaskStatsSet zombieBoltTaskCounts;
   ZombieTaskStatsSet zombiePrestoTaskCounts;
   uint32_t numTasksWithStuckOperator{0};
   {
@@ -745,8 +745,8 @@ size_t TaskManager::cleanOldTasks() {
           }
         }
         if (taskRefCount > 1) {
-          ++zombieVeloxTaskCounts.numTotal;
-          zombieVeloxTaskCounts.updateCounts(task, taskRefCount - 1);
+          ++zombieBoltTaskCounts.numTotal;
+          zombieBoltTaskCounts.updateCounts(task, taskRefCount - 1);
         }
       } else {
         taskIdsToClean.emplace(id);
@@ -776,14 +776,14 @@ size_t TaskManager::cleanOldTasks() {
               << elapsedMs << "ms";
   }
 
-  if (zombieVeloxTaskCounts.numTotal > 0) {
-    zombieVeloxTaskCounts.logZombieTaskStatus("Task");
+  if (zombieBoltTaskCounts.numTotal > 0) {
+    zombieBoltTaskCounts.logZombieTaskStatus("Task");
   }
   if (zombiePrestoTaskCounts.numTotal > 0) {
     zombiePrestoTaskCounts.logZombieTaskStatus("PrestoTask");
   }
   RECORD_METRIC_VALUE(
-      kCounterNumZombieVeloxTasks, zombieVeloxTaskCounts.numTotal);
+      kCounterNumZombieBoltTasks, zombieBoltTaskCounts.numTotal);
   RECORD_METRIC_VALUE(
       kCounterNumZombiePrestoTasks, zombiePrestoTaskCounts.numTotal);
   RECORD_METRIC_VALUE(
@@ -958,7 +958,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
           .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
-  } catch (const velox::VeloxException& e) {
+  } catch (const bolt::BoltException& e) {
     return folly::makeSemiFuture<std::unique_ptr<Result>>(e).via(
         httpSrvCpuExecutor_);
   } catch (const std::exception& e) {
@@ -1037,7 +1037,7 @@ folly::Future<std::unique_ptr<protocol::TaskStatus>> TaskManager::getTaskStatus(
 void TaskManager::removeRemoteSource(
     const TaskId& taskId,
     const TaskId& remoteSourceTaskId) {
-  VELOX_NYI();
+  BOLT_NYI();
 }
 
 std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
@@ -1061,7 +1061,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTime =
-      util::toISOTimestamp(velox::getCurrentTimeMs());
+      util::toISOTimestamp(bolt::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;
   prestoTask->info.metadataUpdates.connectorId = "unused";
 
@@ -1112,13 +1112,13 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+bolt::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
   const auto taskMap = *taskMap_.rlock();
-  velox::exec::Task::DriverCounts ret;
+  bolt::exec::Task::DriverCounts ret;
   for (const auto& pair : taskMap) {
     if (pair.second->task != nullptr) {
       auto counts = pair.second->task->driverCounts();
-      // TODO (spershin): Move add logic to velox::exec::Task::DriverCounts.
+      // TODO (spershin): Move add logic to bolt::exec::Task::DriverCounts.
       ret.numQueuedDrivers += counts.numQueuedDrivers;
       ret.numOnThreadDrivers += counts.numOnThreadDrivers;
       ret.numSuspendedDrivers += counts.numSuspendedDrivers;
@@ -1132,7 +1132,7 @@ velox::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
 
 bool TaskManager::getStuckOpCalls(
     std::vector<std::string>& deadlockTasks,
-    std::vector<velox::exec::Task::OpCallInfo>& stuckOpCalls) const {
+    std::vector<bolt::exec::Task::OpCallInfo>& stuckOpCalls) const {
   const auto thresholdDurationMs =
       SystemConfig::instance()->driverStuckOperatorThresholdMs();
   const auto thresholdCancelMs =
@@ -1167,7 +1167,7 @@ bool TaskManager::getStuckOpCalls(
             ss << "Task " << id
                << " cancelled due to stuck operator: tid=" << it->tid
                << " opCall=" << it->opCall
-               << " duration= " << velox::succinctMillis(it->durationMs);
+               << " duration= " << bolt::succinctMillis(it->durationMs);
             const std::string msg = ss.str();
             LOG(ERROR) << msg;
             prestoTask->task->setError(msg);
@@ -1224,7 +1224,7 @@ void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
-  while (taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)] > 0) {
+  while (taskNumbers[static_cast<int>(bolt::exec::TaskState::kRunning)] > 0) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks
@@ -1237,11 +1237,11 @@ void TaskManager::shutdown() {
 
   taskMap_.withRLock([&](const TaskMap& taskMap) {
     for (auto it = taskMap.begin(); it != taskMap.end(); ++it) {
-      const auto veloxTaskRefCount = it->second->task.use_count();
-      if (veloxTaskRefCount > 1) {
-        VELOX_CHECK_NOT_NULL(it->second->task);
+      const auto boltTaskRefCount = it->second->task.use_count();
+      if (boltTaskRefCount > 1) {
+        BOLT_CHECK_NOT_NULL(it->second->task);
         PRESTO_SHUTDOWN_LOG(WARNING)
-            << "Velox task has pending reference on destruction: "
+            << "Bolt task has pending reference on destruction: "
             << it->second->task->taskId();
         continue;
       }

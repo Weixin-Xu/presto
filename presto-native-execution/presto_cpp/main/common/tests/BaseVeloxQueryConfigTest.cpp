@@ -13,28 +13,28 @@
  */
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/file/File.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/core/QueryConfig.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/file/File.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/core/QueryConfig.h"
 
 namespace facebook::presto::test {
 
-using namespace velox;
-using namespace velox::core;
+using namespace bolt;
+using namespace bolt::core;
 
-class BaseVeloxQueryConfigTest : public testing::Test {
+class BaseBoltQueryConfigTest : public testing::Test {
  protected:
   void setUpConfigFile(bool isMutable, bool setupSystemConfig = false) {
-    velox::filesystems::registerLocalFileSystem();
+    bolt::filesystems::registerLocalFileSystem();
 
-    char path[] = "/tmp/base_velox_query_config_test_XXXXXX";
+    char path[] = "/tmp/base_bolt_query_config_test_XXXXXX";
     const char* tempDirectoryPath = mkdtemp(path);
     if (tempDirectoryPath == nullptr) {
       throw std::logic_error("Cannot open temp directory");
     }
     configFilePath = tempDirectoryPath;
-    configFilePath += "/velox.properties";
+    configFilePath += "/bolt.properties";
     systemConfigFilePath = tempDirectoryPath;
     systemConfigFilePath += "/config.properties";
 
@@ -71,9 +71,9 @@ class BaseVeloxQueryConfigTest : public testing::Test {
   const std::string tzPropName{QueryConfig::kSessionTimezone};
 };
 
-TEST_F(BaseVeloxQueryConfigTest, defaultConfig) {
+TEST_F(BaseBoltQueryConfigTest, defaultConfig) {
   setUpConfigFile(false);
-  auto cfg = BaseVeloxQueryConfig::instance();
+  auto cfg = BaseBoltQueryConfig::instance();
   cfg->initialize(configFilePath);
 
   ASSERT_FALSE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
@@ -86,12 +86,12 @@ TEST_F(BaseVeloxQueryConfigTest, defaultConfig) {
              std::string(QueryConfig::kMaxOutputBatchRows))
           .value());
   ASSERT_EQ("", cfg->optionalProperty(tzPropName).value());
-  ASSERT_THROW(cfg->setValue(tzPropName, "TZ1"), VeloxException);
+  ASSERT_THROW(cfg->setValue(tzPropName, "TZ1"), BoltException);
 }
 
-TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
+TEST_F(BaseBoltQueryConfigTest, mutableConfig) {
   setUpConfigFile(true);
-  auto cfg = BaseVeloxQueryConfig::instance();
+  auto cfg = BaseBoltQueryConfig::instance();
   cfg->initialize(configFilePath);
 
   ASSERT_TRUE(cfg->optionalProperty<bool>(ConfigBase::kMutableConfig).value());
@@ -111,10 +111,10 @@ TEST_F(BaseVeloxQueryConfigTest, mutableConfig) {
       ret = cfg->optionalProperty(tzPropName));
 }
 
-TEST_F(BaseVeloxQueryConfigTest, fromSystemConfig) {
+TEST_F(BaseBoltQueryConfigTest, fromSystemConfig) {
 #define GET_VAL(_name_) cfg->optionalProperty(std::string(_name_))
 
-  auto cfg = BaseVeloxQueryConfig::instance();
+  auto cfg = BaseBoltQueryConfig::instance();
   ASSERT_EQ("false", GET_VAL(QueryConfig::kPrestoArrayAggIgnoreNulls));
 
   setUpConfigFile(true, true);

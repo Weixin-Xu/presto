@@ -17,7 +17,7 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <folly/futures/Retrying.h>
-#include <velox/common/memory/Memory.h>
+#include "bolt/common/memory/Memory.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 
 namespace facebook::presto {

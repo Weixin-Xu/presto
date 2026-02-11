@@ -13,14 +13,20 @@
  */
 #pragma once
 
+#include "presto_cpp/main/types/BoltPlanValidator.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/exec/Split.h"
+#include "bolt/common/memory/MemoryPool.h"
 
 namespace facebook::presto {
 
-// Creates and returns exec::Split (with connector::ConnectorSplit inside) based
-// on the given protocol split.
-velox::exec::Split toVeloxSplit(
-    const presto::protocol::ScheduledSplit& scheduledSplit);
+/// Convert a Presto plan fragment to a Bolt Plan. If the conversion fails,
+/// the failure info will be included in the response.
+/// @param planFragmentJson string that will parse as protocol::PlanFragment.
+/// @param pool MemoryPool used during conversion.
+/// @param planValidator BoltPlanValidator to validate the converted plan.
+protocol::PlanConversionResponse prestoToBoltPlanConversion(
+    const std::string& planFragmentJson,
+    bolt::memory::MemoryPool* pool,
+    BoltPlanValidator* planValidator);
 
 } // namespace facebook::presto

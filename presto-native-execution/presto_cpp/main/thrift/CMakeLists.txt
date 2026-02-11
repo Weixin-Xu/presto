@@ -16,10 +16,17 @@ find_library(THRIFT_CORE thrift-core)
 find_library(THRIFT_PROTOCOL thriftprotocol)
 find_library(THRIFT_METADATA thriftmetadata)
 find_library(THRIFT_TRANSPORT transport)
-find_path(THRIFT_INCLUDES thrift/lib/cpp2/gen/module_data_h.h
-          PATH_SUFFIXES include REQUIRED)
+find_library(THRIFT_TYPEREP thrifttyperep)
 
+# A little bit ugly workaround
+# TODO: [Xianda]
+#    Conan provide a clean script for this.
+
+set(THRIFT_INCLUDES ${fbthrift_INCLUDE_DIRS})
 include(ThriftLibrary.cmake)
+
+find_package(fbthrift CONFIG REQUIRED)
+find_package(wangle CONFIG REQUIRED)
 
 thrift_library(
   presto_thrift
@@ -29,16 +36,36 @@ thrift_library(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
   "..")
-target_link_libraries(presto_thrift-cpp2 ${THRIFT_PROTOCOL} ${THRIFT_METADATA}
-                      ${THRIFT_CORE} ${THRIFT_TRANSPORT})
+
+target_link_libraries(presto_thrift-cpp2
+                      ${THRIFT_PROTOCOL}
+                      ${THRIFT_METADATA}
+                      ${THRIFT_CORE}
+                      ${THRIFT_TRANSPORT}
+                      FBThrift::fbthrift
+                      ${THRIFT_TYPEREP}
+                      wangle::wangle
+                      Folly::folly)
 set(presto_thrift_INCLUDES ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES}
-                                                     ${GLOG_INCLUDE_DIR})
-target_include_directories(presto_thrift-cpp2-obj PUBLIC ${THRIFT_INCLUDES}
-                                                         ${GLOG_INCLUDE_DIR})
+target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES})
+target_include_directories(presto_thrift-cpp2-obj PUBLIC
+  ${THRIFT_INCLUDES}
+  ${wangle_INCLUDE_DIRS}
+  ${jemalloc_INCLUDE_DIRS})
+
 
 add_library(presto_thrift_extra ProtocolToThrift.cpp)
-target_include_directories(
-  presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES} ${THRIFT_INCLUDES}
-                             ${GLOG_INCLUDE_DIR})
+
+target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES}
+                                                      ${THRIFT_INCLUDES}
+                                                      ${bolt_INCLUDE_DIRS}
+                                                      )
+
+find_package(nlohmann_json CONFIG REQUIRED)
+target_link_libraries(presto_thrift_extra
+  nlohmann_json::nlohmann_json
+  wangle::wangle
+  Folly::folly
+  re2::re2)
+target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES})
 add_dependencies(presto_thrift_extra presto_thrift-cpp2)

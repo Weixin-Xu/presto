@@ -11,7 +11,7 @@
 # limitations under the License.
 add_library(presto_operators_plan_builder PlanBuilder.cpp)
 
-target_link_libraries(presto_operators_plan_builder velox_core)
+target_link_libraries(presto_operators_plan_builder bolt::bolt)
 
 add_executable(presto_operators_test PlanNodeSerdeTest.cpp
                                      UnsafeRowShuffleTest.cpp BroadcastTest.cpp)
@@ -25,15 +25,7 @@ target_link_libraries(
   presto_protocol
   presto_type_converter
   presto_types
-  velox_vector_fuzzer
-  velox_exec_test_lib
-  velox_hive_partition_function
-  velox_vector_test_lib
-  velox_type
-  velox_vector
-  velox_exec
-  velox_memory
-  velox_exec
+  bolt::bolt
   GTest::gmock
   GTest::gtest
   GTest::gtest_main)

@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_executable(presto_common_test CommonTest.cpp ConfigTest.cpp
-                                  BaseVeloxQueryConfigTest.cpp)
+                                  BaseBoltQueryConfigTest.cpp)
 
 add_test(presto_common_test presto_common_test)
 
@@ -18,8 +18,7 @@ target_link_libraries(
   presto_common_test
   presto_common
   presto_exception
-  velox_exception
-  velox_file
+  bolt::bolt
   ${RE2}
   GTest::gtest
   GTest::gtest_main)

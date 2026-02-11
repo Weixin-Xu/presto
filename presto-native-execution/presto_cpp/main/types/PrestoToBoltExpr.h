@@ -16,53 +16,53 @@
 #include <stdexcept>
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/core/Expressions.h"
+#include "bolt/core/Expressions.h"
 
 namespace facebook::presto {
 
-class VeloxExprConverter {
+class BoltExprConverter {
  public:
-  VeloxExprConverter(velox::memory::MemoryPool* pool, TypeParser* typeParser)
+  BoltExprConverter(bolt::memory::MemoryPool* pool, TypeParser* typeParser)
       : pool_(pool), typeParser_(typeParser) {}
 
-  std::shared_ptr<const velox::core::ConstantTypedExpr> toVeloxExpr(
+  std::shared_ptr<const bolt::core::ConstantTypedExpr> toBoltExpr(
       std::shared_ptr<protocol::ConstantExpression> pexpr) const;
 
-  velox::core::TypedExprPtr toVeloxExpr(
+  bolt::core::TypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::SpecialFormExpression> pexpr) const;
 
-  velox::core::FieldAccessTypedExprPtr toVeloxExpr(
+  bolt::core::FieldAccessTypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::VariableReferenceExpression> pexpr) const;
 
-  std::shared_ptr<const velox::core::LambdaTypedExpr> toVeloxExpr(
+  std::shared_ptr<const bolt::core::LambdaTypedExpr> toBoltExpr(
       std::shared_ptr<protocol::LambdaDefinitionExpression> pexpr) const;
 
   // TODO Remove when protocols are updated to use shared_ptr
-  std::shared_ptr<const velox::core::FieldAccessTypedExpr> toVeloxExpr(
+  std::shared_ptr<const bolt::core::FieldAccessTypedExpr> toBoltExpr(
       const protocol::VariableReferenceExpression& pexpr) const;
 
-  velox::core::TypedExprPtr toVeloxExpr(
+  bolt::core::TypedExprPtr toBoltExpr(
       const protocol::CallExpression& pexpr) const;
 
-  velox::core::TypedExprPtr toVeloxExpr(
+  bolt::core::TypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::RowExpression> pexpr) const;
 
   // Deserializes Presto Block of a scalar type into a variant.
-  velox::variant getConstantValue(
-      const velox::TypePtr& type,
+  bolt::variant getConstantValue(
+      const bolt::TypePtr& type,
       const protocol::Block& block) const;
 
  private:
-  std::vector<velox::core::TypedExprPtr> toVeloxExpr(
+  std::vector<bolt::core::TypedExprPtr> toBoltExpr(
       std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const;
 
-  std::optional<velox::core::TypedExprPtr> tryConvertLike(
+  std::optional<bolt::core::TypedExprPtr> tryConvertLike(
       const protocol::CallExpression& pexpr) const;
 
-  std::optional<velox::core::TypedExprPtr> tryConvertDate(
+  std::optional<bolt::core::TypedExprPtr> tryConvertDate(
       const protocol::CallExpression& pexpr) const;
 
-  velox::memory::MemoryPool* const pool_;
+  bolt::memory::MemoryPool* const pool_;
   TypeParser* const typeParser_;
 };
 

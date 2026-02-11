@@ -20,39 +20,39 @@
 #include "presto_cpp/main/TaskResource.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
-#include "velox/common/base/Fs.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/SharedArbitrator.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/dwio/common/FileSink.h"
-#include "velox/dwio/common/WriterFactory.h"
-#include "velox/dwio/common/tests/utils/BatchMaker.h"
-#include "velox/dwio/dwrf/RegisterDwrfReader.h"
-#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/dwrf/writer/Writer.h"
-#include "velox/exec/Exchange.h"
-#include "velox/exec/Values.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
-#include "velox/serializers/PrestoSerializer.h"
-#include "velox/type/Type.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
+#include "bolt/common/base/Fs.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/SharedArbitrator.h"
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/dwio/common/FileSink.h"
+#include "bolt/dwio/common/WriterFactory.h"
+#include "bolt/dwio/common/tests/utils/BatchMaker.h"
+#include "bolt/dwio/dwrf/RegisterDwrfReader.h"
+#include "bolt/dwio/dwrf/RegisterDwrfWriter.h"
+#include "bolt/dwio/dwrf/writer/Writer.h"
+#include "bolt/exec/Exchange.h"
+#include "bolt/exec/Values.h"
+#include "bolt/exec/tests/utils/OperatorTestBase.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
+#include "bolt/exec/tests/utils/QueryAssertions.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/exec/tests/utils/TempFilePath.h"
+#include "bolt/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "bolt/functions/prestosql/registration/RegistrationFunctions.h"
+#include "bolt/parse/TypeResolver.h"
+#include "bolt/serializers/PrestoSerializer.h"
+#include "bolt/type/Type.h"
 
 DECLARE_int32(old_task_ms);
-DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(bolt_memory_leak_check_enabled);
 
 static const std::string kHiveConnectorId = "test-hive";
 
-using namespace facebook::velox;
-using namespace facebook::velox::exec;
-using namespace facebook::velox::exec::test;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::exec;
+using namespace facebook::bolt::exec::test;
 
 namespace facebook::presto {
 
@@ -113,7 +113,7 @@ class Cursor {
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
       const RowTypePtr& rowType,
-      velox::VectorSerde::Kind serdeKind,
+      bolt::VectorSerde::Kind serdeKind,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
@@ -161,7 +161,7 @@ class Cursor {
 
     const auto input =
         std::make_unique<BufferInputStream>(std::move(byteRanges));
-    auto* serde = velox::getNamedVectorSerde(serdeKind_);
+    auto* serde = bolt::getNamedVectorSerde(serdeKind_);
     std::vector<RowVectorPtr> vectors;
     while (!input->atEnd()) {
       RowVectorPtr vector;
@@ -176,7 +176,7 @@ class Cursor {
   TaskManager* const taskManager_;
   const protocol::TaskId taskId_;
   const RowTypePtr rowType_;
-  const velox::VectorSerde::Kind serdeKind_;
+  const bolt::VectorSerde::Kind serdeKind_;
   bool atEnd_{false};
   uint64_t sequence_{0};
 };
@@ -237,7 +237,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
               nullptr);
         });
 
-    registerPrestoToVeloxConnector(std::make_unique<HivePrestoToVeloxConnector>(
+    registerPrestoToBoltConnector(std::make_unique<HivePrestoToBoltConnector>(
         connector::hive::HiveConnectorFactory::kHiveConnectorName));
     auto hiveConnector =
         connector::getConnectorFactory(
@@ -253,7 +253,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     taskManager_ = std::make_unique<TaskManager>(
         driverExecutor_.get(), httpSrvCpuExecutor_.get(), nullptr);
 
-    auto validator = std::make_shared<facebook::presto::VeloxPlanValidator>();
+    auto validator = std::make_shared<facebook::presto::BoltPlanValidator>();
     taskResource_ = std::make_unique<TaskResource>(
         pool_.get(),
         httpSrvCpuExecutor_.get(),
@@ -284,7 +284,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
       httpServerWrapper_->stop();
     }
     connector::unregisterConnector(kHiveConnectorId);
-    unregisterPrestoToVeloxConnector(
+    unregisterPrestoToBoltConnector(
         connector::hive::HiveConnectorFactory::kHiveConnectorName);
     dwrf::unregisterDwrfWriterFactory();
     dwrf::unregisterDwrfReaderFactory();
@@ -296,7 +296,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     std::vector<RowVectorPtr> vectors;
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
-          facebook::velox::test::BatchMaker::createBatch(
+          facebook::bolt::test::BatchMaker::createBatch(
               rowType_, rowsPerVector, *pool_));
       vectors.emplace_back(vector);
     }
@@ -786,9 +786,9 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
   folly::EventCount outputWait;
   std::atomic<bool> outputWaitFlag{false};
   SCOPED_TESTVALUE_SET(
-      "facebook::velox::exec::Values::getOutput",
-      std::function<void(const velox::exec::Values*)>(
-          [&](const velox::exec::Values* values) {
+      "facebook::bolt::exec::Values::getOutput",
+      std::function<void(const bolt::exec::Values*)>(
+          [&](const bolt::exec::Values* values) {
             outputWait.await([&]() { return outputWaitFlag.load(); });
           }));
 
@@ -1300,7 +1300,7 @@ TEST_P(TaskManagerTest, buildTaskSpillDirectoryPath) {
 }
 
 TEST_P(TaskManagerTest, getDataOnAbortedTask) {
-  // Simulate scenario where Driver encountered a VeloxException and terminated
+  // Simulate scenario where Driver encountered a BoltException and terminated
   // a task, which removes the entry in BufferManager. The main taskmanager
   // tries to process the resultRequest and calls getData() which must return
   // false. The resultRequest must be marked incomplete.
@@ -1353,7 +1353,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t startTimeUs = bolt::getCurrentTimeMicro();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1363,7 +1363,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t finishTimeUs = bolt::getCurrentTimeMicro();
 
   {
     // ensure response is returned with a delay
@@ -1383,7 +1383,7 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   taskManager_->deleteTask(taskId, true);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t startTimeUs = bolt::getCurrentTimeMicro();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1393,7 +1393,7 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = velox::getCurrentTimeMicro();
+  const uint64_t finishTimeUs = bolt::getCurrentTimeMicro();
 
   {
     // ensure response is returned with a delay
@@ -1416,17 +1416,17 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
           .planFragment();
   auto queryCtx = core::QueryCtx::create(driverExecutor_.get());
   const protocol::TaskId taskId = "scan.0.0.1.0";
-  auto veloxTask = Task::create(
+  auto boltTask = Task::create(
       taskId,
       std::move(planFragment),
       0,
       std::move(queryCtx),
       Task::ExecutionMode::kParallel);
 
-  const uint64_t startTimeMs = velox::getCurrentTimeMs();
+  const uint64_t startTimeMs = bolt::getCurrentTimeMs();
   auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");
-  prestoTask->task = veloxTask;
-  veloxTask->start(1);
+  prestoTask->task = boltTask;
+  boltTask->start(1);
   prestoTask->taskStarted = true;
 
   auto outputBufferManager = OutputBufferManager::getInstance().lock();
@@ -1440,10 +1440,10 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
-  const auto memoryUsage = veloxTask->queryCtx()->pool()->usedBytes();
+  const auto memoryUsage = boltTask->queryCtx()->pool()->usedBytes();
   ASSERT_GT(memoryUsage, 0);
 
-  const uint64_t lastTimeMs = velox::getCurrentTimeMs();
+  const uint64_t lastTimeMs = bolt::getCurrentTimeMs();
   protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo();
   ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
@@ -1466,7 +1466,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   prestoTaskInfo = prestoTask->updateInfo();
   // Wait a bit to avoid the timing related flakiness in test check below.
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  const uint64_t currentTimeMs = velox::getCurrentTimeMs();
+  const uint64_t currentTimeMs = bolt::getCurrentTimeMs();
   // There won't be any task memory usage change as we don't consume any output
   // buffers.
   ASSERT_EQ(memoryUsage, prestoTaskInfo.stats.userMemoryReservationInBytes);
@@ -1480,7 +1480,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
       prestoTaskInfo.stats.cumulativeTotalMemory,
       prestoTaskInfo.stats.cumulativeUserMemory);
 
-  veloxTask->requestAbort();
+  boltTask->requestAbort();
   const auto taskStatus = prestoTask->updateStatus();
   const auto taskStats = prestoTask->updateInfo().stats;
   ASSERT_EQ(
@@ -1492,8 +1492,8 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
       taskStats.peakTotalMemoryInBytes, taskStats.peakNodeTotalMemoryInBytes);
   ASSERT_EQ(taskStats.peakTotalMemoryInBytes, taskStats.peakUserMemoryInBytes);
   prestoTask.reset();
-  veloxTask.reset();
-  velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+  boltTask.reset();
+  bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
 }
 
 TEST_P(TaskManagerTest, checkBatchSplits) {
@@ -1523,7 +1523,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
   // No splits.
   auto queryCtx =
       taskManager_->getQueryContextManager()->findOrCreateQueryCtx(taskId, {});
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
           taskId, {}, planFragment, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes");
@@ -1532,7 +1532,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
   protocol::BatchTaskUpdateRequest batchRequest;
   batchRequest.taskUpdateRequest.sources.push_back(
       makeSource(probeId, {}, true));
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
           taskId, batchRequest, planFragment, queryCtx, 0),
       "Expected all splits and no-more-splits message for all plan nodes: " +
@@ -1542,7 +1542,7 @@ TEST_P(TaskManagerTest, checkBatchSplits) {
   // no-more-splits message for build side.
   batchRequest.taskUpdateRequest.sources.push_back(
       makeSource(buildId, {}, false));
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       taskManager_->createOrUpdateBatchTask(
           taskId, batchRequest, planFragment, queryCtx, 0),
       "Expected no-more-splits message for plan node " + buildId);
@@ -1585,34 +1585,34 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
     updateRequest.session.systemProperties = queryConfigs;
     // Create task will fail if the spilling directory setup fails.
     if (buildSpillDirectoryFailure) {
-      VELOX_ASSERT_THROW(
+      BOLT_ASSERT_THROW(
           createOrUpdateTask(taskId, updateRequest, planFragment), "Mkdir");
     } else {
       createOrUpdateTask(taskId, updateRequest, planFragment);
       auto taskMap = taskManager_->tasks();
       ASSERT_EQ(taskMap.size(), 1);
-      auto* veloxTask = taskMap.begin()->second->task.get();
-      ASSERT_TRUE(veloxTask != nullptr);
-      ASSERT_FALSE(veloxTask->spillDirectory().empty());
+      auto* boltTask = taskMap.begin()->second->task.get();
+      ASSERT_TRUE(boltTask != nullptr);
+      ASSERT_FALSE(boltTask->spillDirectory().empty());
     }
 
     taskManager_->deleteTask(taskId, true);
     if (!buildSpillDirectoryFailure) {
       auto taskMap = taskManager_->tasks();
       ASSERT_EQ(taskMap.size(), 1);
-      auto* veloxTask = taskMap.begin()->second->task.get();
-      ASSERT_TRUE(veloxTask != nullptr);
-      while (veloxTask->numFinishedDrivers() != veloxTask->numTotalDrivers()) {
+      auto* boltTask = taskMap.begin()->second->task.get();
+      ASSERT_TRUE(boltTask != nullptr);
+      while (boltTask->numFinishedDrivers() != boltTask->numTotalDrivers()) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }
     waitForAllOldTasksToBeCleaned(taskManager_.get(), 3'000'000);
-    velox::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+    bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
 }
 
-VELOX_INSTANTIATE_TEST_SUITE_P(
+BOLT_INSTANTIATE_TEST_SUITE_P(
     TaskManagerTest,
     TaskManagerTest,
     testing::ValuesIn(TaskManagerTest::getTestParams()));

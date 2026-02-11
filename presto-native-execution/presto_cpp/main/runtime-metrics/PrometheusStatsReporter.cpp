@@ -25,8 +25,8 @@
 namespace facebook::presto::prometheus {
 
 // Initialize singleton for the reporter
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter(
-    []() -> facebook::velox::BaseStatsReporter* {
+folly::Singleton<facebook::bolt::BaseStatsReporter> reporter(
+    []() -> facebook::bolt::BaseStatsReporter* {
       return facebook::presto::prometheus::PrometheusStatsReporter::
           createPrometheusReporter()
               .release();
@@ -53,7 +53,7 @@ PrometheusStatsReporter::PrometheusStatsReporter(
 
 void PrometheusStatsReporter::registerMetricExportType(
     const char* key,
-    facebook::velox::StatType statType) const {
+    facebook::bolt::StatType statType) const {
   if (registeredMetricsMap_.count(key)) {
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
@@ -62,7 +62,7 @@ void PrometheusStatsReporter::registerMetricExportType(
   std::string sanitizedMetricKey = std::string(key);
   std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '.', '_');
   switch (statType) {
-    case facebook::velox::StatType::COUNT: {
+    case facebook::bolt::StatType::COUNT: {
       // A new MetricFamily object is built for every new metric key.
       auto& counterFamily = ::prometheus::BuildCounter()
                                 .Name(sanitizedMetricKey)
@@ -71,9 +71,9 @@ void PrometheusStatsReporter::registerMetricExportType(
       registeredMetricsMap_.emplace(
           std::string(key), StatsInfo{statType, &counter});
     } break;
-    case facebook::velox::StatType::SUM:
-    case facebook::velox::StatType::AVG:
-    case facebook::velox::StatType::RATE: {
+    case facebook::bolt::StatType::SUM:
+    case facebook::bolt::StatType::AVG:
+    case facebook::bolt::StatType::RATE: {
       auto& gaugeFamily = ::prometheus::BuildGauge()
                               .Name(sanitizedMetricKey)
                               .Register(*impl_->registry);
@@ -82,14 +82,14 @@ void PrometheusStatsReporter::registerMetricExportType(
           std::string(key), StatsInfo{statType, &gauge});
     } break;
     default:
-      VELOX_UNSUPPORTED(
-          "Unsupported metric type {}", velox::statTypeString(statType));
+      BOLT_UNSUPPORTED(
+          "Unsupported metric type {}", bolt::statTypeString(statType));
   }
 }
 
 void PrometheusStatsReporter::registerMetricExportType(
     folly::StringPiece key,
-    facebook::velox::StatType statType) const {
+    facebook::bolt::StatType statType) const {
   registerMetricExportType(key.toString().c_str(), statType);
 }
 
@@ -120,11 +120,11 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     bound += bucketWidth;
     numBuckets--;
   }
-  VELOX_CHECK_GE(bucketBoundaries.size(), 1);
+  BOLT_CHECK_GE(bucketBoundaries.size(), 1);
   auto& histogramMetric = histogramFamily.Add(impl_->labels, bucketBoundaries);
 
   registeredMetricsMap_.emplace(
-      key, StatsInfo{velox::StatType::HISTOGRAM, &histogramMetric});
+      key, StatsInfo{bolt::StatType::HISTOGRAM, &histogramMetric});
   // If percentiles are provided, create a Summary type metric and register.
   if (pcts.size() > 0) {
     auto summaryMetricKey = sanitizedMetricKey + std::string(kSummarySuffix);
@@ -139,7 +139,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
     registeredMetricsMap_.emplace(
         std::string(key).append(kSummarySuffix),
-        StatsInfo{velox::StatType::HISTOGRAM, &summaryMetric});
+        StatsInfo{bolt::StatType::HISTOGRAM, &summaryMetric});
   }
 }
 
@@ -168,28 +168,28 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
   }
   auto statsInfo = metricIterator->second;
   switch (statsInfo.statType) {
-    case velox::StatType::COUNT: {
+    case bolt::StatType::COUNT: {
       auto* counter =
           reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
       counter->Increment(static_cast<double>(value));
       break;
     }
-    case velox::StatType::SUM: {
+    case bolt::StatType::SUM: {
       auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
       gauge->Increment(static_cast<double>(value));
       break;
     }
-    case velox::StatType::AVG:
-    case velox::StatType::RATE: {
+    case bolt::StatType::AVG:
+    case bolt::StatType::RATE: {
       // Overrides the existing state.
       auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
       gauge->Set(static_cast<double>(value));
       break;
     }
     default:
-      VELOX_UNSUPPORTED(
+      BOLT_UNSUPPORTED(
           "Unsupported metric type {}",
-          velox::statTypeString(statsInfo.statType));
+          bolt::statTypeString(statsInfo.statType));
   };
 }
 

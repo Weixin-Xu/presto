@@ -14,21 +14,21 @@
 #include "presto_cpp/main/ServerOperation.h"
 #include <gtest/gtest.h>
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/memory/Memory.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/memory/Memory.h"
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/exec/tests/utils/OperatorTestBase.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(bolt_memory_leak_check_enabled);
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 
 class ServerOperationTest : public exec::test::OperatorTestBase {
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    FLAGS_bolt_memory_leak_check_enabled = true;
     exec::test::OperatorTestBase::SetUp();
   }
 
@@ -93,7 +93,7 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   }
   EXPECT_THROW(
       ServerOperation::targetFromString("UNKNOWN_TARGET"),
-      velox::VeloxUserError);
+      bolt::BoltUserError);
 
   for (auto lookupIt = ServerOperation::kActionLookup.begin();
        lookupIt != ServerOperation::kActionLookup.end();
@@ -104,7 +104,7 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   }
   EXPECT_THROW(
       ServerOperation::actionFromString("UNKNOWN_ACTION"),
-      velox::VeloxUserError);
+      bolt::BoltUserError);
 }
 
 TEST_F(ServerOperationTest, buildServerOp) {
@@ -135,7 +135,7 @@ TEST_F(ServerOperationTest, buildServerOp) {
 
   EXPECT_THROW(
       op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
-      velox::VeloxUserError);
+      bolt::BoltUserError);
 }
 
 TEST_F(ServerOperationTest, taskEndpoint) {
@@ -206,7 +206,7 @@ TEST_F(ServerOperationTest, taskEndpoint) {
   EXPECT_EQ(1, j.size());
 
   httpMessage.setQueryParam("limit", "abc");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       serverOperation.taskOperation(
           {.target = ServerOperation::Target::kTask,
            .action = ServerOperation::Action::kListAll},
@@ -227,7 +227,7 @@ TEST_F(ServerOperationTest, systemConfigEndpoint) {
   PrestoServerOperations serverOperation(nullptr, nullptr);
   proxygen::HTTPMessage httpMessage;
   httpMessage.setQueryParam("name", "foo");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       serverOperation.systemConfigOperation(
           {.target = ServerOperation::Target::kSystemConfig,
            .action = ServerOperation::Action::kGetProperty},

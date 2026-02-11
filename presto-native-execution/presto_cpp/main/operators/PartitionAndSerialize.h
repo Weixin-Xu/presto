@@ -13,8 +13,8 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
@@ -23,50 +23,50 @@ namespace facebook::presto::operators {
 /// number (INTEGER) and serialized row (VARBINARY). If 'replicateNullsAndAny'
 /// is true, the output includes a third boolean column which indicates whether
 /// a row needs to be replicated to all partitions.
-class PartitionAndSerializeNode : public velox::core::PlanNode {
+class PartitionAndSerializeNode : public bolt::core::PlanNode {
  public:
   PartitionAndSerializeNode(
-      const velox::core::PlanNodeId& id,
-      std::vector<velox::core::TypedExprPtr> keys,
+      const bolt::core::PlanNodeId& id,
+      std::vector<bolt::core::TypedExprPtr> keys,
       uint32_t numPartitions,
-      velox::RowTypePtr serializedRowType,
-      velox::core::PlanNodePtr source,
+      bolt::RowTypePtr serializedRowType,
+      bolt::core::PlanNodePtr source,
       bool replicateNullsAndAny,
-      velox::core::PartitionFunctionSpecPtr partitionFunctionFactory)
-      : velox::core::PlanNode(id),
+      bolt::core::PartitionFunctionSpecPtr partitionFunctionFactory)
+      : bolt::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
         serializedRowType_{std::move(serializedRowType)},
         sources_({std::move(source)}),
         replicateNullsAndAny_(replicateNullsAndAny),
         partitionFunctionSpec_(std::move(partitionFunctionFactory)) {
-    VELOX_USER_CHECK_NOT_NULL(
+    BOLT_USER_CHECK_NOT_NULL(
         partitionFunctionSpec_, "Partition function factory cannot be null.");
   }
 
   folly::dynamic serialize() const override;
 
-  static velox::core::PlanNodePtr create(
+  static bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const velox::RowTypePtr& outputType() const override {
-    static const velox::RowTypePtr kOutputType{velox::ROW(
-        {"partition", "data"}, {velox::INTEGER(), velox::VARBINARY()})};
+  const bolt::RowTypePtr& outputType() const override {
+    static const bolt::RowTypePtr kOutputType{bolt::ROW(
+        {"partition", "data"}, {bolt::INTEGER(), bolt::VARBINARY()})};
 
-    static const velox::RowTypePtr kReplicateNullsAndAnyOutputType{velox::ROW(
+    static const bolt::RowTypePtr kReplicateNullsAndAnyOutputType{bolt::ROW(
         {"partition", "data", "replicate"},
-        {velox::INTEGER(), velox::VARBINARY(), velox::BOOLEAN()})};
+        {bolt::INTEGER(), bolt::VARBINARY(), bolt::BOOLEAN()})};
 
     return replicateNullsAndAny_ ? kReplicateNullsAndAnyOutputType
                                  : kOutputType;
   }
 
-  const std::vector<velox::core::PlanNodePtr>& sources() const override {
+  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
-  const std::vector<velox::core::TypedExprPtr>& keys() const {
+  const std::vector<bolt::core::TypedExprPtr>& keys() const {
     return keys_;
   }
 
@@ -74,7 +74,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return numPartitions_;
   }
 
-  const velox::RowTypePtr& serializedRowType() const {
+  const bolt::RowTypePtr& serializedRowType() const {
     return serializedRowType_;
   }
 
@@ -86,7 +86,7 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
     return replicateNullsAndAny_;
   }
 
-  const velox::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
+  const bolt::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
       const {
     return partitionFunctionSpec_;
   }
@@ -98,20 +98,20 @@ class PartitionAndSerializeNode : public velox::core::PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
-  const std::vector<velox::core::TypedExprPtr> keys_;
+  const std::vector<bolt::core::TypedExprPtr> keys_;
   const uint32_t numPartitions_;
-  const velox::RowTypePtr serializedRowType_;
-  const std::vector<velox::core::PlanNodePtr> sources_;
+  const bolt::RowTypePtr serializedRowType_;
+  const std::vector<bolt::core::PlanNodePtr> sources_;
   const bool replicateNullsAndAny_;
-  const velox::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
+  const bolt::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
 class PartitionAndSerializeTranslator
-    : public velox::exec::Operator::PlanNodeTranslator {
+    : public bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<velox::exec::Operator> toOperator(
-      velox::exec::DriverCtx* ctx,
+  std::unique_ptr<bolt::exec::Operator> toOperator(
+      bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const velox::core::PlanNodePtr& node) override;
+      const bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

@@ -38,11 +38,7 @@ target_link_libraries(
   GTest::gtest
   GTest::gtest_main
   $<TARGET_OBJECTS:presto_protocol>
-  velox_type
-  velox_encode
-  velox_exception
-  velox_vector
-  velox_presto_serializer
+  bolt::bolt
   Boost::filesystem
   ${RE2}
   ${FOLLY_LIBRARIES}

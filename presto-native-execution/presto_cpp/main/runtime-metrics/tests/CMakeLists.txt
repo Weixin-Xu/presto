@@ -15,5 +15,5 @@ add_test(
   NAME prometheus_reporter_test
   COMMAND prometheus_reporter_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(prometheus_reporter_test velox_exec_test_lib
+target_link_libraries(prometheus_reporter_test bolt::bolt
                       presto_prometheus_reporter GTest::gtest GTest::gtest_main)

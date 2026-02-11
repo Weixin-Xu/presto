@@ -22,7 +22,7 @@ namespace facebook::presto {
 class QueryContextManagerTest : public testing::Test {
  protected:
   static void SetUpTestCase() {
-    velox::memory::MemoryManager::testingSetInstance({});
+    bolt::memory::MemoryManager::testingSetInstance({});
   }
 
   void SetUp() override {
@@ -79,7 +79,7 @@ TEST_F(QueryContextManagerTest, nativeSessionProperties) {
 
 TEST_F(QueryContextManagerTest, defaultSessionProperties) {
   const std::unordered_map<std::string, std::string> values;
-  auto defaultQC = std::make_shared<velox::core::QueryConfig>(values);
+  auto defaultQC = std::make_shared<bolt::core::QueryConfig>(values);
 
   protocol::TaskId taskId = "scan.0.0.1.0";
   protocol::SessionRepresentation session{.systemProperties = {}};

@@ -13,27 +13,27 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
-class ShuffleReadNode : public velox::core::PlanNode {
+class ShuffleReadNode : public bolt::core::PlanNode {
  public:
-  ShuffleReadNode(const velox::core::PlanNodeId& id, velox::RowTypePtr type)
+  ShuffleReadNode(const bolt::core::PlanNodeId& id, bolt::RowTypePtr type)
       : PlanNode(id), outputType_(type) {}
 
   folly::dynamic serialize() const override;
 
-  static velox::core::PlanNodePtr create(
+  static bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const velox::RowTypePtr& outputType() const override {
+  const bolt::RowTypePtr& outputType() const override {
     return outputType_;
   }
 
-  const std::vector<velox::core::PlanNodePtr>& sources() const override {
-    static const std::vector<velox::core::PlanNodePtr> kEmptySources;
+  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
+    static const std::vector<bolt::core::PlanNodePtr> kEmptySources;
     return kEmptySources;
   }
 
@@ -54,15 +54,15 @@ class ShuffleReadNode : public velox::core::PlanNode {
     // Nothing to add
   }
 
-  const velox::RowTypePtr outputType_;
+  const bolt::RowTypePtr outputType_;
 };
 
-class ShuffleReadTranslator : public velox::exec::Operator::PlanNodeTranslator {
+class ShuffleReadTranslator : public bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<velox::exec::Operator> toOperator(
-      velox::exec::DriverCtx* ctx,
+  std::unique_ptr<bolt::exec::Operator> toOperator(
+      bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const velox::core::PlanNodePtr& node,
-      std::shared_ptr<velox::exec::ExchangeClient> exchangeClient) override;
+      const bolt::core::PlanNodePtr& node,
+      std::shared_ptr<bolt::exec::ExchangeClient> exchangeClient) override;
 };
 } // namespace facebook::presto::operators

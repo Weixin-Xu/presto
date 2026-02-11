@@ -13,44 +13,44 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
 /// BroadcastWriteNode represents node which broadcasts using file system.
-class BroadcastWriteNode : public velox::core::PlanNode {
+class BroadcastWriteNode : public bolt::core::PlanNode {
  public:
   /// @param serdeRowType Type of the serialized data. This can be different
   /// from the input type. Input columns may appear in different order, some
   /// columns may be missing, some columns may appear multiple types. May
   /// contain no columns at all if only row count needs to be broadcasted.
   BroadcastWriteNode(
-      const velox::core::PlanNodeId& id,
+      const bolt::core::PlanNodeId& id,
       const std::string& basePath,
-      velox::RowTypePtr serdeRowType,
-      velox::core::PlanNodePtr source)
-      : velox::core::PlanNode(id),
+      bolt::RowTypePtr serdeRowType,
+      bolt::core::PlanNodePtr source)
+      : bolt::core::PlanNode(id),
         basePath_{basePath},
         serdeRowType_{serdeRowType},
         sources_{std::move(source)} {}
 
   folly::dynamic serialize() const override;
 
-  static velox::core::PlanNodePtr create(
+  static bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const velox::RowTypePtr& outputType() const override {
-    static const auto outputType = velox::ROW({velox::VARCHAR()});
+  const bolt::RowTypePtr& outputType() const override {
+    static const auto outputType = bolt::ROW({bolt::VARCHAR()});
     return outputType;
   }
 
-  const std::vector<velox::core::PlanNodePtr>& sources() const override {
+  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
-  const velox::RowTypePtr& inputType() const {
+  const bolt::RowTypePtr& inputType() const {
     return sources_[0]->outputType();
   }
 
@@ -61,7 +61,7 @@ class BroadcastWriteNode : public velox::core::PlanNode {
   /// The desired schema of the serialized data. May include a subset of input
   /// columns, some columns may be duplicated, some columns may be missing,
   /// columns may appear in different order.
-  const velox::RowTypePtr& serdeRowType() const {
+  const bolt::RowTypePtr& serdeRowType() const {
     return serdeRowType_;
   }
 
@@ -73,16 +73,16 @@ class BroadcastWriteNode : public velox::core::PlanNode {
   void addDetails(std::stringstream& stream) const override {}
 
   const std::string basePath_;
-  const velox::RowTypePtr serdeRowType_;
-  const std::vector<velox::core::PlanNodePtr> sources_;
+  const bolt::RowTypePtr serdeRowType_;
+  const std::vector<bolt::core::PlanNodePtr> sources_;
 };
 
 class BroadcastWriteTranslator
-    : public velox::exec::Operator::PlanNodeTranslator {
+    : public bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<velox::exec::Operator> toOperator(
-      velox::exec::DriverCtx* ctx,
+  std::unique_ptr<bolt::exec::Operator> toOperator(
+      bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const velox::core::PlanNodePtr& node) override;
+      const bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

@@ -14,12 +14,12 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/presto_protocol/Base64Util.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/FlatVector.h"
+#include "bolt/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "bolt/vector/ComplexVector.h"
+#include "bolt/vector/FlatVector.h"
 
 using namespace facebook::presto::protocol;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 class Base64Test : public ::testing::Test {
  public:

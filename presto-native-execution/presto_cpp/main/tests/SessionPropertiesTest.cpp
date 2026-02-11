@@ -14,11 +14,11 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/SessionProperties.h"
-#include "velox/core/QueryConfig.h"
-#include "velox/type/Type.h"
+#include "bolt/core/QueryConfig.h"
+#include "bolt/type/Type.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 class SessionPropertiesTest : public testing::Test {};
 
@@ -34,7 +34,7 @@ TEST_F(SessionPropertiesTest, validateMapping) {
       SessionProperties::kScaleWriterMinProcessedBytesRebalanceThreshold,
       SessionProperties::kTableScanScaledProcessingEnabled,
       SessionProperties::kTableScanScaleUpMemoryUsageRatio};
-  const std::vector<std::string> veloxConfigNames = {
+  const std::vector<std::string> boltConfigNames = {
       core::QueryConfig::kAdjustTimestampToTimezone,
       core::QueryConfig::kDriverCpuTimeSliceLimitMs,
       core::QueryConfig::kSpillCompressionKind,
@@ -49,8 +49,8 @@ TEST_F(SessionPropertiesTest, validateMapping) {
   const auto len = names.size();
   for (auto i = 0; i < len; i++) {
     EXPECT_EQ(
-        veloxConfigNames[i],
-        sessionProperties.at(names[i])->getVeloxConfigName());
+        boltConfigNames[i],
+        sessionProperties.at(names[i])->getBoltConfigName());
   }
 }
 

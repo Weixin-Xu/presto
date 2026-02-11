@@ -18,7 +18,7 @@
 #include "presto_cpp/main/thrift/ProtocolToThrift.h"
 #include "presto_cpp/main/thrift/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
 
 namespace facebook::presto {
 
@@ -189,7 +189,7 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
+                folly::tag_t<bolt::BoltException>{},
                 [downstream](auto&& e) {
                   http::sendErrorResponse(downstream, e.what());
                 })
@@ -227,14 +227,14 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               try {
                 taskInfo = createOrUpdateFunc(
                     taskId, updateJson, startProcessCpuTimeNs);
-              } catch (const velox::VeloxException& e) {
+              } catch (const bolt::BoltException& e) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId, std::current_exception(), startProcessCpuTimeNs);
-                } catch (const velox::VeloxUserError& e) {
+                } catch (const bolt::BoltUserError& e) {
                   throw;
                 }
               }
@@ -247,7 +247,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
+                folly::tag_t<bolt::BoltException>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
@@ -275,17 +275,17 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         protocol::BatchTaskUpdateRequest batchUpdateRequest =
             json::parse(updateJson);
         auto updateRequest = batchUpdateRequest.taskUpdateRequest;
-        VELOX_USER_CHECK_NOT_NULL(updateRequest.fragment);
+        BOLT_USER_CHECK_NOT_NULL(updateRequest.fragment);
 
         auto fragment =
-            velox::encoding::Base64::decode(*updateRequest.fragment);
+            bolt::encoding::Base64::decode(*updateRequest.fragment);
         protocol::PlanFragment prestoPlan = json::parse(fragment);
 
         auto serializedShuffleWriteInfo = batchUpdateRequest.shuffleWriteInfo;
         auto broadcastBasePath = batchUpdateRequest.broadcastBasePath;
         auto shuffleName = SystemConfig::instance()->shuffleName();
         if (serializedShuffleWriteInfo) {
-          VELOX_USER_CHECK(
+          BOLT_USER_CHECK(
               !shuffleName.empty(),
               "Shuffle name not provided from 'shuffle.name' property in "
               "config.properties");
@@ -295,13 +295,13 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
             taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
                 taskId, updateRequest.session);
 
-        VeloxBatchQueryPlanConverter converter(
+        BoltBatchQueryPlanConverter converter(
             shuffleName,
             std::move(serializedShuffleWriteInfo),
             std::move(broadcastBasePath),
             queryCtx.get(),
             pool_);
-        auto planFragment = converter.toVeloxQueryPlan(
+        auto planFragment = converter.toBoltQueryPlan(
             prestoPlan, updateRequest.tableWriteInfo, taskId);
 
         return taskManager_.createOrUpdateBatchTask(
@@ -323,19 +323,19 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           const std::string& updateJson,
           long startProcessCpuTime) {
         protocol::TaskUpdateRequest updateRequest = json::parse(updateJson);
-        velox::core::PlanFragment planFragment;
-        std::shared_ptr<velox::core::QueryCtx> queryCtx;
+        bolt::core::PlanFragment planFragment;
+        std::shared_ptr<bolt::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {
           auto fragment =
-              velox::encoding::Base64::decode(*updateRequest.fragment);
+              bolt::encoding::Base64::decode(*updateRequest.fragment);
           protocol::PlanFragment prestoPlan = json::parse(fragment);
 
           queryCtx =
               taskManager_.getQueryContextManager()->findOrCreateQueryCtx(
                   taskId, updateRequest.session);
 
-          VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
-          planFragment = converter.toVeloxQueryPlan(
+          BoltInteractiveQueryPlanConverter converter(queryCtx.get(), pool_);
+          planFragment = converter.toBoltQueryPlan(
               prestoPlan, updateRequest.tableWriteInfo, taskId);
           planValidator_->validatePlanFragment(planFragment);
         }
@@ -382,7 +382,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
+                folly::tag_t<bolt::BoltException>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
@@ -474,9 +474,9 @@ proxygen::RequestHandler* TaskResource::getResults(
                     builder.body(std::move(result->data)).sendWithEOM();
                   })
                   .thenError(
-                      folly::tag_t<velox::VeloxException>{},
+                      folly::tag_t<bolt::BoltException>{},
                       [downstream,
-                       handlerState](const velox::VeloxException& e) {
+                       handlerState](const bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -540,9 +540,9 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                         }
                       })
                   .thenError(
-                      folly::tag_t<velox::VeloxException>{},
+                      folly::tag_t<bolt::BoltException>{},
                       [downstream,
-                       handlerState](const velox::VeloxException& e) {
+                       handlerState](const bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -598,9 +598,9 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                     }
                   })
                   .thenError(
-                      folly::tag_t<velox::VeloxException>{},
+                      folly::tag_t<bolt::BoltException>{},
                       [downstream,
-                       handlerState](const velox::VeloxException& e) {
+                       handlerState](const bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -643,8 +643,8 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
               }
             })
             .thenError(
-                folly::tag_t<velox::VeloxException>{},
-                [downstream, handlerState](const velox::VeloxException& e) {
+                folly::tag_t<bolt::BoltException>{},
+                [downstream, handlerState](const bolt::BoltException& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
                   }

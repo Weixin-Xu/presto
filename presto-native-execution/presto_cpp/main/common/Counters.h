@@ -19,7 +19,7 @@
 namespace facebook::presto {
 
 // Sets up all the counters in the presto cpp, but specifying their types.
-// See velox/common/base/StatsReporter.h for the interface.
+// See bolt/common/base/StatsReporter.h for the interface.
 void registerPrestoMetrics();
 
 constexpr folly::StringPiece kCounterDriverCPUExecutorQueueSize{
@@ -61,8 +61,8 @@ constexpr folly::StringPiece kCounterNumTasksAborted{
     "presto_cpp.num_tasks_aborted"};
 constexpr folly::StringPiece kCounterNumTasksFailed{
     "presto_cpp.num_tasks_failed"};
-constexpr folly::StringPiece kCounterNumZombieVeloxTasks{
-    "presto_cpp.num_zombie_velox_tasks"};
+constexpr folly::StringPiece kCounterNumZombieBoltTasks{
+    "presto_cpp.num_zombie_bolt_tasks"};
 constexpr folly::StringPiece kCounterNumZombiePrestoTasks{
     "presto_cpp.num_zombie_presto_tasks"};
 constexpr folly::StringPiece kCounterNumTasksWithStuckOperator{

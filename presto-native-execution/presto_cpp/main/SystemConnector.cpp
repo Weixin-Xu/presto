@@ -15,11 +15,11 @@
 #include "presto_cpp/main/PrestoTask.h"
 #include "presto_cpp/main/TaskManager.h"
 
-#include "velox/type/Timestamp.h"
+#include "bolt/type/Timestamp.h"
 
 namespace facebook::presto {
 
-using namespace velox;
+using namespace bolt;
 
 namespace {
 
@@ -28,7 +28,7 @@ static const std::string kTasksTable = "tasks";
 
 } // namespace
 
-const velox::RowTypePtr SystemTableHandle::taskSchema() {
+const bolt::RowTypePtr SystemTableHandle::taskSchema() {
   static std::vector<std::string> kTaskColumnNames = {
       "node_id",
       "task_id",
@@ -55,15 +55,15 @@ const velox::RowTypePtr SystemTableHandle::taskSchema() {
       "last_heartbeat",
       "end"};
 
-  static std::vector<velox::TypePtr> kTaskColumnTypes = {
-      velox::VARCHAR(),   velox::VARCHAR(),   velox::VARCHAR(),
-      velox::VARCHAR(),   velox::VARCHAR(),   velox::VARCHAR(),
-      velox::BIGINT(),    velox::BIGINT(),    velox::BIGINT(),
-      velox::BIGINT(),    velox::BIGINT(),    velox::BIGINT(),
-      velox::BIGINT(),    velox::BIGINT(),    velox::BIGINT(),
-      velox::BIGINT(),    velox::BIGINT(),    velox::BIGINT(),
-      velox::BIGINT(),    velox::BIGINT(),    velox::TIMESTAMP(),
-      velox::TIMESTAMP(), velox::TIMESTAMP(), velox::TIMESTAMP()};
+  static std::vector<bolt::TypePtr> kTaskColumnTypes = {
+      bolt::VARCHAR(),   bolt::VARCHAR(),   bolt::VARCHAR(),
+      bolt::VARCHAR(),   bolt::VARCHAR(),   bolt::VARCHAR(),
+      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
+      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
+      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
+      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
+      bolt::BIGINT(),    bolt::BIGINT(),    bolt::TIMESTAMP(),
+      bolt::TIMESTAMP(), bolt::TIMESTAMP(), bolt::TIMESTAMP()};
   static const RowTypePtr kTaskSchema =
       ROW(std::move(kTaskColumnNames), std::move(kTaskColumnTypes));
   return kTaskSchema;
@@ -76,11 +76,11 @@ SystemTableHandle::SystemTableHandle(
     : ConnectorTableHandle(std::move(connectorId)),
       schemaName_(std::move(schemaName)),
       tableName_(std::move(tableName)) {
-  VELOX_USER_CHECK_EQ(
+  BOLT_USER_CHECK_EQ(
       schemaName_,
       kRuntimeSchema,
       "SystemConnector supports only runtime schema");
-  VELOX_USER_CHECK_EQ(
+  BOLT_USER_CHECK_EQ(
       tableName_, kTasksTable, "SystemConnector supports only tasks table");
 }
 
@@ -95,11 +95,11 @@ SystemDataSource::SystemDataSource(
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& columnHandles,
     const TaskManager* taskManager,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    bolt::memory::MemoryPool* FOLLY_NONNULL pool)
     : taskManager_(taskManager), pool_(pool) {
   auto systemTableHandle =
       std::dynamic_pointer_cast<SystemTableHandle>(tableHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       systemTableHandle,
       "TableHandle must be an instance of SystemTableHandle");
 
@@ -107,13 +107,13 @@ SystemDataSource::SystemDataSource(
   auto taskSchema = systemTableHandle->taskSchema();
   for (const auto& outputName : outputType->names()) {
     auto it = columnHandles.find(outputName);
-    VELOX_CHECK(
+    BOLT_CHECK(
         it != columnHandles.end(),
         "ColumnHandle is missing for output column '{}'",
         outputName);
 
     auto handle = std::dynamic_pointer_cast<SystemColumnHandle>(it->second);
-    VELOX_CHECK_NOT_NULL(
+    BOLT_CHECK_NOT_NULL(
         handle,
         "ColumnHandle must be an instance of SystemColumnHandle "
         "for '{}' on table '{}'",
@@ -121,7 +121,7 @@ SystemDataSource::SystemDataSource(
         systemTableHandle->tableName());
 
     auto columnIndex = taskSchema->getChildIdxIfExists(handle->name());
-    VELOX_CHECK(
+    BOLT_CHECK(
         columnIndex.has_value(),
         "Column {} not found in SystemTable task schema",
         handle->name());
@@ -133,11 +133,11 @@ SystemDataSource::SystemDataSource(
 
 void SystemDataSource::addSplit(
     std::shared_ptr<connector::ConnectorSplit> split) {
-  VELOX_CHECK_NULL(
+  BOLT_CHECK_NULL(
       currentSplit_,
       "Previous split has not been processed yet. Call next() to process the split.");
   currentSplit_ = std::dynamic_pointer_cast<SystemSplit>(split);
-  VELOX_CHECK(currentSplit_, "Wrong type of split for SystemDataSource.");
+  BOLT_CHECK(currentSplit_, "Wrong type of split for SystemDataSource.");
 }
 
 #define SET_TASK_COLUMN(value)            \
@@ -304,26 +304,26 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
       case TaskColumnEnum::kCreated: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(velox::Timestamp::fromMillis(task->createTimeMs));
+        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->createTimeMs));
         break;
       }
 
       case TaskColumnEnum::kStart: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
         SET_TASK_COLUMN(
-            velox::Timestamp::fromMillis(task->firstSplitStartTimeMs));
+            bolt::Timestamp::fromMillis(task->firstSplitStartTimeMs));
         break;
       }
 
       case TaskColumnEnum::kLastHeartBeat: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(velox::Timestamp::fromMillis(task->lastHeartbeatMs));
+        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->lastHeartbeatMs));
         break;
       }
 
       case TaskColumnEnum::kEnd: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(velox::Timestamp::fromMillis(task->lastEndTimeMs));
+        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->lastEndTimeMs));
         break;
       }
     }
@@ -333,7 +333,7 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
 std::optional<RowVectorPtr> SystemDataSource::next(
     uint64_t size,
-    velox::ContinueFuture& /*future*/) {
+    bolt::ContinueFuture& /*future*/) {
   if (!currentSplit_) {
     return nullptr;
   }
@@ -347,13 +347,13 @@ std::optional<RowVectorPtr> SystemDataSource::next(
   return result;
 }
 
-std::unique_ptr<velox::connector::ConnectorSplit>
-SystemPrestoToVeloxConnector::toVeloxSplit(
+std::unique_ptr<bolt::connector::ConnectorSplit>
+SystemPrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* const connectorSplit,
     const protocol::SplitContext* splitContext) const {
   auto systemSplit = dynamic_cast<const protocol::SystemSplit*>(connectorSplit);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       systemSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<SystemSplit>(
       catalogId,
@@ -362,28 +362,28 @@ SystemPrestoToVeloxConnector::toVeloxSplit(
       splitContext->cacheable);
 }
 
-std::unique_ptr<velox::connector::ColumnHandle>
-SystemPrestoToVeloxConnector::toVeloxColumnHandle(
+std::unique_ptr<bolt::connector::ColumnHandle>
+SystemPrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
   auto systemColumn = dynamic_cast<const protocol::SystemColumnHandle*>(column);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       systemColumn, "Unexpected column handle type {}", column->_type);
   return std::make_unique<SystemColumnHandle>(systemColumn->columnName);
 }
 
-std::unique_ptr<velox::connector::ConnectorTableHandle>
-SystemPrestoToVeloxConnector::toVeloxTableHandle(
+std::unique_ptr<bolt::connector::ConnectorTableHandle>
+SystemPrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
   auto systemLayout =
       std::dynamic_pointer_cast<const protocol::SystemTableLayoutHandle>(
           tableHandle.connectorTableLayout);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       systemLayout, "Unexpected table handle type {}", tableHandle.connectorId);
   return std::make_unique<SystemTableHandle>(
       tableHandle.connectorId,
@@ -392,7 +392,7 @@ SystemPrestoToVeloxConnector::toVeloxTableHandle(
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
-SystemPrestoToVeloxConnector::createConnectorProtocol() const {
+SystemPrestoToBoltConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::SystemConnectorProtocol>();
 }
 } // namespace facebook::presto

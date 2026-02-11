@@ -15,14 +15,14 @@
 #include <ios>
 
 #include "presto_cpp/main/common/tests/test_json.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
-#include "velox/exec/Operator.h"
-#include "velox/type/Type.h"
-#include "velox/vector/FlatVector.h"
+#include "bolt/exec/Operator.h"
+#include "bolt/type/Type.h"
+#include "bolt/vector/FlatVector.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 class TestValues : public ::testing::Test {};
 
@@ -36,9 +36,9 @@ TEST_F(TestValues, valuesRowVector) {
 
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = core::QueryCtx::create();
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
+  BoltInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
   auto values = std::dynamic_pointer_cast<const core::ValuesNode>(
-      converter.toVeloxQueryPlan(
+      converter.toBoltQueryPlan(
           std::dynamic_pointer_cast<protocol::PlanNode>(p),
           nullptr,
           "20201107_130540_00011_wrpkw.1.2.3"));
@@ -76,8 +76,8 @@ TEST_F(TestValues, valuesPlan) {
 
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = core::QueryCtx::create();
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
-  auto values = converter.toVeloxQueryPlan(
+  BoltInteractiveQueryPlanConverter converter(queryCtx.get(), pool.get());
+  auto values = converter.toBoltQueryPlan(
       std::dynamic_pointer_cast<protocol::OutputNode>(p->root)->source,
       nullptr,
       "20201107_130540_00011_wrpkw.1.2.3");

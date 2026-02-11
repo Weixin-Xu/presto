@@ -17,8 +17,8 @@
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
 #include "presto_cpp/main/http/HttpServer.h"
-#include "velox/common/base/SuccinctPrinter.h"
-#include "velox/common/time/Timer.h"
+#include "bolt/common/base/SuccinctPrinter.h"
+#include "bolt/common/time/Timer.h"
 
 namespace facebook::presto::http::filters {
 
@@ -40,8 +40,8 @@ class HttpEndpointLatencyFilter : public proxygen::Filter {
 
     std::string toString() const {
       std::stringstream oss;
-      oss << "{'" << endpoint << "' : " << velox::succinctMicros(maxLatencyUs)
-          << "(max) " << velox::succinctMicros(avgLatencyUs) << "(avg) "
+      oss << "{'" << endpoint << "' : " << bolt::succinctMicros(maxLatencyUs)
+          << "(max) " << bolt::succinctMicros(avgLatencyUs) << "(avg) "
           << count << "(count)}";
       return oss.str();
     }
@@ -82,7 +82,7 @@ class HttpEndpointLatencyFilter : public proxygen::Filter {
   std::string requestEndpoint_;
 
   // The timer used for keeping track of the duration of the request.
-  std::unique_ptr<velox::MicrosecondTimer> timer_;
+  std::unique_ptr<bolt::MicrosecondTimer> timer_;
 
   // The duration in us this request takes.
   uint64_t timeUs_{0};

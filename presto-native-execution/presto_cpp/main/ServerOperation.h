@@ -25,7 +25,7 @@ struct ServerOperation {
   enum class Target {
     kConnector,
     kSystemConfig,
-    kVeloxQueryConfig,
+    kBoltQueryConfig,
     kTask,
     kServer,
   };
@@ -38,10 +38,10 @@ struct ServerOperation {
     kClearCache,
     /// Applicable to kConnector. Returns stats of the connector cache.
     kGetCacheStats,
-    /// Applicable to kSystemConfig & kVeloxQueryConfig. Modifies the value of a
+    /// Applicable to kSystemConfig & kBoltQueryConfig. Modifies the value of a
     /// single property.
     kSetProperty,
-    /// Applicable to kSystemConfig & kVeloxQueryConfig. Returns the value of a
+    /// Applicable to kSystemConfig & kBoltQueryConfig. Returns the value of a
     /// single property.
     kGetProperty,
     /// Applicable to kTask. Returns detailed info on one Task.

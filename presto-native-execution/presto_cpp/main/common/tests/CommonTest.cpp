@@ -14,32 +14,32 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 using namespace facebook::presto;
 
-TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
-  FLAGS_velox_exception_user_stacktrace_enabled = true;
+TEST(BoltToPrestoExceptionTranslatorTest, exceptionTranslation) {
+  FLAGS_bolt_exception_user_stacktrace_enabled = true;
   for (const bool withContext : {false, true}) {
     for (const bool withAdditionalContext : {false, true}) {
       SCOPED_TRACE(fmt::format("withContext: {}", withContext));
       // Setup context based on 'withContext' flag.
-      auto contextMessageFunction = [](VeloxException::Type type, auto* arg) {
+      auto contextMessageFunction = [](BoltException::Type type, auto* arg) {
         return std::string(static_cast<char*>(arg));
       };
       std::string additonalMessage = "additional context message";
-      facebook::velox::ExceptionContextSetter additionalContextSetter(
+      facebook::bolt::ExceptionContextSetter additionalContextSetter(
           withAdditionalContext
               ? ExceptionContext{contextMessageFunction, additonalMessage.data(), true}
               : ExceptionContext{});
 
       std::string contextMessage = "context message";
-      facebook::velox::ExceptionContextSetter contextSetter(
+      facebook::bolt::ExceptionContextSetter contextSetter(
           withContext
               ? ExceptionContext{contextMessageFunction, contextMessage.data()}
               : ExceptionContext{});
-      VeloxUserError userException(
+      BoltUserError userException(
           "file_name",
           1,
           "function_name()",
@@ -49,15 +49,15 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
           error_code::kArithmeticError,
           false);
 
-      EXPECT_THROW({ throw userException; }, VeloxException);
+      EXPECT_THROW({ throw userException; }, BoltException);
       try {
         throw userException;
-      } catch (const VeloxException& e) {
-        EXPECT_EQ(e.exceptionName(), "VeloxUserError");
+      } catch (const BoltException& e) {
+        EXPECT_EQ(e.exceptionName(), "BoltUserError");
         EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
         EXPECT_EQ(e.errorCode(), error_code::kArithmeticError);
 
-        auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+        auto failureInfo = BoltToPrestoExceptionTranslator::translate(e);
         EXPECT_EQ(failureInfo.type, e.exceptionName());
         EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
         EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
@@ -75,7 +75,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
     }
   }
 
-  VeloxRuntimeError runtimeException(
+  BoltRuntimeError runtimeException(
       "file_name",
       1,
       "function_name()",
@@ -85,15 +85,15 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
       error_code::kInvalidState,
       false);
 
-  EXPECT_THROW({ throw runtimeException; }, VeloxException);
+  EXPECT_THROW({ throw runtimeException; }, BoltException);
   try {
     throw runtimeException;
-  } catch (const VeloxException& e) {
-    EXPECT_EQ(e.exceptionName(), "VeloxRuntimeError");
+  } catch (const BoltException& e) {
+    EXPECT_EQ(e.exceptionName(), "BoltRuntimeError");
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceRuntime);
     EXPECT_EQ(e.errorCode(), error_code::kInvalidState);
 
-    auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+    auto failureInfo = BoltToPrestoExceptionTranslator::translate(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
     EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
     EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");
@@ -101,15 +101,15 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
     EXPECT_EQ(failureInfo.errorCode.type, protocol::ErrorType::INTERNAL_ERROR);
   }
 
-  EXPECT_THROW(([]() { VELOX_USER_CHECK_EQ(1, 2); })(), VeloxException);
+  EXPECT_THROW(([]() { BOLT_USER_CHECK_EQ(1, 2); })(), BoltException);
   try {
-    VELOX_USER_CHECK_EQ(1, 2, "test user error message");
-  } catch (const VeloxException& e) {
-    EXPECT_EQ(e.exceptionName(), "VeloxUserError");
+    BOLT_USER_CHECK_EQ(1, 2, "test user error message");
+  } catch (const BoltException& e) {
+    EXPECT_EQ(e.exceptionName(), "BoltUserError");
     EXPECT_EQ(e.errorSource(), error_source::kErrorSourceUser);
     EXPECT_EQ(e.errorCode(), error_code::kInvalidArgument);
 
-    auto failureInfo = VeloxToPrestoExceptionTranslator::translate(e);
+    auto failureInfo = BoltToPrestoExceptionTranslator::translate(e);
     EXPECT_EQ(failureInfo.type, e.exceptionName());
     EXPECT_EQ(failureInfo.errorLocation.lineNumber, e.line());
     EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_USER_ERROR");
@@ -121,7 +121,7 @@ TEST(VeloxToPrestoExceptionTranslatorTest, exceptionTranslation) {
 
   std::runtime_error stdRuntimeError("Test error message");
   auto failureInfo =
-      VeloxToPrestoExceptionTranslator::translate((stdRuntimeError));
+      BoltToPrestoExceptionTranslator::translate((stdRuntimeError));
   EXPECT_EQ(failureInfo.type, "std::exception");
   EXPECT_EQ(failureInfo.errorLocation.lineNumber, 1);
   EXPECT_EQ(failureInfo.errorCode.name, "GENERIC_INTERNAL_ERROR");

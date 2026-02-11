@@ -16,22 +16,22 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/memory/Memory.h"
-#include "velox/common/time/Timer.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/caching/AsyncDataCache.h"
+#include "bolt/common/memory/Memory.h"
+#include "bolt/common/time/Timer.h"
 
 namespace facebook::presto {
 PeriodicMemoryChecker::PeriodicMemoryChecker(Config config)
     : config_(std::move(config)) {
   if (config_.systemMemPushbackEnabled) {
-    VELOX_CHECK_GT(config_.systemMemLimitBytes, 0);
+    BOLT_CHECK_GT(config_.systemMemLimitBytes, 0);
   }
   if (config_.mallocMemHeapDumpEnabled) {
-    VELOX_CHECK(
+    BOLT_CHECK(
         !config_.heapDumpLogDir.empty(),
         "heapDumpLogDir cannot be empty when heap dump is enabled.");
-    VELOX_CHECK(
+    BOLT_CHECK(
         !config_.heapDumpFilePrefix.empty(),
         "heapDumpFilePrefix cannot be empty when heap dump is enabled.");
   }
@@ -41,16 +41,16 @@ void PeriodicMemoryChecker::start() {
   if (!config_.systemMemPushbackEnabled) {
     PRESTO_STARTUP_LOG(INFO) << "Server memory pushback is not enabled";
   } else {
-    VELOX_CHECK_GT(
+    BOLT_CHECK_GT(
         config_.systemMemLimitBytes, 0, "Invalid system mem limit provided");
-    VELOX_CHECK_GT(
+    BOLT_CHECK_GT(
         config_.systemMemShrinkBytes, 0, "Invalid system mem shrink provided");
     PRESTO_STARTUP_LOG(INFO)
         << "Creating server memory pushback checker, memory check interval "
         << config_.memoryCheckerIntervalMs << "ms, system memory limit: "
-        << velox::succinctBytes(config_.systemMemLimitBytes)
+        << bolt::succinctBytes(config_.systemMemLimitBytes)
         << ", memory shrink size: "
-        << velox::succinctBytes(config_.systemMemShrinkBytes);
+        << bolt::succinctBytes(config_.systemMemShrinkBytes);
   }
 
   if (!config_.mallocMemHeapDumpEnabled) {
@@ -59,14 +59,14 @@ void PeriodicMemoryChecker::start() {
     PRESTO_STARTUP_LOG(INFO)
         << "Enabling Malloc memory heap dumper"
         << ", malloc'd memory dump threshold: "
-        << velox::succinctBytes(config_.mallocBytesUsageDumpThreshold)
+        << bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold)
         << ", max dump files: " << config_.maxHeapDumpFiles
         << ", heap dump folder: " << config_.heapDumpLogDir
         << ", heap dump interval: " << config_.minHeapDumpIntervalSec
         << " seconds";
   }
 
-  VELOX_CHECK_NULL(scheduler_, "start() called more than once");
+  BOLT_CHECK_NULL(scheduler_, "start() called more than once");
   scheduler_ = std::make_shared<folly::FunctionScheduler>();
   scheduler_->setThreadName("MemoryCheckerThread");
   scheduler_->addFunction(
@@ -87,13 +87,13 @@ void PeriodicMemoryChecker::start() {
 }
 
 void PeriodicMemoryChecker::stop() {
-  VELOX_CHECK_NOT_NULL(scheduler_);
+  BOLT_CHECK_NOT_NULL(scheduler_);
   scheduler_->shutdown();
   scheduler_.reset();
 }
 
 std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
-  const size_t now = velox::getCurrentTimeMs() / 1000;
+  const size_t now = bolt::getCurrentTimeMs() / 1000;
   // Format as follow:
   // <heapDumpFilePrefix>.<pid>.<global_sequence>.i<sequence> =>
   // prefix.1234.235.i565
@@ -107,7 +107,7 @@ std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
 }
 
 void PeriodicMemoryChecker::maybeDumpHeap() {
-  const auto now = velox::getCurrentTimeMs() / 1000;
+  const auto now = bolt::getCurrentTimeMs() / 1000;
   const auto allocatedSize = mallocBytes();
   if (allocatedSize >= config_.mallocBytesUsageDumpThreshold &&
       now - lastHeapDumpAttemptTimestamp_ >= config_.minHeapDumpIntervalSec) {
@@ -115,8 +115,8 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     LOG(INFO) << fmt::format(
         "Memory usage allocated via malloc exceeded threshold of {}, current "
         "allocation: {}",
-        velox::succinctBytes(config_.mallocBytesUsageDumpThreshold),
-        velox::succinctBytes(allocatedSize));
+        bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold),
+        bolt::succinctBytes(allocatedSize));
 
     const auto minMemUsageDumped = dumpFilesByHeapMemUsageMinPq_.empty()
         ? 0
@@ -126,8 +126,8 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
       LOG(INFO) << fmt::format(
           "Heap profile not dumped as current usage {} is below the "
           "minimum usage dumped {} and we already have {} files in rotation",
-          velox::succinctBytes(allocatedSize),
-          velox::succinctBytes(minMemUsageDumped),
+          bolt::succinctBytes(allocatedSize),
+          bolt::succinctBytes(minMemUsageDumped),
           config_.maxHeapDumpFiles);
       return;
     }
@@ -139,7 +139,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     }
     LOG(INFO) << fmt::format(
         "Heap profile with usage {} dumped to {}",
-        velox::succinctBytes(allocatedSize),
+        bolt::succinctBytes(allocatedSize),
         filePath);
 
     dumpFilesByHeapMemUsageMinPq_.push({allocatedSize, filePath});
@@ -149,7 +149,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     auto& evicted = dumpFilesByHeapMemUsageMinPq_.top();
     LOG(INFO) << fmt::format(
         "Removing Heap profile with lowest usage {} : {}",
-        velox::succinctBytes(evicted.mallocUsedBytes),
+        bolt::succinctBytes(evicted.mallocUsedBytes),
         evicted.filePath);
     removeDumpFile(evicted.filePath.c_str());
     dumpFilesByHeapMemUsageMinPq_.pop();
@@ -159,29 +159,29 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
 void PeriodicMemoryChecker::pushbackMemory() {
   RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
   const uint64_t currentMemBytes = systemUsedMemoryBytes();
-  VELOX_CHECK(config_.systemMemPushbackEnabled);
-  LOG(WARNING) << "System used memory " << velox::succinctBytes(currentMemBytes)
+  BOLT_CHECK(config_.systemMemPushbackEnabled);
+  LOG(WARNING) << "System used memory " << bolt::succinctBytes(currentMemBytes)
                << " exceeded limit: "
-               << velox::succinctBytes(config_.systemMemLimitBytes);
+               << bolt::succinctBytes(config_.systemMemLimitBytes);
   const uint64_t targetMemBytes =
       config_.systemMemLimitBytes - config_.systemMemShrinkBytes;
-  VELOX_CHECK_GT(currentMemBytes, targetMemBytes);
+  BOLT_CHECK_GT(currentMemBytes, targetMemBytes);
   const uint64_t bytesToShrink = currentMemBytes - targetMemBytes;
-  VELOX_CHECK_GT(bytesToShrink, 0);
+  BOLT_CHECK_GT(bytesToShrink, 0);
 
   uint64_t latencyUs{0};
   uint64_t freedBytes{0};
   {
-    velox::MicrosecondTimer timer(&latencyUs);
-    auto* cache = velox::cache::AsyncDataCache::getInstance();
+    bolt::MicrosecondTimer timer(&latencyUs);
+    auto* cache = bolt::cache::AsyncDataCache::getInstance();
     auto systemConfig = SystemConfig::instance();
     freedBytes = cache != nullptr ? cache->shrink(bytesToShrink) : 0;
     if (freedBytes < bytesToShrink) {
       try {
-        auto* memoryManager = velox::memory::memoryManager();
-        freedBytes += velox::memory::AllocationTraits::pageBytes(
+        auto* memoryManager = bolt::memory::memoryManager();
+        freedBytes += bolt::memory::AllocationTraits::pageBytes(
             memoryManager->allocator()->unmap(
-                velox::memory::AllocationTraits::numPages(
+                bolt::memory::AllocationTraits::numPages(
                     bytesToShrink - freedBytes)));
         if (freedBytes < bytesToShrink &&
             systemConfig->systemMemPushBackAbortEnabled()) {
@@ -196,13 +196,13 @@ void PeriodicMemoryChecker::pushbackMemory() {
             freedBytes += cache->shrink(bytesToShrink - freedBytes);
           }
           if (freedBytes < bytesToShrink) {
-            freedBytes += velox::memory::AllocationTraits::pageBytes(
+            freedBytes += bolt::memory::AllocationTraits::pageBytes(
                 memoryManager->allocator()->unmap(
-                    velox::memory::AllocationTraits::numPages(
+                    bolt::memory::AllocationTraits::numPages(
                         bytesToShrink - freedBytes)));
           }
         }
-      } catch (const velox::VeloxException& ex) {
+      } catch (const bolt::BoltException& ex) {
         LOG(ERROR) << ex.what();
       }
     }
@@ -215,9 +215,9 @@ void PeriodicMemoryChecker::pushbackMemory() {
       kCounterMemoryPushbackExpectedReductionBytes, freedBytes);
   RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterMemoryPushbackReductionBytes, actualFreedBytes);
-  LOG(INFO) << "Memory pushback shrunk " << velox::succinctBytes(freedBytes)
+  LOG(INFO) << "Memory pushback shrunk " << bolt::succinctBytes(freedBytes)
             << " Effective bytes shrunk: "
-            << velox::succinctBytes(actualFreedBytes);
+            << bolt::succinctBytes(actualFreedBytes);
 }
 
 #ifndef PRESTO_MEMORY_CHECKER_TYPE

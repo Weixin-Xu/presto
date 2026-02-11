@@ -17,7 +17,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace facebook::velox::config {
+namespace facebook::bolt::config {
 class ConfigBase;
 }
 
@@ -31,7 +31,7 @@ std::string requiredProperty(
     const std::string& name);
 
 std::string requiredProperty(
-    const velox::config::ConfigBase& properties,
+    const bolt::config::ConfigBase& properties,
     const std::string& name);
 
 std::string getOptionalProperty(
@@ -45,7 +45,7 @@ std::string getOptionalProperty(
     const std::string& defaultValue);
 
 std::string getOptionalProperty(
-    const velox::config::ConfigBase& properties,
+    const bolt::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue);
 

@@ -18,16 +18,16 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include <velox/exec/Task.h>
-#include <velox/expression/Expr.h>
+#include "bolt/exec/Task.h>
+#include "bolt/expression/Expr.h>
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
 #include "presto_cpp/main/PrestoExchangeSource.h"
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
-#include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/memory/MemoryAllocator.h"
+#include "presto_cpp/main/types/BoltPlanValidator.h"
+#include "bolt/common/caching/AsyncDataCache.h"
+#include "bolt/common/memory/MemoryAllocator.h"
 #if __has_include("filesystem")
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -36,11 +36,11 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-namespace facebook::velox::connector {
+namespace facebook::bolt::connector {
 class Connector;
 }
 
-namespace facebook::velox {
+namespace bytedance::bolt {
 class Config;
 }
 
@@ -127,9 +127,9 @@ class PrestoServer {
 
   virtual void initializeCoordinatorDiscoverer();
 
-  virtual std::shared_ptr<velox::exec::TaskListener> getTaskListener();
+  virtual std::shared_ptr<bolt::exec::TaskListener> getTaskListener();
 
-  virtual std::shared_ptr<velox::exec::ExprSetListener> getExprSetListener();
+  virtual std::shared_ptr<bolt::exec::ExprSetListener> getExprSetListener();
 
   /// Returns any additional http filters.
   virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
@@ -185,16 +185,16 @@ class PrestoServer {
   /// Invoked to enable stats reporting and register counters.
   virtual void enableWorkerStatsReporting();
 
-  /// Invoked to initialize Presto to Velox plan validator.
-  virtual void initVeloxPlanValidator();
+  /// Invoked to initialize Presto to Bolt plan validator.
+  virtual void initBoltPlanValidator();
 
-  VeloxPlanValidator* getVeloxPlanValidator();
+  BoltPlanValidator* getBoltPlanValidator();
 
   /// Invoked to get the list of filters passed to the http server.
   std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
   getHttpServerFilters();
 
-  void initializeVeloxMemory();
+  void initializeBoltMemory();
 
   void initializeThreadPools();
 
@@ -226,7 +226,7 @@ class PrestoServer {
 
   void registerSidecarEndpoints();
 
-  std::unique_ptr<velox::cache::SsdCache> setupSsdCache();
+  std::unique_ptr<bolt::cache::SsdCache> setupSsdCache();
 
   const std::string configDirectoryPath_;
 
@@ -259,19 +259,19 @@ class PrestoServer {
   // Executor for spilling.
   std::shared_ptr<folly::CPUThreadPoolExecutor> spillerExecutor_;
 
-  std::shared_ptr<VeloxPlanValidator> planValidator_;
+  std::shared_ptr<BoltPlanValidator> planValidator_;
 
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
-  std::shared_ptr<velox::cache::AsyncDataCache> cache_;
+  std::shared_ptr<bolt::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
-  std::shared_ptr<velox::memory::MemoryPool> pool_;
-  std::shared_ptr<velox::memory::MemoryPool> nativeWorkerPool_;
+  std::shared_ptr<bolt::memory::MemoryPool> pool_;
+  std::shared_ptr<bolt::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};

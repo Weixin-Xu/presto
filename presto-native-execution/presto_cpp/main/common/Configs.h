@@ -17,7 +17,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-#include "velox/common/config/Config.h"
+#include "bolt/common/config/Config.h"
 
 namespace facebook::presto {
 
@@ -38,7 +38,7 @@ class ConfigBase {
       std::unordered_map<std::string, std::string>& values) const {}
 
   /// Uses a config object already materialized.
-  void initialize(std::unique_ptr<velox::config::ConfigBase>&& config) {
+  void initialize(std::unique_ptr<bolt::config::ConfigBase>&& config) {
     config_ = std::move(config);
   }
 
@@ -63,7 +63,7 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_USER_FAIL(
+      BOLT_USER_FAIL(
           "{} is required in the {} file.", propertyName, filePath_);
     }
   }
@@ -80,7 +80,7 @@ class ConfigBase {
     if (propertyValue.has_value()) {
       return propertyValue.value();
     } else {
-      VELOX_USER_FAIL(
+      BOLT_USER_FAIL(
           "{} is required in the {} file.", propertyName, filePath_);
     }
   }
@@ -143,14 +143,14 @@ class ConfigBase {
 
  protected:
   ConfigBase()
-      : config_(std::make_unique<velox::config::ConfigBase>(
+      : config_(std::make_unique<bolt::config::ConfigBase>(
             std::unordered_map<std::string, std::string>())){};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
       const std::unordered_map<std::string, std::string>& values);
 
-  std::unique_ptr<velox::config::ConfigBase> config_;
+  std::unique_ptr<bolt::config::ConfigBase> config_;
   std::string filePath_;
   // Map of registered properties with their default values.
   std::unordered_map<std::string, folly::Optional<std::string>>
@@ -379,15 +379,15 @@ class SystemConfig : public ConfigBase {
       "enable-serialized-page-checksum"};
 
   /// Enable TTL for AsyncDataCache and SSD cache.
-  static constexpr std::string_view kCacheVeloxTtlEnabled{
-      "cache.velox.ttl-enabled"};
+  static constexpr std::string_view kCacheBoltTtlEnabled{
+      "cache.bolt.ttl-enabled"};
   /// TTL duration for AsyncDataCache and SSD cache entries.
-  static constexpr std::string_view kCacheVeloxTtlThreshold{
-      "cache.velox.ttl-threshold"};
+  static constexpr std::string_view kCacheBoltTtlThreshold{
+      "cache.bolt.ttl-threshold"};
   /// The periodic duration to apply cache TTL and evict AsyncDataCache and SSD
   /// cache entries.
-  static constexpr std::string_view kCacheVeloxTtlCheckInterval{
-      "cache.velox.ttl-check-interval"};
+  static constexpr std::string_view kCacheBoltTtlCheckInterval{
+      "cache.bolt.ttl-check-interval"};
   static constexpr std::string_view kUseMmapAllocator{"use-mmap-allocator"};
 
   /// Number of pages in largest size class in MallocAllocator. This is used to
@@ -500,10 +500,10 @@ class SystemConfig : public ConfigBase {
   /// cases such as disk spilling.
   static constexpr std::string_view kEnableSystemMemoryPoolUsageTracking{
       "enable_system_memory_pool_usage_tracking"};
-  static constexpr std::string_view kEnableVeloxTaskLogging{
-      "enable_velox_task_logging"};
-  static constexpr std::string_view kEnableVeloxExprSetLogging{
-      "enable_velox_expression_logging"};
+  static constexpr std::string_view kEnableBoltTaskLogging{
+      "enable_bolt_task_logging"};
+  static constexpr std::string_view kEnableBoltExprSetLogging{
+      "enable_bolt_expression_logging"};
   static constexpr std::string_view kLocalShuffleMaxPartitionBytes{
       "shuffle.local.max-partition-bytes"};
   static constexpr std::string_view kShuffleName{"shuffle.name"};
@@ -560,7 +560,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kExchangeMaxErrorDuration{
       "exchange.max-error-duration"};
 
-  /// If true, copy proxygen iobufs to velox memory pool, otherwise not. The
+  /// If true, copy proxygen iobufs to bolt memory pool, otherwise not. The
   /// presto exchange source builds the serialized presto page from proxygen
   /// iobufs directly.
   static constexpr std::string_view kExchangeEnableBufferCopy{
@@ -649,8 +649,8 @@ class SystemConfig : public ConfigBase {
       "internal-communication.jwt.expiration-seconds"};
 
   /// Below are the Presto properties from config.properties that get converted
-  /// to their velox counterparts in BaseVeloxQueryConfig and used solely from
-  /// BaseVeloxQueryConfig.
+  /// to their bolt counterparts in BaseBoltQueryConfig and used solely from
+  /// BaseBoltQueryConfig.
 
   /// Uses legacy version of array_agg which ignores nulls.
   static constexpr std::string_view kUseLegacyArrayAgg{
@@ -659,7 +659,7 @@ class SystemConfig : public ConfigBase {
   static constexpr std::string_view kDriverMaxPagePartitioningBufferSize{
       "driver.max-page-partitioning-buffer-size"};
   static constexpr std::string_view kPlanValidatorFailOnNestedLoopJoin{
-      "velox-plan-validator-fail-on-nested-loop-join"};
+      "bolt-plan-validator-fail-on-nested-loop-join"};
 
   SystemConfig();
 
@@ -804,9 +804,9 @@ class SystemConfig : public ConfigBase {
 
   bool enableSerializedPageChecksum() const;
 
-  bool enableVeloxTaskLogging() const;
+  bool enableBoltTaskLogging() const;
 
-  bool enableVeloxExprSetLogging() const;
+  bool enableBoltExprSetLogging() const;
 
   bool useMmapAllocator() const;
 
@@ -888,11 +888,11 @@ class SystemConfig : public ConfigBase {
 
   bool useLegacyArrayAgg() const;
 
-  bool cacheVeloxTtlEnabled() const;
+  bool cacheBoltTtlEnabled() const;
 
-  std::chrono::duration<double> cacheVeloxTtlThreshold() const;
+  std::chrono::duration<double> cacheBoltTtlThreshold() const;
 
-  std::chrono::duration<double> cacheVeloxTtlCheckInterval() const;
+  std::chrono::duration<double> cacheBoltTtlCheckInterval() const;
 
   int32_t largestSizeClassPages() const;
 
@@ -929,18 +929,18 @@ class NodeConfig : public ConfigBase {
 };
 
 /// Used only in the single instance as the source of the initial properties for
-/// velox::QueryConfig. Not designed for actual property access during a query
+/// bolt::QueryConfig. Not designed for actual property access during a query
 /// run.
-class BaseVeloxQueryConfig : public ConfigBase {
+class BaseBoltQueryConfig : public ConfigBase {
  public:
-  BaseVeloxQueryConfig();
+  BaseBoltQueryConfig();
 
-  virtual ~BaseVeloxQueryConfig() = default;
+  virtual ~BaseBoltQueryConfig() = default;
 
   void updateLoadedValues(
       std::unordered_map<std::string, std::string>& values) const override;
 
-  static BaseVeloxQueryConfig* instance();
+  static BaseBoltQueryConfig* instance();
 };
 
 } // namespace facebook::presto

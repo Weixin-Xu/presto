@@ -16,10 +16,10 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "velox/exec/HashPartitionFunction.h"
+#include "bolt/exec/HashPartitionFunction.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::core;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::core;
 
 namespace facebook::presto::operators {
 
@@ -58,7 +58,7 @@ addPartitionAndSerializeNode(
 }
 
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleReadNode(
-    const velox::RowTypePtr& outputType) {
+    const bolt::RowTypePtr& outputType) {
   return [&outputType](
              PlanNodeId nodeId, PlanNodePtr /* source */) -> PlanNodePtr {
     return std::make_shared<ShuffleReadNode>(nodeId, outputType);

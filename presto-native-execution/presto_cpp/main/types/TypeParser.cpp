@@ -15,17 +15,17 @@
 #include <iostream>
 
 #include "presto_cpp/main/types/TypeParser.h"
-#include "velox/type/parser/TypeParser.h"
+#include "bolt/type/parser/TypeParser.h"
 
 namespace facebook::presto {
 
-velox::TypePtr TypeParser::parse(const std::string& text) const {
+bolt::TypePtr TypeParser::parse(const std::string& text) const {
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;
   }
 
-  auto result = velox::parseType(text);
+  auto result = bolt::parseType(text);
   cache_.insert({text, result});
   return result;
 }

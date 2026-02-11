@@ -12,27 +12,25 @@
 
 add_library(presto_type_converter OBJECT TypeParser.cpp)
 
-target_link_libraries(presto_type_converter velox_type_parser)
+target_link_libraries(presto_type_converter bolt::bolt)
 
 add_library(
   presto_types OBJECT
-  PrestoToVeloxQueryPlan.cpp PrestoToVeloxExpr.cpp VeloxPlanValidator.cpp
-  PrestoToVeloxSplit.cpp PrestoToVeloxConnector.cpp)
-add_dependencies(presto_types presto_operators presto_type_converter velox_type
-                 velox_type_fbhive)
+  PrestoToBoltQueryPlan.cpp PrestoToBoltExpr.cpp BoltPlanValidator.cpp
+  PrestoToBoltSplit.cpp PrestoToBoltConnector.cpp)
+add_dependencies(presto_types presto_operators presto_type_converter )
 
-target_link_libraries(presto_types presto_type_converter velox_type_fbhive
-                      velox_hive_partition_function velox_tpch_gen)
+target_link_libraries(presto_types presto_type_converter bolt::bolt)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
 add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
 
-target_link_libraries(presto_function_metadata velox_function_registry)
+target_link_libraries(presto_function_metadata bolt::bolt)
 
-add_library(presto_velox_conversion OBJECT VeloxPlanConversion.cpp)
+add_library(presto_bolt_conversion OBJECT BoltPlanConversion.cpp)
 
-target_link_libraries(presto_velox_conversion velox_type)
+target_link_libraries(presto_bolt_conversion bolt::bolt)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

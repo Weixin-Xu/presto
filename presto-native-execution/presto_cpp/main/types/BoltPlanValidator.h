@@ -12,12 +12,12 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/core/PlanFragment.h"
+#include "bolt/core/PlanFragment.h"
 
 namespace facebook::presto {
-class VeloxPlanValidator {
+class BoltPlanValidator {
  public:
-  virtual void validatePlanFragment(const velox::core::PlanFragment& fragment);
-  virtual ~VeloxPlanValidator() = default;
+  virtual void validatePlanFragment(const bolt::core::PlanFragment& fragment);
+  virtual ~BoltPlanValidator() = default;
 };
 } // namespace facebook::presto

@@ -11,44 +11,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
 #include <gtest/gtest.h>
-#include "velox/common/base/tests/GTestUtils.h"
+#include "bolt/common/base/tests/GTestUtils.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
-class PrestoToVeloxConnectorTest : public ::testing::Test {};
+class PrestoToBoltConnectorTest : public ::testing::Test {};
 
-TEST_F(PrestoToVeloxConnectorTest, registerVariousConnectors) {
-  std::vector<std::pair<std::string, std::unique_ptr<PrestoToVeloxConnector>>>
+TEST_F(PrestoToBoltConnectorTest, registerVariousConnectors) {
+  std::vector<std::pair<std::string, std::unique_ptr<PrestoToBoltConnector>>>
       connectorList;
   connectorList.emplace_back(
-      std::pair("hive", std::make_unique<HivePrestoToVeloxConnector>("hive")));
+      std::pair("hive", std::make_unique<HivePrestoToBoltConnector>("hive")));
   connectorList.emplace_back(std::pair(
       "hive-hadoop2",
 
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2")));
+      std::make_unique<HivePrestoToBoltConnector>("hive-hadoop2")));
   connectorList.emplace_back(std::pair(
-      "iceberg", std::make_unique<IcebergPrestoToVeloxConnector>("iceberg")));
+      "iceberg", std::make_unique<IcebergPrestoToBoltConnector>("iceberg")));
   connectorList.emplace_back(
-      std::pair("tpch", std::make_unique<HivePrestoToVeloxConnector>("tpch")));
+      std::pair("tpch", std::make_unique<HivePrestoToBoltConnector>("tpch")));
 
   for (auto& [connectorName, connector] : connectorList) {
-    registerPrestoToVeloxConnector(std::move(connector));
+    registerPrestoToBoltConnector(std::move(connector));
     EXPECT_EQ(
         connectorName,
-        getPrestoToVeloxConnector(connectorName).connectorName());
-    unregisterPrestoToVeloxConnector(connectorName);
+        getPrestoToBoltConnector(connectorName).connectorName());
+    unregisterPrestoToBoltConnector(connectorName);
   }
 }
 
-TEST_F(PrestoToVeloxConnectorTest, addDuplicates) {
+TEST_F(PrestoToBoltConnectorTest, addDuplicates) {
   constexpr auto kConnectorName = "hive";
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>(kConnectorName));
-  VELOX_ASSERT_THROW(
-      registerPrestoToVeloxConnector(
-          std::make_unique<HivePrestoToVeloxConnector>(kConnectorName)),
+  registerPrestoToBoltConnector(
+      std::make_unique<HivePrestoToBoltConnector>(kConnectorName));
+  BOLT_ASSERT_THROW(
+      registerPrestoToBoltConnector(
+          std::make_unique<HivePrestoToBoltConnector>(kConnectorName)),
       fmt::format("Connector {} is already registered", kConnectorName));
 }

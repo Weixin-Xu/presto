@@ -12,15 +12,15 @@
  * limitations under the License.
  */
 #pragma once
-#include "velox/vector/BaseVector.h"
+#include "bolt/vector/BaseVector.h"
 
 namespace facebook::presto::protocol {
 
 // Deserializes base64-encoded string created by
 // presto-common/src/main/java/com/facebook/presto/common/block/BlockEncodingManager.java
 // into vector.
-velox::VectorPtr readBlock(
-    const velox::TypePtr& type,
+bolt::VectorPtr readBlock(
+    const bolt::TypePtr& type,
     const std::string& base64Encoded,
-    velox::memory::MemoryPool* pool);
+    bolt::memory::MemoryPool* pool);
 } // namespace facebook::presto::protocol

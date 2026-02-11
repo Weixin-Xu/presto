@@ -13,15 +13,15 @@
  */
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include <folly/lang/Bits.h>
-#include "velox/exec/OperatorUtils.h"
-#include "velox/row/CompactRow.h"
+#include "bolt/exec/OperatorUtils.h"
+#include "bolt/row/CompactRow.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 namespace {
-velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -82,7 +82,7 @@ class PartitionAndSerializeOperator : public Operator {
     rowSizes_.resize(numInput);
 
     compactRow_ =
-        std::make_unique<velox::row::CompactRow>(reorderInputsIfNeeded());
+        std::make_unique<bolt::row::CompactRow>(reorderInputsIfNeeded());
     calculateRowSize();
 
     // Process partitionVector and replicateVector once, and reuse on subsequent
@@ -103,7 +103,7 @@ class PartitionAndSerializeOperator : public Operator {
     vector_size_t endOutputRow;
     uint32_t outputBufferSize{0};
     prepareNextOutput(endOutputRow, outputBufferSize);
-    VELOX_CHECK_LT(nextOutputRow_, endOutputRow);
+    BOLT_CHECK_LT(nextOutputRow_, endOutputRow);
 
     const auto batchSize = endOutputRow - nextOutputRow_;
     auto dataVector = BaseVector::create<FlatVector<StringView>>(
@@ -177,7 +177,7 @@ class PartitionAndSerializeOperator : public Operator {
     const auto preferredOutputRows = queryConfig.preferredOutputBatchRows();
     endOutputRow = nextOutputRow_;
 
-    VELOX_DCHECK(!rowSizes_.empty(), "rowSizes_ can not be empty");
+    BOLT_DCHECK(!rowSizes_.empty(), "rowSizes_ can not be empty");
     do {
       outputBufferSize += rowSizes_[endOutputRow++];
     } while (endOutputRow < input_->size() &&
@@ -296,7 +296,7 @@ class PartitionAndSerializeOperator : public Operator {
     for (auto i = 0; i < batchSize; ++i) {
       // Write row data.
       auto size = compactRow_->serialize(from + i, rawBuffer + offset);
-      VELOX_DCHECK_EQ(size, rowSizes_[from + i]);
+      BOLT_DCHECK_EQ(size, rowSizes_[from + i]);
 
       dataVector.setNoCopy(
           i, StringView(rawBuffer + offset, rowSizes_[from + i]));
@@ -320,9 +320,9 @@ class PartitionAndSerializeOperator : public Operator {
   // Holder for partitionVector and replicateVector.
   RowVectorPtr output_;
 
-  std::unique_ptr<velox::row::CompactRow> compactRow_;
+  std::unique_ptr<bolt::row::CompactRow> compactRow_;
   // Decoded 'keyChannels_' columns.
-  std::vector<velox::DecodedVector> decodedVectors_;
+  std::vector<bolt::DecodedVector> decodedVectors_;
   // Reusable vector for storing partition id for each input row.
   std::vector<uint32_t> partitions_;
   // Reusable vector for storing serialised row size for each input row.
@@ -376,19 +376,19 @@ folly::dynamic PartitionAndSerializeNode::serialize() const {
   return obj;
 }
 
-velox::core::PlanNodePtr PartitionAndSerializeNode::create(
+bolt::core::PlanNodePtr PartitionAndSerializeNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<PartitionAndSerializeNode>(
       deserializePlanNodeId(obj),
-      ISerializable::deserialize<std::vector<velox::core::ITypedExpr>>(
+      ISerializable::deserialize<std::vector<bolt::core::ITypedExpr>>(
           obj["keys"], context),
       obj["numPartitions"].asInt(),
       ISerializable::deserialize<RowType>(obj["serializedRowType"], context),
-      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+      ISerializable::deserialize<std::vector<bolt::core::PlanNode>>(
           obj["sources"], context)[0],
       obj["replicateNullsAndAny"].asBool(),
-      ISerializable::deserialize<velox::core::PartitionFunctionSpec>(
+      ISerializable::deserialize<bolt::core::PartitionFunctionSpec>(
           obj["partitionFunctionSpec"], context));
 }
 } // namespace facebook::presto::operators

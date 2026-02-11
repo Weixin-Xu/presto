@@ -44,24 +44,24 @@ class PrometheusReporterTest : public testing::Test {
 
 TEST_F(PrometheusReporterTest, testCountAndGauge) {
   reporter->registerMetricExportType(
-      "test.key1", facebook::velox::StatType::COUNT);
+      "test.key1", facebook::bolt::StatType::COUNT);
   reporter->registerMetricExportType(
-      "test.key2", facebook::velox::StatType::AVG);
+      "test.key2", facebook::bolt::StatType::AVG);
   reporter->registerMetricExportType(
-      "test.key3", facebook::velox::StatType::SUM);
+      "test.key3", facebook::bolt::StatType::SUM);
   reporter->registerMetricExportType(
-      "test.key4", facebook::velox::StatType::RATE);
+      "test.key4", facebook::bolt::StatType::RATE);
   EXPECT_EQ(
-      facebook::velox::StatType::COUNT,
+      facebook::bolt::StatType::COUNT,
       reporter->registeredMetricsMap_.find("test.key1")->second.statType);
   EXPECT_EQ(
-      facebook::velox::StatType::AVG,
+      facebook::bolt::StatType::AVG,
       reporter->registeredMetricsMap_.find("test.key2")->second.statType);
   EXPECT_EQ(
-      facebook::velox::StatType::SUM,
+      facebook::bolt::StatType::SUM,
       reporter->registeredMetricsMap_.find("test.key3")->second.statType);
   EXPECT_EQ(
-      facebook::velox::StatType::RATE,
+      facebook::bolt::StatType::RATE,
       reporter->registeredMetricsMap_.find("test.key4")->second.statType);
 
   std::vector<size_t> testData = {10, 12, 14};

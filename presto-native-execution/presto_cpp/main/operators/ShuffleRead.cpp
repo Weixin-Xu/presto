@@ -12,14 +12,14 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleRead.h"
-#include "velox/exec/Exchange.h"
-#include "velox/serializers/CompactRowSerializer.h"
+#include "bolt/exec/Exchange.h"
+#include "bolt/serializers/CompactRowSerializer.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
-velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -37,10 +37,10 @@ class ShuffleReadOperator : public Exchange {
             std::make_shared<core::ExchangeNode>(
                 shuffleReadNode->id(),
                 shuffleReadNode->outputType(),
-                velox::VectorSerde::Kind::kCompactRow),
+                bolt::VectorSerde::Kind::kCompactRow),
             exchangeClient,
             "ShuffleRead"),
-        serde_(std::make_unique<velox::serializer::CompactRowVectorSerde>()) {}
+        serde_(std::make_unique<bolt::serializer::CompactRowVectorSerde>()) {}
 
  protected:
   VectorSerde* getSerde() override {
@@ -48,7 +48,7 @@ class ShuffleReadOperator : public Exchange {
   }
 
  private:
-  std::unique_ptr<velox::serializer::CompactRowVectorSerde> serde_;
+  std::unique_ptr<bolt::serializer::CompactRowVectorSerde> serde_;
 };
 } // namespace
 
@@ -58,7 +58,7 @@ folly::dynamic ShuffleReadNode::serialize() const {
   return obj;
 }
 
-velox::core::PlanNodePtr ShuffleReadNode::create(
+bolt::core::PlanNodePtr ShuffleReadNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<ShuffleReadNode>(

@@ -12,38 +12,38 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
-#include <velox/type/fbhive/HiveTypeParser.h>
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveConnectorSplit.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/TableHandle.h"
-#include "velox/connectors/hive/iceberg/IcebergDeleteFile.h"
-#include "velox/connectors/hive/iceberg/IcebergSplit.h"
-#include "velox/connectors/tpch/TpchConnector.h"
-#include "velox/connectors/tpch/TpchConnectorSplit.h"
+#include "bolt/type/fbhive/HiveTypeParser.h>
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/connectors/hive/HiveConnectorSplit.h"
+#include "bolt/connectors/hive/HiveDataSink.h"
+#include "bolt/connectors/hive/TableHandle.h"
+#include "bolt/connectors/hive/iceberg/IcebergDeleteFile.h"
+#include "bolt/connectors/hive/iceberg/IcebergSplit.h"
+#include "bolt/connectors/tpch/TpchConnector.h"
+#include "bolt/connectors/tpch/TpchConnectorSplit.h"
 
 namespace facebook::presto {
 
 namespace {
-std::unordered_map<std::string, std::unique_ptr<const PrestoToVeloxConnector>>&
+std::unordered_map<std::string, std::unique_ptr<const PrestoToBoltConnector>>&
 connectors() {
   static std::
-      unordered_map<std::string, std::unique_ptr<const PrestoToVeloxConnector>>
+      unordered_map<std::string, std::unique_ptr<const PrestoToBoltConnector>>
           connectors;
   return connectors;
 }
 } // namespace
 
-void registerPrestoToVeloxConnector(
-    std::unique_ptr<const PrestoToVeloxConnector> connector) {
+void registerPrestoToBoltConnector(
+    std::unique_ptr<const PrestoToBoltConnector> connector) {
   auto connectorName = connector->connectorName();
   auto connectorProtocol = connector->createConnectorProtocol();
-  VELOX_CHECK(
+  BOLT_CHECK(
       connectors().insert({connectorName, std::move(connector)}).second,
       "Connector {} is already registered",
       connectorName);
@@ -51,23 +51,23 @@ void registerPrestoToVeloxConnector(
       connectorName, std::move(connectorProtocol));
 }
 
-void unregisterPrestoToVeloxConnector(const std::string& connectorName) {
+void unregisterPrestoToBoltConnector(const std::string& connectorName) {
   connectors().erase(connectorName);
   protocol::unregisterConnectorProtocol(connectorName);
 }
 
-const PrestoToVeloxConnector& getPrestoToVeloxConnector(
+const PrestoToBoltConnector& getPrestoToBoltConnector(
     const std::string& connectorName) {
   auto it = connectors().find(connectorName);
-  VELOX_CHECK(
+  BOLT_CHECK(
       it != connectors().end(), "Connector {} not registered", connectorName);
   return *(it->second);
 }
 
 namespace {
-using namespace velox;
+using namespace bolt;
 
-dwio::common::FileFormat toVeloxFileFormat(
+dwio::common::FileFormat toBoltFileFormat(
     const presto::protocol::hive::StorageFormat& format) {
   if (format.inputFormat == "com.facebook.hive.orc.OrcInputFormat") {
     return dwio::common::FileFormat::DWRF;
@@ -89,21 +89,21 @@ dwio::common::FileFormat toVeloxFileFormat(
       return dwio::common::FileFormat::PARQUET;
     }
   } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
-    // ALPHA has been renamed in Velox to NIMBLE.
+    // ALPHA has been renamed in Bolt to NIMBLE.
     return dwio::common::FileFormat::NIMBLE;
   }
-  VELOX_UNSUPPORTED(
+  BOLT_UNSUPPORTED(
       "Unsupported file format: {} {}", format.inputFormat, format.serDe);
 }
 
-dwio::common::FileFormat toVeloxFileFormat(
+dwio::common::FileFormat toBoltFileFormat(
     const presto::protocol::iceberg::FileFormat format) {
   if (format == protocol::iceberg::FileFormat::ORC) {
     return dwio::common::FileFormat::ORC;
   } else if (format == protocol::iceberg::FileFormat::PARQUET) {
     return dwio::common::FileFormat::PARQUET;
   }
-  VELOX_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
+  BOLT_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
 
 template <typename T>
@@ -127,7 +127,7 @@ connector::hive::HiveColumnHandle::ColumnType toHiveColumnType(
     case protocol::hive::ColumnType::SYNTHESIZED:
       return connector::hive::HiveColumnHandle::ColumnType::kSynthesized;
     default:
-      VELOX_UNSUPPORTED(
+      BOLT_UNSUPPORTED(
           "Unsupported Hive column type: {}.", toJsonString(type));
   }
 }
@@ -159,7 +159,7 @@ TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type);
 template <>
 TypePtr fieldNamesToLowerCase<TypeKind::ARRAY>(const TypePtr& type) {
   auto& elementType = type->childAt(0);
-  return std::make_shared<ArrayType>(VELOX_DYNAMIC_TYPE_DISPATCH(
+  return std::make_shared<ArrayType>(BOLT_DYNAMIC_TYPE_DISPATCH(
       fieldNamesToLowerCase, elementType->kind(), elementType));
 }
 
@@ -168,9 +168,9 @@ TypePtr fieldNamesToLowerCase<TypeKind::MAP>(const TypePtr& type) {
   auto& keyType = type->childAt(0);
   auto& valueType = type->childAt(1);
   return std::make_shared<MapType>(
-      VELOX_DYNAMIC_TYPE_DISPATCH(
+      BOLT_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, keyType->kind(), keyType),
-      VELOX_DYNAMIC_TYPE_DISPATCH(
+      BOLT_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, valueType->kind(), valueType));
 }
 
@@ -186,7 +186,7 @@ TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type) {
     folly::toLowerAscii(name);
     names.push_back(std::move(name));
     auto& childType = rowType.childAt(i);
-    types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+    types.push_back(BOLT_DYNAMIC_TYPE_DISPATCH(
         fieldNamesToLowerCase, childType->kind(), childType));
   }
   return std::make_shared<RowType>(std::move(names), std::move(types));
@@ -194,32 +194,32 @@ TypePtr fieldNamesToLowerCase<TypeKind::ROW>(const TypePtr& type) {
 
 int64_t toInt64(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
-  return VariantConverter::convert<velox::TypeKind::BIGINT>(value)
+  return VariantConverter::convert<bolt::TypeKind::BIGINT>(value)
       .value<int64_t>();
 }
 
 int128_t toInt128(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
-  return value.value<velox::TypeKind::HUGEINT>();
+  return value.value<bolt::TypeKind::HUGEINT>();
 }
 
 Timestamp toTimestamp(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   const auto value = exprConverter.getConstantValue(type, *block);
-  return value.value<velox::TypeKind::TIMESTAMP>();
+  return value.value<bolt::TypeKind::TIMESTAMP>();
 }
 
 int64_t dateToInt64(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
   return value.value<int32_t>();
@@ -228,7 +228,7 @@ int64_t dateToInt64(
 template <typename T>
 T toFloatingPoint(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto variant = exprConverter.getConstantValue(type, *block);
   return variant.value<T>();
@@ -236,7 +236,7 @@ T toFloatingPoint(
 
 std::string toString(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
   if (type->isVarbinary()) {
@@ -247,7 +247,7 @@ std::string toString(
 
 bool toBoolean(
     const std::shared_ptr<protocol::Block>& block,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto variant = exprConverter.getConstantValue(type, *block);
   return variant.value<bool>();
@@ -256,7 +256,7 @@ bool toBoolean(
 std::unique_ptr<common::BigintRange> bigintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowUnbounded = range.low.valueBlock == nullptr;
   auto low = lowUnbounded ? std::numeric_limits<int64_t>::min()
@@ -278,7 +278,7 @@ std::unique_ptr<common::BigintRange> bigintRangeToFilter(
 std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowUnbounded = range.low.valueBlock == nullptr;
   auto low = lowUnbounded ? std::numeric_limits<int128_t>::min()
@@ -300,7 +300,7 @@ std::unique_ptr<common::HugeintRange> hugeintRangeToFilter(
 std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   const bool lowUnbounded = range.low.valueBlock == nullptr;
   auto low = lowUnbounded
@@ -323,7 +323,7 @@ std::unique_ptr<common::TimestampRange> timestampRangeToFilter(
 std::unique_ptr<common::Filter> boolRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
   bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
@@ -333,7 +333,7 @@ std::unique_ptr<common::Filter> boolRangeToFilter(
   if (!lowUnbounded && !highUnbounded) {
     bool lowValue = toBoolean(range.low.valueBlock, exprConverter, type);
     bool highValue = toBoolean(range.high.valueBlock, exprConverter, type);
-    VELOX_CHECK_EQ(
+    BOLT_CHECK_EQ(
         lowValue,
         highValue,
         "Boolean range should not be [FALSE, TRUE] after coordinator "
@@ -344,12 +344,12 @@ std::unique_ptr<common::Filter> boolRangeToFilter(
   // example, [FALSE, TRUE) will be optimized and shown here as (-infinity,
   // TRUE). Plus (-infinity, +infinity) case has been guarded in toFilter()
   // method, here it can only be one side bounded scenarios.
-  VELOX_CHECK_NE(
+  BOLT_CHECK_NE(
       lowUnbounded,
       highUnbounded,
       "Passed in boolean range can only have one side bounded range scenario");
   if (!lowUnbounded) {
-    VELOX_CHECK(
+    BOLT_CHECK(
         highUnbounded,
         "Boolean range should not be double side bounded after coordinator "
         "optimization.");
@@ -365,14 +365,14 @@ std::unique_ptr<common::Filter> boolRangeToFilter(
 
     // Both cases (FALSE, +infinity) or [TRUE, +infinity) should evaluate to
     // true. Case [FALSE, +infinity) should not be expected
-    VELOX_CHECK(
+    BOLT_CHECK(
         !(!lowExclusive && !lowValue),
         "Case [FALSE, +infinity) should "
         "not be expected");
     return std::make_unique<common::BoolValue>(true, nullAllowed);
   }
   if (!highUnbounded) {
-    VELOX_CHECK(
+    BOLT_CHECK(
         lowUnbounded,
         "Boolean range should not be double side bounded after coordinator "
         "optimization.");
@@ -388,20 +388,20 @@ std::unique_ptr<common::Filter> boolRangeToFilter(
 
     // Both cases (-infinity, TRUE) or (-infinity, FALSE] should evaluate to
     // false. Case (-infinity, TRUE] should not be expected
-    VELOX_CHECK(
+    BOLT_CHECK(
         !(!highExclusive && highValue),
         "Case (-infinity, TRUE] should "
         "not be expected");
     return std::make_unique<common::BoolValue>(false, nullAllowed);
   }
-  VELOX_UNREACHABLE();
+  BOLT_UNREACHABLE();
 }
 
 template <typename T>
 std::unique_ptr<common::Filter> floatingPointRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
   bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
@@ -415,7 +415,7 @@ std::unique_ptr<common::Filter> floatingPointRangeToFilter(
       ? std::numeric_limits<T>::infinity()
       : toFloatingPoint<T>(range.high.valueBlock, exprConverter, type);
 
-  // Handle NaN cases as NaN is not supported as a limit in Velox Filters
+  // Handle NaN cases as NaN is not supported as a limit in Bolt Filters
   if (!lowUnbounded && std::isnan(low)) {
     if (lowExclusive) {
       // x > NaN is always false as NaN is considered the largest value.
@@ -457,7 +457,7 @@ std::unique_ptr<common::Filter> floatingPointRangeToFilter(
 std::unique_ptr<common::BytesRange> varcharRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowExclusive = range.low.bound == protocol::Bound::ABOVE;
   bool lowUnbounded = range.low.valueBlock == nullptr && lowExclusive;
@@ -481,7 +481,7 @@ std::unique_ptr<common::BytesRange> varcharRangeToFilter(
 std::unique_ptr<common::BigintRange> dateRangeToFilter(
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   bool lowUnbounded = range.low.valueBlock == nullptr;
   auto low = lowUnbounded
@@ -651,7 +651,7 @@ std::unique_ptr<common::Filter> toFilter(
     const TypePtr& type,
     const protocol::Range& range,
     bool nullAllowed,
-    const VeloxExprConverter& exprConverter) {
+    const BoltExprConverter& exprConverter) {
   if (type->isDate()) {
     return dateRangeToFilter(range, nullAllowed, exprConverter, type);
   }
@@ -677,13 +677,13 @@ std::unique_ptr<common::Filter> toFilter(
     case TypeKind::TIMESTAMP:
       return timestampRangeToFilter(range, nullAllowed, exprConverter, type);
     default:
-      VELOX_UNSUPPORTED("Unsupported range type: {}", type->toString());
+      BOLT_UNSUPPORTED("Unsupported range type: {}", type->toString());
   }
 }
 
 std::unique_ptr<common::Filter> toFilter(
     const protocol::Domain& domain,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser) {
   auto nullAllowed = domain.nullAllowed;
   if (auto sortedRangeSet =
@@ -692,7 +692,7 @@ std::unique_ptr<common::Filter> toFilter(
     auto ranges = sortedRangeSet->ranges;
 
     if (ranges.empty()) {
-      VELOX_CHECK(nullAllowed, "Unexpected always-false filter");
+      BOLT_CHECK(nullAllowed, "Unexpected always-false filter");
       return std::make_unique<common::IsNull>();
     }
 
@@ -746,7 +746,7 @@ std::unique_ptr<common::Filter> toFilter(
     }
 
     if (type->kind() == TypeKind::BOOLEAN) {
-      VELOX_CHECK_EQ(ranges.size(), 2, "Multi bool ranges size can only be 2.");
+      BOLT_CHECK_EQ(ranges.size(), 2, "Multi bool ranges size can only be 2.");
       std::unique_ptr<common::Filter> boolFilter;
       for (const auto& range : ranges) {
         auto filter =
@@ -755,11 +755,11 @@ std::unique_ptr<common::Filter> toFilter(
             filter->kind() == common::FilterKind::kIsNull) {
           continue;
         }
-        VELOX_CHECK_NULL(boolFilter);
+        BOLT_CHECK_NULL(boolFilter);
         boolFilter = std::move(filter);
       }
 
-      VELOX_CHECK_NOT_NULL(boolFilter);
+      BOLT_CHECK_NOT_NULL(boolFilter);
       return boolFilter;
     }
 
@@ -782,16 +782,16 @@ std::unique_ptr<common::Filter> toFilter(
         return std::make_unique<common::IsNotNull>();
       }
     }
-    VELOX_UNSUPPORTED(
-        "EquatableValueSet (with non-empty entries) to Velox filter conversion is not supported yet.");
+    BOLT_UNSUPPORTED(
+        "EquatableValueSet (with non-empty entries) to Bolt filter conversion is not supported yet.");
   } else if (
       auto allOrNoneValueSet =
           std::dynamic_pointer_cast<protocol::AllOrNoneValueSet>(
               domain.values)) {
-    VELOX_UNSUPPORTED(
-        "AllOrNoneValueSet to Velox filter conversion is not supported yet.");
+    BOLT_UNSUPPORTED(
+        "AllOrNoneValueSet to Bolt filter conversion is not supported yet.");
   }
-  VELOX_UNSUPPORTED("Unsupported filter found.");
+  BOLT_UNSUPPORTED("Unsupported filter found.");
 }
 
 std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
@@ -802,7 +802,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
     const protocol::List<protocol::Column>& dataColumns,
     const protocol::TableHandle& tableHandle,
     const protocol::Map<protocol::String, protocol::String>& tableParameters,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser) {
   connector::hive::SubfieldFilters subfieldFilters;
   auto domains = domainPredicate.domains;
@@ -812,11 +812,11 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
         toFilter(domain.second, exprConverter, typeParser);
   }
 
-  auto remainingFilter = exprConverter.toVeloxExpr(remainingPredicate);
+  auto remainingFilter = exprConverter.toBoltExpr(remainingPredicate);
   if (auto constant = std::dynamic_pointer_cast<const core::ConstantTypedExpr>(
           remainingFilter)) {
     bool value = constant->value().value<bool>();
-    VELOX_CHECK(value, "Unexpected always-false remaining predicate");
+    BOLT_CHECK(value, "Unexpected always-false remaining predicate");
 
     // Use null for always-true filter.
     remainingFilter = nullptr;
@@ -826,7 +826,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
   if (!dataColumns.empty()) {
     std::vector<std::string> names;
     std::vector<TypePtr> types;
-    velox::type::fbhive::HiveTypeParser hiveTypeParser;
+    bolt::type::fbhive::HiveTypeParser hiveTypeParser;
     names.reserve(dataColumns.size());
     types.reserve(dataColumns.size());
     for (auto& column : dataColumns) {
@@ -837,7 +837,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
       // The type from the metastore may have upper case letters
       // in field names, convert them all to lower case to be
       // compatible with Presto.
-      types.push_back(VELOX_DYNAMIC_TYPE_DISPATCH(
+      types.push_back(BOLT_DYNAMIC_TYPE_DISPATCH(
           fieldNamesToLowerCase, parsedType->kind(), parsedType));
     }
     finalDataColumns = ROW(std::move(names), std::move(types));
@@ -881,7 +881,7 @@ connector::hive::LocationHandle::TableType toTableType(
     case protocol::hive::TableType::EXISTING:
       return connector::hive::LocationHandle::TableType::kExisting;
     default:
-      VELOX_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
+      BOLT_UNSUPPORTED("Unsupported table type: {}.", toJsonString(tableType));
   }
 }
 
@@ -902,45 +902,45 @@ dwio::common::FileFormat toFileFormat(
     case protocol::hive::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
     case protocol::hive::HiveStorageFormat::ALPHA:
-      // This has been renamed in Velox from ALPHA to NIMBLE.
+      // This has been renamed in Bolt from ALPHA to NIMBLE.
       return dwio::common::FileFormat::NIMBLE;
     default:
-      VELOX_UNSUPPORTED(
+      BOLT_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
           usage,
           toJsonString(storageFormat));
   }
 }
 
-velox::common::CompressionKind toFileCompressionKind(
+bolt::common::CompressionKind toFileCompressionKind(
     const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
   switch (hiveCompressionCodec) {
     case protocol::hive::HiveCompressionCodec::SNAPPY:
-      return velox::common::CompressionKind::CompressionKind_SNAPPY;
+      return bolt::common::CompressionKind::CompressionKind_SNAPPY;
     case protocol::hive::HiveCompressionCodec::GZIP:
-      return velox::common::CompressionKind::CompressionKind_GZIP;
+      return bolt::common::CompressionKind::CompressionKind_GZIP;
     case protocol::hive::HiveCompressionCodec::LZ4:
-      return velox::common::CompressionKind::CompressionKind_LZ4;
+      return bolt::common::CompressionKind::CompressionKind_LZ4;
     case protocol::hive::HiveCompressionCodec::ZSTD:
-      return velox::common::CompressionKind::CompressionKind_ZSTD;
+      return bolt::common::CompressionKind::CompressionKind_ZSTD;
     case protocol::hive::HiveCompressionCodec::NONE:
-      return velox::common::CompressionKind::CompressionKind_NONE;
+      return bolt::common::CompressionKind::CompressionKind_NONE;
     default:
-      VELOX_UNSUPPORTED(
+      BOLT_UNSUPPORTED(
           "Unsupported file compression format: {}.",
           toJsonString(hiveCompressionCodec));
   }
 }
 
-velox::connector::hive::HiveBucketProperty::Kind toHiveBucketPropertyKind(
+bolt::connector::hive::HiveBucketProperty::Kind toHiveBucketPropertyKind(
     protocol::hive::BucketFunctionType bucketFuncType) {
   switch (bucketFuncType) {
     case protocol::hive::BucketFunctionType::PRESTO_NATIVE:
-      return velox::connector::hive::HiveBucketProperty::Kind::kPrestoNative;
+      return bolt::connector::hive::HiveBucketProperty::Kind::kPrestoNative;
     case protocol::hive::BucketFunctionType::HIVE_COMPATIBLE:
-      return velox::connector::hive::HiveBucketProperty::Kind::kHiveCompatible;
+      return bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible;
     default:
-      VELOX_USER_FAIL(
+      BOLT_USER_FAIL(
           "Unknown hive bucket function: {}", toJsonString(bucketFuncType));
   }
 }
@@ -963,20 +963,20 @@ core::SortOrder toSortOrder(protocol::hive::Order order) {
     case protocol::hive::Order::DESCENDING:
       return core::SortOrder(false, false);
     default:
-      VELOX_USER_FAIL("Unknown sort order: {}", toJsonString(order));
+      BOLT_USER_FAIL("Unknown sort order: {}", toJsonString(order));
   }
 }
 
-std::shared_ptr<velox::connector::hive::HiveSortingColumn> toHiveSortingColumn(
+std::shared_ptr<bolt::connector::hive::HiveSortingColumn> toHiveSortingColumn(
     const protocol::hive::SortingColumn& sortingColumn) {
-  return std::make_shared<velox::connector::hive::HiveSortingColumn>(
+  return std::make_shared<bolt::connector::hive::HiveSortingColumn>(
       sortingColumn.columnName, toSortOrder(sortingColumn.order));
 }
 
-std::vector<std::shared_ptr<const velox::connector::hive::HiveSortingColumn>>
+std::vector<std::shared_ptr<const bolt::connector::hive::HiveSortingColumn>>
 toHiveSortingColumns(
     const protocol::List<protocol::hive::SortingColumn>& sortedBy) {
-  std::vector<std::shared_ptr<const velox::connector::hive::HiveSortingColumn>>
+  std::vector<std::shared_ptr<const bolt::connector::hive::HiveSortingColumn>>
       sortingColumns;
   sortingColumns.reserve(sortedBy.size());
   for (const auto& sortingColumn : sortedBy) {
@@ -985,7 +985,7 @@ toHiveSortingColumns(
   return sortingColumns;
 }
 
-std::shared_ptr<velox::connector::hive::HiveBucketProperty>
+std::shared_ptr<bolt::connector::hive::HiveBucketProperty>
 toHiveBucketProperty(
     const std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>&
         inputColumns,
@@ -995,20 +995,20 @@ toHiveBucketProperty(
     return nullptr;
   }
 
-  VELOX_USER_CHECK_GT(
+  BOLT_USER_CHECK_GT(
       bucketProperty->bucketCount, 0, "Bucket count must be a positive value");
 
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       !bucketProperty->bucketedBy.empty(),
       "Bucketed columns must be set: {}",
       toJsonString(*bucketProperty));
 
-  const velox::connector::hive::HiveBucketProperty::Kind kind =
+  const bolt::connector::hive::HiveBucketProperty::Kind kind =
       toHiveBucketPropertyKind(bucketProperty->bucketFunctionType);
   std::vector<TypePtr> bucketedTypes;
   if (kind ==
-      velox::connector::hive::HiveBucketProperty::Kind::kHiveCompatible) {
-    VELOX_USER_CHECK_NULL(
+      bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible) {
+    BOLT_USER_CHECK_NULL(
         bucketProperty->types,
         "Unexpected bucketed types set for hive compatible bucket function: {}",
         toJsonString(*bucketProperty));
@@ -1019,16 +1019,16 @@ toHiveBucketProperty(
         if (inputColumn->name() != bucketedColumn) {
           continue;
         }
-        VELOX_USER_CHECK_NOT_NULL(inputColumn->hiveType());
+        BOLT_USER_CHECK_NOT_NULL(inputColumn->hiveType());
         bucketedType = inputColumn->hiveType();
         break;
       }
-      VELOX_USER_CHECK_NOT_NULL(
+      BOLT_USER_CHECK_NOT_NULL(
           bucketedType, "Bucketed column {} not found", bucketedColumn);
       bucketedTypes.push_back(std::move(bucketedType));
     }
   } else {
-    VELOX_USER_CHECK_EQ(
+    BOLT_USER_CHECK_EQ(
         bucketProperty->types->size(),
         bucketProperty->bucketedBy.size(),
         "Bucketed types is not set properly for presto native bucket function: {}",
@@ -1038,7 +1038,7 @@ toHiveBucketProperty(
 
   const auto sortedBy = toHiveSortingColumns(bucketProperty->sortedBy);
 
-  return std::make_shared<velox::connector::hive::HiveBucketProperty>(
+  return std::make_shared<bolt::connector::hive::HiveBucketProperty>(
       toHiveBucketPropertyKind(bucketProperty->bucketFunctionType),
       bucketProperty->bucketCount,
       bucketProperty->bucketedBy,
@@ -1046,18 +1046,18 @@ toHiveBucketProperty(
       sortedBy);
 }
 
-std::unique_ptr<velox::connector::hive::HiveColumnHandle>
-toVeloxHiveColumnHandle(
+std::unique_ptr<bolt::connector::hive::HiveColumnHandle>
+toBoltHiveColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {
   auto* hiveColumn =
       dynamic_cast<const protocol::hive::HiveColumnHandle*>(column);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveColumn, "Unexpected column handle type {}", column->_type);
-  velox::type::fbhive::HiveTypeParser hiveTypeParser;
+  bolt::type::fbhive::HiveTypeParser hiveTypeParser;
   // TODO(spershin): Should we pass something different than 'typeSignature'
   // to 'hiveType' argument of the 'HiveColumnHandle' constructor?
-  return std::make_unique<velox::connector::hive::HiveColumnHandle>(
+  return std::make_unique<bolt::connector::hive::HiveColumnHandle>(
       hiveColumn->name,
       toHiveColumnType(hiveColumn->columnType),
       stringToType(hiveColumn->typeSignature, typeParser),
@@ -1065,43 +1065,43 @@ toVeloxHiveColumnHandle(
       toRequiredSubfields(hiveColumn->requiredSubfields));
 }
 
-velox::connector::hive::HiveBucketConversion toVeloxBucketConversion(
+bolt::connector::hive::HiveBucketConversion toBoltBucketConversion(
     const protocol::hive::BucketConversion& bucketConversion) {
-  velox::connector::hive::HiveBucketConversion veloxBucketConversion;
+  bolt::connector::hive::HiveBucketConversion boltBucketConversion;
   // Current table bucket count (new).
-  veloxBucketConversion.tableBucketCount = bucketConversion.tableBucketCount;
+  boltBucketConversion.tableBucketCount = bucketConversion.tableBucketCount;
   // Partition bucket count (old).
-  veloxBucketConversion.partitionBucketCount =
+  boltBucketConversion.partitionBucketCount =
       bucketConversion.partitionBucketCount;
   TypeParser typeParser;
   for (const auto& column : bucketConversion.bucketColumnHandles) {
     // Columns used as bucket input.
-    veloxBucketConversion.bucketColumnHandles.push_back(
-        toVeloxHiveColumnHandle(&column, typeParser));
+    boltBucketConversion.bucketColumnHandles.push_back(
+        toBoltHiveColumnHandle(&column, typeParser));
   }
-  return veloxBucketConversion;
+  return boltBucketConversion;
 }
 
-velox::connector::hive::iceberg::FileContent toVeloxFileContent(
+bolt::connector::hive::iceberg::FileContent toBoltFileContent(
     const presto::protocol::iceberg::FileContent content) {
   if (content == protocol::iceberg::FileContent::DATA) {
-    return velox::connector::hive::iceberg::FileContent::kData;
+    return bolt::connector::hive::iceberg::FileContent::kData;
   } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
-    return velox::connector::hive::iceberg::FileContent::kPositionalDeletes;
+    return bolt::connector::hive::iceberg::FileContent::kPositionalDeletes;
   }
-  VELOX_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
+  BOLT_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
 }
 
 } // namespace
 
-std::unique_ptr<velox::connector::ConnectorSplit>
-HivePrestoToVeloxConnector::toVeloxSplit(
+std::unique_ptr<bolt::connector::ConnectorSplit>
+HivePrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
     const protocol::SplitContext* splitContext) const {
   auto hiveSplit =
       dynamic_cast<const protocol::hive::HiveSplit*>(connectorSplit);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveSplit, "Unexpected split type {}", connectorSplit->_type);
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
   for (const auto& entry : hiveSplit->partitionKeys) {
@@ -1117,7 +1117,7 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   std::shared_ptr<std::string> extraFileInfo;
   if (hiveSplit->fileSplit.extraFileInfo) {
     extraFileInfo = std::make_shared<std::string>(
-        velox::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
+        bolt::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
   }
   std::unordered_map<std::string, std::string> serdeParameters;
   serdeParameters.reserve(hiveSplit->storage.serdeParameters.size());
@@ -1133,11 +1133,11 @@ HivePrestoToVeloxConnector::toVeloxSplit(
   if (hiveSplit->tableBucketNumber) {
     infoColumns["$bucket"] = std::to_string(*hiveSplit->tableBucketNumber);
   }
-  auto veloxSplit =
-      std::make_unique<velox::connector::hive::HiveConnectorSplit>(
+  auto boltSplit =
+      std::make_unique<bolt::connector::hive::HiveConnectorSplit>(
           catalogId,
           hiveSplit->fileSplit.path,
-          toVeloxFileFormat(hiveSplit->storage.storageFormat),
+          toBoltFileFormat(hiveSplit->storage.storageFormat),
           hiveSplit->fileSplit.start,
           hiveSplit->fileSplit.length,
           partitionKeys,
@@ -1151,47 +1151,47 @@ HivePrestoToVeloxConnector::toVeloxSplit(
           splitContext->cacheable,
           infoColumns);
   if (hiveSplit->bucketConversion) {
-    VELOX_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
-    veloxSplit->bucketConversion =
-        toVeloxBucketConversion(*hiveSplit->bucketConversion);
+    BOLT_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
+    boltSplit->bucketConversion =
+        toBoltBucketConversion(*hiveSplit->bucketConversion);
   }
-  return veloxSplit;
+  return boltSplit;
 }
 
-std::unique_ptr<velox::connector::ColumnHandle>
-HivePrestoToVeloxConnector::toVeloxColumnHandle(
+std::unique_ptr<bolt::connector::ColumnHandle>
+HivePrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
-  return toVeloxHiveColumnHandle(column, typeParser);
+  return toBoltHiveColumnHandle(column, typeParser);
 }
 
-std::unique_ptr<velox::connector::ConnectorTableHandle>
-HivePrestoToVeloxConnector::toVeloxTableHandle(
+std::unique_ptr<bolt::connector::ConnectorTableHandle>
+HivePrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
   auto addSynthesizedColumn = [&](const std::string& name,
                                   protocol::hive::ColumnType columnType,
                                   const protocol::ColumnHandle& column) {
     if (toHiveColumnType(columnType) ==
-        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
+        bolt::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
       if (assignments.count(name) == 0) {
-        assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
+        assignments.emplace(name, toBoltColumnHandle(&column, typeParser));
       }
     }
   };
   auto hiveLayout =
       std::dynamic_pointer_cast<const protocol::hive::HiveTableLayoutHandle>(
           tableHandle.connectorTableLayout);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveLayout,
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
   for (const auto& entry : hiveLayout->partitionColumns) {
-    assignments.emplace(entry.name, toVeloxColumnHandle(&entry, typeParser));
+    assignments.emplace(entry.name, toBoltColumnHandle(&entry, typeParser));
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
@@ -1202,7 +1202,7 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
   auto hiveTableHandle =
       std::dynamic_pointer_cast<const protocol::hive::HiveTableHandle>(
           tableHandle.connectorHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveTableHandle,
       "Unexpected table handle type {}",
       tableHandle.connectorHandle->_type);
@@ -1225,21 +1225,21 @@ HivePrestoToVeloxConnector::toVeloxTableHandle(
       typeParser);
 }
 
-std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
+std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+HivePrestoToBoltConnector::toBoltInsertTableHandle(
     const protocol::CreateHandle* createHandle,
     const TypeParser& typeParser) const {
   auto hiveOutputTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveOutputTableHandle>(
           createHandle->handle.connectorHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveOutputTableHandle,
       "Unexpected output table handle type {}",
       createHandle->handle.connectorHandle->_type);
   bool isPartitioned{false};
   const auto inputColumns = toHiveColumns(
       hiveOutputTableHandle->inputColumns, typeParser, isPartitioned);
-  return std::make_unique<velox::connector::hive::HiveInsertTableHandle>(
+  return std::make_unique<bolt::connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveOutputTableHandle->locationHandle),
       toFileFormat(hiveOutputTableHandle->actualStorageFormat, "TableWrite"),
@@ -1249,14 +1249,14 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
           toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
 }
 
-std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
+std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+HivePrestoToBoltConnector::toBoltInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
     const TypeParser& typeParser) const {
   auto hiveInsertTableHandle =
       std::dynamic_pointer_cast<protocol::hive::HiveInsertTableHandle>(
           insertHandle->handle.connectorHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hiveInsertTableHandle,
       "Unexpected insert table handle type {}",
       insertHandle->handle.connectorHandle->_type);
@@ -1265,7 +1265,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
       hiveInsertTableHandle->inputColumns, typeParser, isPartitioned);
 
   const auto table = hiveInsertTableHandle->pageSinkMetadata.table;
-  VELOX_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
+  BOLT_USER_CHECK_NOT_NULL(table, "Table must not be null for insert query");
   return std::make_unique<connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveInsertTableHandle->locationHandle),
@@ -1280,7 +1280,7 @@ HivePrestoToVeloxConnector::toVeloxInsertTableHandle(
 }
 
 std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>
-HivePrestoToVeloxConnector::toHiveColumns(
+HivePrestoToBoltConnector::toHiveColumns(
     const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
     const TypeParser& typeParser,
     bool& hasPartitionColumn) const {
@@ -1293,26 +1293,26 @@ HivePrestoToVeloxConnector::toHiveColumns(
         columnHandle.columnType == protocol::hive::ColumnType::PARTITION_KEY;
     hiveColumns.emplace_back(
         std::dynamic_pointer_cast<connector::hive::HiveColumnHandle>(
-            std::shared_ptr(toVeloxColumnHandle(&columnHandle, typeParser))));
+            std::shared_ptr(toBoltColumnHandle(&columnHandle, typeParser))));
   }
   return hiveColumns;
 }
 
-std::unique_ptr<velox::core::PartitionFunctionSpec>
-HivePrestoToVeloxConnector::createVeloxPartitionFunctionSpec(
+std::unique_ptr<bolt::core::PartitionFunctionSpec>
+HivePrestoToBoltConnector::createBoltPartitionFunctionSpec(
     const protocol::ConnectorPartitioningHandle* partitioningHandle,
     const std::vector<int>& bucketToPartition,
-    const std::vector<velox::column_index_t>& channels,
-    const std::vector<velox::VectorPtr>& constValues,
+    const std::vector<bolt::column_index_t>& channels,
+    const std::vector<bolt::VectorPtr>& constValues,
     bool& effectivelyGather) const {
   auto hivePartitioningHandle =
       dynamic_cast<const protocol::hive::HivePartitioningHandle*>(
           partitioningHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       hivePartitioningHandle,
       "Unexpected partitioning handle type {}",
       partitioningHandle->_type);
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       hivePartitioningHandle->bucketFunctionType ==
           protocol::hive::BucketFunctionType::HIVE_COMPATIBLE,
       "Unsupported Hive bucket function type: {}",
@@ -1326,18 +1326,18 @@ HivePrestoToVeloxConnector::createVeloxPartitionFunctionSpec(
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
-HivePrestoToVeloxConnector::createConnectorProtocol() const {
+HivePrestoToBoltConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::hive::HiveConnectorProtocol>();
 }
 
-std::unique_ptr<velox::connector::ConnectorSplit>
-IcebergPrestoToVeloxConnector::toVeloxSplit(
+std::unique_ptr<bolt::connector::ConnectorSplit>
+IcebergPrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
     const protocol::SplitContext* splitContext) const {
   auto icebergSplit =
       dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       icebergSplit, "Unexpected split type {}", connectorSplit->_type);
 
   std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
@@ -1352,7 +1352,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   std::unordered_map<std::string, std::string> customSplitInfo;
   customSplitInfo["table_format"] = "hive-iceberg";
 
-  std::vector<velox::connector::hive::iceberg::IcebergDeleteFile> deletes;
+  std::vector<bolt::connector::hive::iceberg::IcebergDeleteFile> deletes;
   deletes.reserve(icebergSplit->deletes.size());
   for (const auto& deleteFile : icebergSplit->deletes) {
     std::unordered_map<int32_t, std::string> lowerBounds(
@@ -1361,10 +1361,10 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
     std::unordered_map<int32_t, std::string> upperBounds(
         deleteFile.upperBounds.begin(), deleteFile.upperBounds.end());
 
-    velox::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
-        toVeloxFileContent(deleteFile.content),
+    bolt::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
+        toBoltFileContent(deleteFile.content),
         deleteFile.path,
-        toVeloxFileFormat(deleteFile.format),
+        toBoltFileFormat(deleteFile.format),
         deleteFile.recordCount,
         deleteFile.fileSizeInBytes,
         std::vector(deleteFile.equalityFieldIds),
@@ -1382,7 +1382,7 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
   return std::make_unique<connector::hive::iceberg::HiveIcebergSplit>(
       catalogId,
       icebergSplit->path,
-      toVeloxFileFormat(icebergSplit->fileFormat),
+      toBoltFileFormat(icebergSplit->fileFormat),
       icebergSplit->start,
       icebergSplit->length,
       partitionKeys,
@@ -1394,17 +1394,17 @@ IcebergPrestoToVeloxConnector::toVeloxSplit(
       infoColumns);
 }
 
-std::unique_ptr<velox::connector::ColumnHandle>
-IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
+std::unique_ptr<bolt::connector::ColumnHandle>
+IcebergPrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
   auto icebergColumn =
       dynamic_cast<const protocol::iceberg::IcebergColumnHandle*>(column);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       icebergColumn, "Unexpected column handle type {}", column->_type);
   // TODO(imjalpreet): Modify 'hiveType' argument of the 'HiveColumnHandle'
   //  constructor similar to how Hive Connector is handling for bucketing
-  velox::type::fbhive::HiveTypeParser hiveTypeParser;
+  bolt::type::fbhive::HiveTypeParser hiveTypeParser;
   return std::make_unique<connector::hive::HiveColumnHandle>(
       icebergColumn->columnIdentity.name,
       toHiveColumnType(icebergColumn->columnType),
@@ -1413,21 +1413,21 @@ IcebergPrestoToVeloxConnector::toVeloxColumnHandle(
       toRequiredSubfields(icebergColumn->requiredSubfields));
 }
 
-std::unique_ptr<velox::connector::ConnectorTableHandle>
-IcebergPrestoToVeloxConnector::toVeloxTableHandle(
+std::unique_ptr<bolt::connector::ConnectorTableHandle>
+IcebergPrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
   auto addSynthesizedColumn = [&](const std::string& name,
                                   protocol::hive::ColumnType columnType,
                                   const protocol::ColumnHandle& column) {
     if (toHiveColumnType(columnType) ==
-        velox::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
+        bolt::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
       if (assignments.count(name) == 0) {
-        assignments.emplace(name, toVeloxColumnHandle(&column, typeParser));
+        assignments.emplace(name, toBoltColumnHandle(&column, typeParser));
       }
     }
   };
@@ -1435,14 +1435,14 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
   auto icebergLayout = std::dynamic_pointer_cast<
       const protocol::iceberg::IcebergTableLayoutHandle>(
       tableHandle.connectorTableLayout);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       icebergLayout,
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
 
   for (const auto& entry : icebergLayout->partitionColumns) {
     assignments.emplace(
-        entry.columnIdentity.name, toVeloxColumnHandle(&entry, typeParser));
+        entry.columnIdentity.name, toBoltColumnHandle(&entry, typeParser));
   }
 
   // Add synthesized columns to the TableScanNode columnHandles as well.
@@ -1453,7 +1453,7 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
   auto icebergTableHandle =
       std::dynamic_pointer_cast<const protocol::iceberg::IcebergTableHandle>(
           tableHandle.connectorHandle);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       icebergTableHandle,
       "Unexpected table handle type {}",
       tableHandle.connectorHandle->_type);
@@ -1479,18 +1479,18 @@ IcebergPrestoToVeloxConnector::toVeloxTableHandle(
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
-IcebergPrestoToVeloxConnector::createConnectorProtocol() const {
+IcebergPrestoToBoltConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::iceberg::IcebergConnectorProtocol>();
 }
 
-std::unique_ptr<velox::connector::ConnectorSplit>
-TpchPrestoToVeloxConnector::toVeloxSplit(
+std::unique_ptr<bolt::connector::ConnectorSplit>
+TpchPrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
     const protocol::SplitContext* splitContext) const {
   auto tpchSplit =
       dynamic_cast<const protocol::tpch::TpchSplit*>(connectorSplit);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       tpchSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<connector::tpch::TpchConnectorSplit>(
       catalogId,
@@ -1499,30 +1499,30 @@ TpchPrestoToVeloxConnector::toVeloxSplit(
       tpchSplit->partNumber);
 }
 
-std::unique_ptr<velox::connector::ColumnHandle>
-TpchPrestoToVeloxConnector::toVeloxColumnHandle(
+std::unique_ptr<bolt::connector::ColumnHandle>
+TpchPrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
   auto tpchColumn =
       dynamic_cast<const protocol::tpch::TpchColumnHandle*>(column);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       tpchColumn, "Unexpected column handle type {}", column->_type);
   return std::make_unique<connector::tpch::TpchColumnHandle>(
       tpchColumn->columnName);
 }
 
-std::unique_ptr<velox::connector::ConnectorTableHandle>
-TpchPrestoToVeloxConnector::toVeloxTableHandle(
+std::unique_ptr<bolt::connector::ConnectorTableHandle>
+TpchPrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
-    const VeloxExprConverter& exprConverter,
+    const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
   auto tpchLayout =
       std::dynamic_pointer_cast<const protocol::tpch::TpchTableLayoutHandle>(
           tableHandle.connectorTableLayout);
-  VELOX_CHECK_NOT_NULL(
+  BOLT_CHECK_NOT_NULL(
       tpchLayout,
       "Unexpected layout type {}",
       tableHandle.connectorTableLayout->_type);
@@ -1533,7 +1533,7 @@ TpchPrestoToVeloxConnector::toVeloxTableHandle(
 }
 
 std::unique_ptr<protocol::ConnectorProtocol>
-TpchPrestoToVeloxConnector::createConnectorProtocol() const {
+TpchPrestoToBoltConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::tpch::TpchConnectorProtocol>();
 }
 } // namespace facebook::presto

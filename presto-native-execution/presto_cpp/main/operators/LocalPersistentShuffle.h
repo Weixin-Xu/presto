@@ -14,10 +14,10 @@
 #pragma once
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
-#include "velox/buffer/Buffer.h"
-#include "velox/common/file/File.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/Memory.h"
+#include "bolt/buffer/Buffer.h"
+#include "bolt/common/file/File.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/Memory.h"
 
 namespace facebook::presto::operators {
 
@@ -55,7 +55,7 @@ struct LocalShuffleReadInfo {
 };
 
 /// This class is a persistent shuffle server that implements
-/// ShuffleInterface for read and write and also uses generalized Velox
+/// ShuffleInterface for read and write and also uses generalized Bolt
 /// file system to maintain its state and data.
 ///
 /// Except for in-progress blocks of current output vectors in the writer,
@@ -64,7 +64,7 @@ struct LocalShuffleReadInfo {
 /// for that partition. For example <ROOT_PATH>/10_12.bin is the 12th (block)
 /// vector in partition #10.
 ///
-/// The class also uses Velox filesystem to figure out the number of written
+/// The class also uses Bolt filesystem to figure out the number of written
 /// shuffle files for each partition. This enables the multi-threaded or
 /// multi-process use scenarios as long as each producer or consumer is assigned
 /// to a distinct group of partition IDs. Each of them can create an instance of
@@ -77,7 +77,7 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
       uint32_t shuffleId,
       uint32_t numPartitions,
       uint64_t maxBytesPerPartition,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool);
 
   void collect(int32_t partition, std::string_view data) override;
 
@@ -91,7 +91,7 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
  private:
   // Finds and creates the next file for writing the next block of the
   // given 'partition'.
-  std::unique_ptr<velox::WriteFile> getNextOutputFile(int32_t partition);
+  std::unique_ptr<bolt::WriteFile> getNextOutputFile(int32_t partition);
 
   // Writes the in-progress block to the given partition.
   void storePartitionBlock(int32_t partition);
@@ -106,7 +106,7 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
 
   // Used to make sure files created by this thread have unique names.
   const std::thread::id threadId_;
-  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+  bolt::memory::MemoryPool* FOLLY_NONNULL pool_;
   const uint32_t numPartitions_;
   const uint64_t maxBytesPerPartition_;
   // The top directory of the shuffle files and its file system.
@@ -115,9 +115,9 @@ class LocalPersistentShuffleWriter : public ShuffleWriter {
   const uint32_t shuffleId_;
 
   /// The latest written block buffers and sizes.
-  std::vector<velox::BufferPtr> inProgressPartitions_;
+  std::vector<bolt::BufferPtr> inProgressPartitions_;
   std::vector<size_t> inProgressSizes_;
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
 };
 
 class LocalPersistentShuffleReader : public ShuffleReader {
@@ -126,9 +126,9 @@ class LocalPersistentShuffleReader : public ShuffleReader {
       const std::string& rootPath,
       const std::string& queryId,
       std::vector<std::string> partitionIds,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool);
 
-  folly::SemiFuture<velox::BufferPtr> next() override;
+  folly::SemiFuture<bolt::BufferPtr> next() override;
 
   void noMoreData(bool success) override;
 
@@ -144,7 +144,7 @@ class LocalPersistentShuffleReader : public ShuffleReader {
   const std::string rootPath_;
   const std::string queryId_;
   const std::vector<std::string> partitionIds_;
-  velox::memory::MemoryPool* FOLLY_NONNULL pool_;
+  bolt::memory::MemoryPool* FOLLY_NONNULL pool_;
 
   // Latest read block (file) index in 'readPartitionFiles_' for 'partition_'.
   size_t readPartitionFileIndex_{0};
@@ -153,7 +153,7 @@ class LocalPersistentShuffleReader : public ShuffleReader {
   std::vector<std::string> readPartitionFiles_;
 
   // The top directory of the shuffle files and its file system.
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
 };
 
 class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
@@ -162,11 +162,11 @@ class LocalPersistentShuffleFactory : public ShuffleInterfaceFactory {
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedStr,
       const int32_t partition,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override;
 
   std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedStr,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool) override;
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override;
 };
 
 } // namespace facebook::presto::operators

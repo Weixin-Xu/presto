@@ -13,17 +13,17 @@
  */
 #include <gtest/gtest.h>
 
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/functions/prestosql/types/HyperLogLogType.h"
-#include "velox/functions/prestosql/types/IPAddressType.h"
-#include "velox/functions/prestosql/types/IPPrefixType.h"
-#include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/functions/prestosql/types/TimestampWithTimeZoneType.h"
-#include "velox/functions/prestosql/types/UuidType.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/functions/prestosql/types/HyperLogLogType.h"
+#include "bolt/functions/prestosql/types/IPAddressType.h"
+#include "bolt/functions/prestosql/types/IPPrefixType.h"
+#include "bolt/functions/prestosql/types/JsonType.h"
+#include "bolt/functions/prestosql/types/TimestampWithTimeZoneType.h"
+#include "bolt/functions/prestosql/types/UuidType.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace {
 inline void validateSqlFunctionHandleParsing(
@@ -43,9 +43,9 @@ inline void validateSqlFunctionHandleParsing(
 }
 } // namespace
 
-class PrestoToVeloxQueryPlanTest : public ::testing::Test {
+class PrestoToBoltQueryPlanTest : public ::testing::Test {
  public:
-  PrestoToVeloxQueryPlanTest() {
+  PrestoToBoltQueryPlanTest() {
     registerHyperLogLogType();
     registerIPAddressType();
     registerIPPrefixType();
@@ -55,7 +55,7 @@ class PrestoToVeloxQueryPlanTest : public ::testing::Test {
   }
 };
 
-TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithZeroParam) {
+TEST_F(PrestoToBoltQueryPlanTest, parseSqlFunctionHandleWithZeroParam) {
   std::string str = R"(
       {
         "@type": "json_file",
@@ -71,7 +71,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithZeroParam) {
   validateSqlFunctionHandleParsing(functionHandle, {});
 }
 
-TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithOneParam) {
+TEST_F(PrestoToBoltQueryPlanTest, parseSqlFunctionHandleWithOneParam) {
   std::string str = R"(
           {
             "@type": "json_file",
@@ -89,7 +89,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithOneParam) {
   validateSqlFunctionHandleParsing(functionHandle, expectedRawInputTypes);
 }
 
-TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithMultipleParam) {
+TEST_F(PrestoToBoltQueryPlanTest, parseSqlFunctionHandleWithMultipleParam) {
   std::string str = R"(
         {
           "@type": "json_file",
@@ -107,7 +107,7 @@ TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleWithMultipleParam) {
   validateSqlFunctionHandleParsing(functionHandle, expectedRawInputTypes);
 }
 
-TEST_F(PrestoToVeloxQueryPlanTest, parseSqlFunctionHandleAllComplexTypes) {
+TEST_F(PrestoToBoltQueryPlanTest, parseSqlFunctionHandleAllComplexTypes) {
   std::string str = R"(
         {
           "@type": "json_file",

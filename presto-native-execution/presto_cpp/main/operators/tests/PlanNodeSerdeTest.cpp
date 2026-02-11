@@ -14,20 +14,20 @@
 #include <gtest/gtest.h>
 
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/PartitionFunction.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/parse/TypeResolver.h"
-#include "velox/vector/tests/utils/VectorTestBase.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/PartitionFunction.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
+#include "bolt/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "bolt/functions/prestosql/registration/RegistrationFunctions.h"
+#include "bolt/parse/TypeResolver.h"
+#include "bolt/vector/tests/utils/VectorTestBase.h"
 
 using namespace facebook::presto::operators;
 
-namespace facebook::velox::exec::test {
+namespace facebook::bolt::exec::test {
 class PlanNodeSerdeTest : public testing::Test,
-                          public velox::test::VectorTestBase {
+                          public bolt::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -56,7 +56,7 @@ class PlanNodeSerdeTest : public testing::Test,
     auto serialized = plan->serialize();
 
     auto copy =
-        velox::ISerializable::deserialize<core::PlanNode>(serialized, pool());
+        bolt::ISerializable::deserialize<core::PlanNode>(serialized, pool());
     ASSERT_EQ(plan->toString(true, true), copy->toString(true, true));
   }
 
@@ -117,4 +117,4 @@ TEST_F(PlanNodeSerdeTest, broadcastWriteNode) {
                                 .planNode();
   testSerde(broadcastWritePlan);
 }
-} // namespace facebook::velox::exec::test
+} // namespace facebook::bolt::exec::test

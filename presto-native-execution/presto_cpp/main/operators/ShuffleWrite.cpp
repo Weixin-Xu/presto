@@ -12,24 +12,24 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "velox/exec/ExchangeClient.h"
+#include "bolt/exec/ExchangeClient.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 namespace {
-velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
 #define CALL_SHUFFLE(call, methodName)                                \
   try {                                                               \
     call;                                                             \
-  } catch (const VeloxException& e) {                                 \
+  } catch (const BoltException& e) {                                 \
     throw;                                                            \
   } catch (const std::exception& e) {                                 \
-    VELOX_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
+    BOLT_FAIL("ShuffleWriter::{} failed: {}", methodName, e.what()); \
   }
 
 class ShuffleWriteOperator : public Operator {
@@ -48,7 +48,7 @@ class ShuffleWriteOperator : public Operator {
         serializedShuffleWriteInfo_{planNode->serializedShuffleWriteInfo()} {
     const auto& shuffleName = planNode->shuffleName();
     shuffleFactory_ = ShuffleInterfaceFactory::factory(shuffleName);
-    VELOX_CHECK_NOT_NULL(
+    BOLT_CHECK_NOT_NULL(
         shuffleFactory_,
         "Failed to create shuffle write interface: Shuffle factory "
         "with name '{}' is not registered.",
@@ -155,7 +155,7 @@ folly::dynamic ShuffleWriteNode::serialize() const {
   return obj;
 }
 
-velox::core::PlanNodePtr ShuffleWriteNode::create(
+bolt::core::PlanNodePtr ShuffleWriteNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<ShuffleWriteNode>(
@@ -163,7 +163,7 @@ velox::core::PlanNodePtr ShuffleWriteNode::create(
       obj["numPartitions"].asInt(),
       ISerializable::deserialize<std::string>(obj["shuffleName"], context),
       ISerializable::deserialize<std::string>(obj["shuffleWriteInfo"], context),
-      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+      ISerializable::deserialize<std::vector<bolt::core::PlanNode>>(
           obj["sources"], context)[0]);
 }
 

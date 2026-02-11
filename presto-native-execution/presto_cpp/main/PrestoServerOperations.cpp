@@ -12,21 +12,21 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include <velox/common/base/Exceptions.h>
-#include <velox/common/base/VeloxException.h>
-#include <velox/common/caching/AsyncDataCache.h>
-#include <velox/common/caching/SsdCache.h>
-#include <velox/common/process/TraceContext.h>
+#include "bolt/common/base/Exceptions.h>
+#include "bolt/common/base/BoltException.h>
+#include "bolt/common/caching/AsyncDataCache.h>
+#include "bolt/common/caching/SsdCache.h>
+#include "bolt/common/process/TraceContext.h>
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
-#include "velox/connectors/hive/HiveConnector.h"
+#include "bolt/connectors/hive/HiveConnector.h"
 
 namespace facebook::presto {
 
 namespace {
 
 std::string unsupportedAction(const ServerOperation& op) {
-  VELOX_USER_FAIL(
+  BOLT_USER_FAIL(
       "Target '{}' does not support action '{}'",
       ServerOperation::targetString(op.target),
       ServerOperation::actionString(op.action));
@@ -38,16 +38,16 @@ std::string clearConnectorCache(proxygen::HTTPMessage* message) {
   if (name == "hive") {
     // ======== HiveConnector Operations ========
     auto hiveConnector =
-        std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
-            velox::connector::getConnector(id));
-    VELOX_USER_CHECK_NOT_NULL(
+        std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
+            bolt::connector::getConnector(id));
+    BOLT_USER_CHECK_NOT_NULL(
         hiveConnector,
         "No '{}' connector found for connector id '{}'",
         name,
         id);
     return hiveConnector->clearFileHandleCache().toString();
   }
-  VELOX_USER_FAIL("connector '{}' operation is not supported", name);
+  BOLT_USER_FAIL("connector '{}' operation is not supported", name);
 }
 
 std::string getConnectorCacheStats(proxygen::HTTPMessage* message) {
@@ -56,16 +56,16 @@ std::string getConnectorCacheStats(proxygen::HTTPMessage* message) {
   if (name == "hive") {
     // ======== HiveConnector Operations ========
     auto hiveConnector =
-        std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
-            velox::connector::getConnector(id));
-    VELOX_USER_CHECK_NOT_NULL(
+        std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
+            bolt::connector::getConnector(id));
+    BOLT_USER_CHECK_NOT_NULL(
         hiveConnector,
         "No '{}' connector found for connector id '{}'",
         name,
         id);
     return hiveConnector->fileHandleCacheStats().toString();
   }
-  VELOX_USER_FAIL("connector '{}' operation is not supported", name);
+  BOLT_USER_FAIL("connector '{}' operation is not supported", name);
 }
 
 } // namespace
@@ -82,9 +82,9 @@ void PrestoServerOperations::runOperation(
       case ServerOperation::Target::kSystemConfig:
         http::sendOkResponse(downstream, systemConfigOperation(op, message));
         break;
-      case ServerOperation::Target::kVeloxQueryConfig:
+      case ServerOperation::Target::kBoltQueryConfig:
         http::sendOkResponse(
-            downstream, veloxQueryConfigOperation(op, message));
+            downstream, boltQueryConfigOperation(op, message));
         break;
       case ServerOperation::Target::kTask:
         http::sendOkResponse(downstream, taskOperation(op, message));
@@ -93,9 +93,9 @@ void PrestoServerOperations::runOperation(
         http::sendOkResponse(downstream, serverOperation(op, message));
         break;
     }
-  } catch (const velox::VeloxUserError& ex) {
+  } catch (const bolt::BoltUserError& ex) {
     http::sendErrorResponse(downstream, ex.what());
-  } catch (const velox::VeloxException& ex) {
+  } catch (const bolt::BoltException& ex) {
     http::sendErrorResponse(downstream, ex.what());
   }
 }
@@ -121,7 +121,7 @@ std::string PrestoServerOperations::systemConfigOperation(
     case ServerOperation::Action::kSetProperty: {
       const auto name = message->getQueryParam("name");
       const auto value = message->getQueryParam("value");
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           !name.empty() && !value.empty(),
           "Missing 'name' or 'value' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
@@ -136,13 +136,13 @@ std::string PrestoServerOperations::systemConfigOperation(
     }
     case ServerOperation::Action::kGetProperty: {
       const auto name = message->getQueryParam("name");
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           !name.empty(),
           "Missing 'name' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
           ServerOperation::actionString(op.action));
       auto valueOpt = SystemConfig::instance()->optionalProperty(name);
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           valueOpt.has_value(),
           fmt::format("Could not find property '{}'\n", name));
       return fmt::format("{}\n", valueOpt.value());
@@ -153,14 +153,14 @@ std::string PrestoServerOperations::systemConfigOperation(
   return unsupportedAction(op);
 }
 
-std::string PrestoServerOperations::veloxQueryConfigOperation(
+std::string PrestoServerOperations::boltQueryConfigOperation(
     const ServerOperation& op,
     proxygen::HTTPMessage* message) {
   switch (op.action) {
     case ServerOperation::Action::kSetProperty: {
       const auto name = message->getQueryParam("name");
       const auto value = message->getQueryParam("value");
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           !name.empty() && !value.empty(),
           "Missing 'name' or 'value' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
@@ -169,20 +169,20 @@ std::string PrestoServerOperations::veloxQueryConfigOperation(
           "Have set system property value '{}' to '{}'. Old value was '{}'.\n",
           name,
           value,
-          BaseVeloxQueryConfig::instance()
+          BaseBoltQueryConfig::instance()
               ->setValue(name, value)
               .value_or("<default>"));
     }
     case ServerOperation::Action::kGetProperty: {
       const auto name = message->getQueryParam("name");
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           !name.empty(),
           "Missing 'name' parameter for '{}.{}' operation",
           ServerOperation::targetString(op.target),
           ServerOperation::actionString(op.action));
       return fmt::format(
           "{}\n",
-          BaseVeloxQueryConfig::instance()->optionalProperty(name).value_or(
+          BaseBoltQueryConfig::instance()->optionalProperty(name).value_or(
               "<default>"));
     }
     default:
@@ -215,7 +215,7 @@ std::string PrestoServerOperations::taskOperation(
             ? std::numeric_limits<uint32_t>::max()
             : stoi(limitStr);
       } catch (std::exception& ex) {
-        VELOX_USER_FAIL("Invalid limit provided '{}'.", limitStr);
+        BOLT_USER_FAIL("Invalid limit provided '{}'.", limitStr);
       }
       std::stringstream oss;
       if (limit < taskMap.size()) {
@@ -225,10 +225,10 @@ std::string PrestoServerOperations::taskOperation(
       uint32_t index = 0;
       for (auto taskItr = taskMap.begin(); taskItr != taskMap.end();
            ++taskItr) {
-        const auto& veloxTask = taskItr->second->task;
+        const auto& boltTask = taskItr->second->task;
         const bool atLimit = ++index >= limit;
         arrayObj.push_back(
-            (veloxTask == nullptr ? "null" : veloxTask->toShortJson()));
+            (boltTask == nullptr ? "null" : boltTask->toShortJson()));
         if (atLimit) {
           break;
         }
@@ -263,7 +263,7 @@ std::string PrestoServerOperations::serverOperation(
 }
 
 std::string PrestoServerOperations::serverOperationTrace() {
-  return velox::process::TraceContext::statusLine();
+  return bolt::process::TraceContext::statusLine();
 }
 
 std::string PrestoServerOperations::serverOperationSetState(
@@ -279,7 +279,7 @@ std::string PrestoServerOperations::serverOperationSetState(
     } else if (stateStr == "shutting_down") {
       newNodeState = NodeState::kShuttingDown;
     } else {
-      VELOX_USER_FAIL(
+      BOLT_USER_FAIL(
           "Invalid state '{}'. "
           "Supported states are: 'active', 'inactive', 'shutting_down'. "
           "Example: server/setState?state=shutting_down",
@@ -308,7 +308,7 @@ std::string PrestoServerOperations::serverOperationAnnouncer(
       server_->enableAnnouncer(false);
       return "Announcer disabled";
     }
-    VELOX_USER_FAIL(
+    BOLT_USER_FAIL(
         "Invalid action '{}'. Supported actions are: 'enable', 'disable'. "
         "Example: server/announcer?action=disable",
         actionStr);
@@ -326,11 +326,11 @@ std::string PrestoServerOperations::serverOperationClearCache(
     type = kMemoryCacheType;
   }
   if (type != kMemoryCacheType && type != kServerCacheType) {
-    VELOX_USER_FAIL(
+    BOLT_USER_FAIL(
         "Unknown cache type '{}' for server cache clear operation", type);
   }
 
-  auto* cache = velox::cache::AsyncDataCache::getInstance();
+  auto* cache = bolt::cache::AsyncDataCache::getInstance();
   if (cache == nullptr) {
     return "No memory cache set on server";
   }
@@ -350,7 +350,7 @@ std::string PrestoServerOperations::serverOperationClearCache(
 
 std::string PrestoServerOperations::serverOperationWriteSsd(
     proxygen::HTTPMessage* message) {
-  auto* cache = velox::cache::AsyncDataCache::getInstance();
+  auto* cache = bolt::cache::AsyncDataCache::getInstance();
   if (cache == nullptr) {
     return "No memory cache set on server";
   }

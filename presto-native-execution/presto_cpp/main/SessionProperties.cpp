@@ -12,9 +12,9 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/SessionProperties.h"
-#include "velox/core/QueryConfig.h"
+#include "bolt/core/QueryConfig.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 
@@ -39,20 +39,20 @@ void SessionProperties::addSessionProperty(
     const std::string& description,
     const TypePtr& type,
     bool isHidden,
-    const std::string& veloxConfigName,
-    const std::string& veloxDefault) {
+    const std::string& boltConfigName,
+    const std::string& boltDefault) {
   sessionProperties_[name] = std::make_shared<SessionProperty>(
       name,
       description,
       type->toString(),
       isHidden,
-      veloxConfigName,
-      veloxDefault);
+      boltConfigName,
+      boltDefault);
 }
 
 // List of native session properties is kept as the source of truth here.
 SessionProperties::SessionProperties() {
-  using velox::core::QueryConfig;
+  using bolt::core::QueryConfig;
   // Use empty instance to get default property values.
   QueryConfig c{{}};
 
@@ -348,12 +348,12 @@ SessionProperties::SessionProperties() {
       BOOLEAN(),
       false,
       QueryConfig::kAdjustTimestampToTimezone,
-      // Overrides velox default value. legacy_timestamp default value is true
+      // Overrides bolt default value. legacy_timestamp default value is true
       // in the coordinator.
       "true");
 
   // TODO: remove this once cpu driver slicing config is turned on by default in
-  // Velox.
+  // Bolt.
   addSessionProperty(
       kDriverCpuTimeSliceLimitMs,
       "Native Execution only. The cpu time slice limit in ms that a driver thread. "
@@ -362,7 +362,7 @@ SessionProperties::SessionProperties() {
       INTEGER(),
       false,
       QueryConfig::kDriverCpuTimeSliceLimitMs,
-      // Overrides velox default value. Set it to 1 second to be aligned with
+      // Overrides bolt default value. Set it to 1 second to be aligned with
       // Presto Java.
       std::to_string(1000));
 
@@ -467,17 +467,17 @@ SessionProperties::getSessionProperties() {
   return sessionProperties_;
 }
 
-const std::string SessionProperties::toVeloxConfig(const std::string& name) {
+const std::string SessionProperties::toBoltConfig(const std::string& name) {
   auto it = sessionProperties_.find(name);
   return it == sessionProperties_.end() ? name
-                                        : it->second->getVeloxConfigName();
+                                        : it->second->getBoltConfigName();
 }
 
-void SessionProperties::updateVeloxConfig(
+void SessionProperties::updateBoltConfig(
     const std::string& name,
     const std::string& value) {
   auto it = sessionProperties_.find(name);
-  // Velox config value is updated only for presto session properties.
+  // Bolt config value is updated only for presto session properties.
   if (it == sessionProperties_.end()) {
     return;
   }

@@ -13,11 +13,11 @@
  */
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "velox/common/file/File.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/common/file/File.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::test {
 

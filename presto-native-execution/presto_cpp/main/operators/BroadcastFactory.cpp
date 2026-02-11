@@ -16,12 +16,12 @@
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "velox/common/file/File.h"
-#include "velox/serializers/PrestoSerializer.h"
-#include "velox/vector/FlatVector.h"
+#include "bolt/common/file/File.h"
+#include "bolt/serializers/PrestoSerializer.h"
+#include "bolt/vector/FlatVector.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 
@@ -34,8 +34,8 @@ std::string makeUuid() {
 /// Create FileBroadcast to write files under specified basePath.
 BroadcastFactory::BroadcastFactory(const std::string& basePath)
     : basePath_(basePath) {
-  VELOX_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
-  fileSystem_ = velox::filesystems::getFileSystem(basePath, nullptr);
+  BOLT_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
+  fileSystem_ = bolt::filesystems::getFileSystem(basePath, nullptr);
 }
 
 std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
@@ -50,7 +50,7 @@ std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
 
 std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
     std::unique_ptr<BroadcastFileInfo> fileInfo,
-    velox::memory::MemoryPool* pool) {
+    bolt::memory::MemoryPool* pool) {
   auto broadcastFileReader =
       std::make_shared<BroadcastFileReader>(fileInfo, fileSystem_, pool);
   return broadcastFileReader;
@@ -68,8 +68,8 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 BroadcastFileWriter::BroadcastFileWriter(
     std::string_view filename,
     const RowTypePtr& inputType,
-    std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
-    velox::memory::MemoryPool* pool)
+    std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
+    bolt::memory::MemoryPool* pool)
     : fileSystem_(std::move(fileSystem)),
       filename_(filename),
       numRows_(0),
@@ -147,8 +147,8 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
 
 BroadcastFileReader::BroadcastFileReader(
     std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
-    std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
-    velox::memory::MemoryPool* pool)
+    std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
+    bolt::memory::MemoryPool* pool)
     : broadcastFileInfo_(std::move(broadcastFileInfo)),
       fileSystem_(fileSystem),
       hasData_(true),
@@ -159,7 +159,7 @@ bool BroadcastFileReader::hasNext() {
   return hasData_;
 }
 
-velox::BufferPtr BroadcastFileReader::next() {
+bolt::BufferPtr BroadcastFileReader::next() {
   if (!hasNext()) {
     return nullptr;
   }

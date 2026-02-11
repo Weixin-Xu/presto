@@ -19,8 +19,8 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpClient.h"
-#include "velox/common/memory/Memory.h"
-#include "velox/exec/Exchange.h"
+#include "bolt/common/memory/Memory.h"
+#include "bolt/exec/Exchange.h"
 
 namespace facebook::presto {
 
@@ -28,12 +28,12 @@ namespace test {
 class PrestoExchangeSourceTestHelper;
 };
 
-class PrestoExchangeSource : public velox::exec::ExchangeSource {
+class PrestoExchangeSource : public bolt::exec::ExchangeSource {
  public:
   class RetryState {
    public:
     RetryState(int64_t maxWaitMs = 1'000)
-        : maxWaitMs_(maxWaitMs), startMs_(velox::getCurrentTimeMs()) {}
+        : maxWaitMs_(maxWaitMs), startMs_(bolt::getCurrentTimeMs()) {}
 
     // Returns the delay in millis to wait before next try. This is an
     // exponential backoff delay with jitter. The first call to this always
@@ -53,7 +53,7 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     }
 
     int64_t durationMs() const {
-      return velox::getCurrentTimeMs() - startMs_;
+      return bolt::getCurrentTimeMs() - startMs_;
     }
 
     // Returns whether we have exhausted all retries. We only retry if we spent
@@ -75,8 +75,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      velox::memory::MemoryPool* pool,
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      bolt::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::EventBase* ioEventBase,
       http::HttpClientConnectionPool* connPool,
@@ -116,8 +116,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,
       int destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      velox::memory::MemoryPool* memoryPool,
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      bolt::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
       http::HttpClientConnectionPool* connPool,
@@ -131,13 +131,13 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
     return true;
   }
 
-  folly::F14FastMap<std::string, velox::RuntimeMetric> metrics()
+  folly::F14FastMap<std::string, bolt::RuntimeMetric> metrics()
       const override {
     return {
-        {"prestoExchangeSource.numPages", velox::RuntimeMetric(numPages_)},
+        {"prestoExchangeSource.numPages", bolt::RuntimeMetric(numPages_)},
         {"prestoExchangeSource.totalBytes",
-         velox::RuntimeMetric(
-             totalBytes_, velox::RuntimeCounter::Unit::kBytes)},
+         bolt::RuntimeMetric(
+             totalBytes_, bolt::RuntimeCounter::Unit::kBytes)},
     };
   }
 
@@ -256,12 +256,12 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   const std::string host_;
   const uint16_t port_;
   const folly::SSLContextPtr sslContext_;
-  // If true, we copy the iobufs allocated by proxygen to velox memory pool.
+  // If true, we copy the iobufs allocated by proxygen to bolt memory pool.
   // Otherwise, we build serialized presto page from the proxygen iobufs
   // directly.
   const bool enableBufferCopy_;
-  // If true, copy proxygen iobufs to velox memory pool in http response handler
-  // immediately. This is to track the shuffle memory usage under velox memory
+  // If true, copy proxygen iobufs to bolt memory pool in http response handler
+  // immediately. This is to track the shuffle memory usage under bolt memory
   // control to prevent server OOM from the unexpected spiky shuffle memory
   // usage from jemalloc. If false, does the copy later in driver executor
   // context after the http client receives the whole response. This only
@@ -280,8 +280,8 @@ class PrestoExchangeSource : public velox::exec::ExchangeSource {
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued
   std::atomic_bool abortResultsIssued_{false};
-  velox::VeloxPromise<Response> promise_{
-      velox::VeloxPromise<Response>::makeEmpty()};
+  bolt::BoltPromise<Response> promise_{
+      bolt::BoltPromise<Response>::makeEmpty()};
 
   friend class test::PrestoExchangeSourceTestHelper;
 };

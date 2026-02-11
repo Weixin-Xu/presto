@@ -17,9 +17,9 @@
 #include "presto_cpp/main/http/HttpServer.h"
 #include "presto_cpp/main/types/PrestoTaskId.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/exec/Task.h"
+#include "bolt/exec/Task.h"
 
-namespace facebook::velox {
+namespace bytedance::bolt {
 struct RuntimeMetric;
 }
 
@@ -85,7 +85,7 @@ struct ResultRequest {
 struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
-  std::shared_ptr<velox::exec::Task> task;
+  std::shared_ptr<bolt::exec::Task> task;
   std::atomic_bool hasStuckOperator{false};
 
   /// Has the task been normally created and started.
@@ -170,7 +170,7 @@ struct PrestoTask {
   static std::string taskStatesToString(
       const std::array<size_t, 5>& taskStates);
 
-  /// Invoked to update presto task status from the updated velox task stats.
+  /// Invoked to update presto task status from the updated bolt task stats.
   protocol::TaskStatus updateStatusLocked();
   protocol::TaskInfo updateInfoLocked();
 
@@ -180,23 +180,23 @@ struct PrestoTask {
   void recordProcessCpuTime();
 
   void updateOutputBufferInfoLocked(
-      const velox::exec::TaskStats& veloxTaskStats,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      const bolt::exec::TaskStats& boltTaskStats,
+      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateTimeInfoLocked(
-      const velox::exec::TaskStats& veloxTaskStats,
+      const bolt::exec::TaskStats& boltTaskStats,
       uint64_t currentTimeMs,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateExecutionInfoLocked(
-      const velox::exec::TaskStats& veloxTaskStats,
+      const bolt::exec::TaskStats& boltTaskStats,
       const protocol::TaskStatus& prestoTaskStatus,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateMemoryInfoLocked(
-      const velox::exec::TaskStats& veloxTaskStats,
+      const bolt::exec::TaskStats& boltTaskStats,
       uint64_t currentTimeMs,
-      std::unordered_map<std::string, velox::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};
 };
@@ -206,7 +206,7 @@ using TaskMap =
 
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
-    const facebook::velox::RuntimeMetric& metric);
+    const facebook::bolt::RuntimeMetric& metric);
 
 bool isFinalState(protocol::TaskState state);
 

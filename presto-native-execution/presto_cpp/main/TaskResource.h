@@ -15,17 +15,17 @@
 
 #include "presto_cpp/main/TaskManager.h"
 #include "presto_cpp/main/http/HttpServer.h"
-#include "presto_cpp/main/types/VeloxPlanValidator.h"
-#include "velox/common/memory/Memory.h"
+#include "presto_cpp/main/types/BoltPlanValidator.h"
+#include "bolt/common/memory/Memory.h"
 
 namespace facebook::presto {
 
 class TaskResource {
  public:
   explicit TaskResource(
-      velox::memory::MemoryPool* pool,
+      bolt::memory::MemoryPool* pool,
       folly::Executor* httpSrvCpuExecutor,
-      VeloxPlanValidator* planValidator,
+      BoltPlanValidator* planValidator,
       TaskManager& taskManager)
       : httpSrvCpuExecutor_(httpSrvCpuExecutor),
         pool_{pool},
@@ -99,8 +99,8 @@ class TaskResource {
       const std::vector<std::string>& pathMatch);
 
   folly::Executor* const httpSrvCpuExecutor_;
-  velox::memory::MemoryPool* const pool_;
-  VeloxPlanValidator* const planValidator_;
+  bolt::memory::MemoryPool* const pool_;
+  BoltPlanValidator* const planValidator_;
 
   TaskManager& taskManager_;
 };

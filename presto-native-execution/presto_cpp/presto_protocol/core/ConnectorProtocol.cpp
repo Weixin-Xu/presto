@@ -27,7 +27,7 @@ protocols() {
 void registerConnectorProtocol(
     const std::string& connectorName,
     std::unique_ptr<ConnectorProtocol> protocol) {
-  VELOX_CHECK(
+  BOLT_CHECK(
       protocols().insert({connectorName, std::move(protocol)}).second,
       "Protocol for connector {} is already registered",
       connectorName);
@@ -40,7 +40,7 @@ void unregisterConnectorProtocol(const std::string& connectorName) {
 const ConnectorProtocol& getConnectorProtocol(
     const std::string& connectorName) {
   auto it = protocols().find(connectorName);
-  VELOX_CHECK(
+  BOLT_CHECK(
       it != protocols().end(),
       "Protocol for connector {} not registered",
       connectorName);

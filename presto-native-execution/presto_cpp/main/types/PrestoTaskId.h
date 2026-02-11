@@ -14,7 +14,7 @@
 #pragma once
 #include <folly/Conv.h>
 #include <string>
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto {
 class PrestoTaskId {
@@ -24,7 +24,7 @@ class PrestoTaskId {
     folly::split('.', taskId, taskIdParts);
 
     if (taskIdParts.size() != 5) {
-      VELOX_USER_FAIL("Malformed task ID: {}", taskId);
+      BOLT_USER_FAIL("Malformed task ID: {}", taskId);
     }
 
     queryId_ = taskIdParts[0];

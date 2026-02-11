@@ -38,34 +38,34 @@
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/types/FunctionMetadata.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
-#include "presto_cpp/main/types/VeloxPlanConversion.h"
-#include "velox/common/base/Counters.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/common/caching/CacheTTLController.h"
-#include "velox/common/caching/SsdCache.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/MmapAllocator.h"
-#include "velox/common/memory/SharedArbitrator.h"
-#include "velox/connectors/Connector.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/connectors/hive/HiveDataSink.h"
-#include "velox/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
-#include "velox/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
-#include "velox/connectors/tpch/TpchConnector.h"
-#include "velox/dwio/dwrf/RegisterDwrfReader.h"
-#include "velox/dwio/dwrf/RegisterDwrfWriter.h"
-#include "velox/dwio/parquet/RegisterParquetReader.h"
-#include "velox/dwio/parquet/RegisterParquetWriter.h"
-#include "velox/exec/OutputBufferManager.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
-#include "velox/serializers/CompactRowSerializer.h"
-#include "velox/serializers/PrestoSerializer.h"
-#include "velox/serializers/UnsafeRowSerializer.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
+#include "presto_cpp/main/types/BoltPlanConversion.h"
+#include "bolt/common/base/Counters.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/caching/CacheTTLController.h"
+#include "bolt/common/caching/SsdCache.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MmapAllocator.h"
+#include "bolt/common/memory/SharedArbitrator.h"
+#include "bolt/connectors/Connector.h"
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/connectors/hive/HiveDataSink.h"
+#include "bolt/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
+#include "bolt/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
+#include "bolt/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
+#include "bolt/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "bolt/connectors/tpch/TpchConnector.h"
+#include "bolt/dwio/dwrf/RegisterDwrfReader.h"
+#include "bolt/dwio/dwrf/RegisterDwrfWriter.h"
+#include "bolt/dwio/parquet/RegisterParquetReader.h"
+#include "bolt/dwio/parquet/RegisterParquetWriter.h"
+#include "bolt/exec/OutputBufferManager.h"
+#include "bolt/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "bolt/functions/prestosql/registration/RegistrationFunctions.h"
+#include "bolt/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "bolt/serializers/CompactRowSerializer.h"
+#include "bolt/serializers/PrestoSerializer.h"
+#include "bolt/serializers/UnsafeRowSerializer.h"
 
 #ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
@@ -102,10 +102,10 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  velox::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+  bolt::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
       []() {
         return std::make_unique<
-            velox::serializer::presto::PrestoOutputStreamListener>();
+            bolt::serializer::presto::PrestoOutputStreamListener>();
       });
 }
 
@@ -120,14 +120,14 @@ std::string stringifyConnectorConfig(
 
 bool isCacheTtlEnabled() {
   const auto* systemConfig = SystemConfig::instance();
-  if (systemConfig->cacheVeloxTtlEnabled()) {
-    VELOX_USER_CHECK(
-        systemConfig->cacheVeloxTtlThreshold() > std::chrono::seconds::zero(),
-        "Config cache.velox.ttl-threshold must be positive.");
-    VELOX_USER_CHECK(
-        systemConfig->cacheVeloxTtlCheckInterval() >
+  if (systemConfig->cacheBoltTtlEnabled()) {
+    BOLT_USER_CHECK(
+        systemConfig->cacheBoltTtlThreshold() > std::chrono::seconds::zero(),
+        "Config cache.bolt.ttl-threshold must be positive.");
+    BOLT_USER_CHECK(
+        systemConfig->cacheBoltTtlCheckInterval() >
             std::chrono::seconds::zero(),
-        "Config cache.velox.ttl-check-interval must be positive.");
+        "Config cache.bolt.ttl-check-interval must be positive.");
     return true;
   }
   return false;
@@ -166,7 +166,7 @@ PrestoServer::~PrestoServer() {}
 void PrestoServer::run() {
   auto systemConfig = SystemConfig::instance();
   auto nodeConfig = NodeConfig::instance();
-  auto baseVeloxQueryConfig = BaseVeloxQueryConfig::instance();
+  auto baseBoltQueryConfig = BaseBoltQueryConfig::instance();
   int httpPort{0};
 
   std::string certPath;
@@ -182,9 +182,9 @@ void PrestoServer::run() {
         fmt::format("{}/config.properties", configDirectoryPath_));
     nodeConfig->initialize(
         fmt::format("{}/node.properties", configDirectoryPath_));
-    // velox.properties is optional.
-    baseVeloxQueryConfig->initialize(
-        fmt::format("{}/velox.properties", configDirectoryPath_), true);
+    // bolt.properties is optional.
+    baseBoltQueryConfig->initialize(
+        fmt::format("{}/bolt.properties", configDirectoryPath_), true);
 
     httpPort = systemConfig->httpServerHttpPort();
     if (systemConfig->httpServerHttpsEnabled()) {
@@ -192,18 +192,18 @@ void PrestoServer::run() {
 
       ciphers = systemConfig->httpsSupportedCiphers();
       if (ciphers.empty()) {
-        VELOX_USER_FAIL("Https is enabled without ciphers");
+        BOLT_USER_FAIL("Https is enabled without ciphers");
       }
 
       auto optionalCertPath = systemConfig->httpsCertPath();
       if (!optionalCertPath.has_value()) {
-        VELOX_USER_FAIL("Https is enabled without certificate path");
+        BOLT_USER_FAIL("Https is enabled without certificate path");
       }
       certPath = optionalCertPath.value();
 
       auto optionalKeyPath = systemConfig->httpsKeyPath();
       if (!optionalKeyPath.has_value()) {
-        VELOX_USER_FAIL("Https is enabled without key path");
+        BOLT_USER_FAIL("Https is enabled without key path");
       }
       keyPath = optionalKeyPath.value();
 
@@ -211,7 +211,7 @@ void PrestoServer::run() {
       if (!optionalClientCertPath.has_value()) {
         // This config is not used in server but validated here, otherwise, it
         // will fail later in the HttpClient during query execution.
-        VELOX_USER_FAIL(
+        BOLT_USER_FAIL(
             "Https Client Certificates are not configured correctly");
       }
 
@@ -221,9 +221,9 @@ void PrestoServer::run() {
 
     if (systemConfig->internalCommunicationJwtEnabled()) {
 #ifndef PRESTO_ENABLE_JWT
-      VELOX_USER_FAIL("Internal JWT is enabled but not supported");
+      BOLT_USER_FAIL("Internal JWT is enabled but not supported");
 #endif
-      VELOX_USER_CHECK(
+      BOLT_USER_CHECK(
           !(systemConfig->internalCommunicationSharedSecret().empty()),
           "Internal JWT is enabled without a corresponding shared secret");
     }
@@ -238,7 +238,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
-  } catch (const velox::VeloxUserError& e) {
+  } catch (const bolt::BoltUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
   }
@@ -251,34 +251,34 @@ void PrestoServer::run() {
   registerCustomOperators();
   registerConnectorFactories();
 
-  // Register Velox connector factory for iceberg.
+  // Register Bolt connector factory for iceberg.
   // The iceberg catalog is handled by the hive connector factory.
-  velox::connector::registerConnectorFactory(
-      std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+  bolt::connector::registerConnectorFactory(
+      std::make_shared<bolt::connector::hive::HiveConnectorFactory>(
           "iceberg"));
 
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<HivePrestoToVeloxConnector>("hive-hadoop2"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<IcebergPrestoToVeloxConnector>("iceberg"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<TpchPrestoToVeloxConnector>("tpch"));
+  registerPrestoToBoltConnector(
+      std::make_unique<HivePrestoToBoltConnector>("hive"));
+  registerPrestoToBoltConnector(
+      std::make_unique<HivePrestoToBoltConnector>("hive-hadoop2"));
+  registerPrestoToBoltConnector(
+      std::make_unique<IcebergPrestoToBoltConnector>("iceberg"));
+  registerPrestoToBoltConnector(
+      std::make_unique<TpchPrestoToBoltConnector>("tpch"));
   // Presto server uses system catalog or system schema in other catalogs
   // in different places in the code. All these resolve to the SystemConnector.
   // Depending on where the operator or column is used, different prefixes can
   // be used in the naming. So the protocol class is mapped
   // to all the different prefixes for System tables/columns.
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("$system"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("system"));
-  registerPrestoToVeloxConnector(
-      std::make_unique<SystemPrestoToVeloxConnector>("$system@system"));
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("$system"));
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("system"));
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("$system@system"));
 
-  velox::exec::OutputBufferManager::initialize({});
-  initializeVeloxMemory();
+  bolt::exec::OutputBufferManager::initialize({});
+  initializeBoltMemory();
   initializeThreadPools();
 
   auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
@@ -375,7 +375,7 @@ void PrestoServer::run() {
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();
-    if (folly::Singleton<velox::BaseStatsReporter>::try_get()) {
+    if (folly::Singleton<bolt::BaseStatsReporter>::try_get()) {
       httpServer_->registerGet(
           "/v1/info/metrics",
           [](proxygen::HTTPMessage* /*message*/,
@@ -383,7 +383,7 @@ void PrestoServer::run() {
              proxygen::ResponseHandler* downstream) {
             http::sendOkResponse(
                 downstream,
-                folly::Singleton<velox::BaseStatsReporter>::try_get()
+                folly::Singleton<bolt::BaseStatsReporter>::try_get()
                     ->fetchMetrics());
           });
     }
@@ -426,12 +426,12 @@ void PrestoServer::run() {
         std::make_unique<http::HttpClientConnectionPool>();
   }
 
-  facebook::velox::exec::ExchangeSource::registerFactory(
+  facebook::bolt::exec::ExchangeSource::registerFactory(
       [this](
           const std::string& taskId,
           int destination,
-          std::shared_ptr<velox::exec::ExchangeQueue> queue,
-          velox::memory::MemoryPool* pool) {
+          std::shared_ptr<bolt::exec::ExchangeQueue> queue,
+          bolt::memory::MemoryPool* pool) {
         return PrestoExchangeSource::create(
             taskId,
             destination,
@@ -443,16 +443,16 @@ void PrestoServer::run() {
             sslContext_);
       });
 
-  velox::exec::ExchangeSource::registerFactory(
+  bolt::exec::ExchangeSource::registerFactory(
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
   // Batch broadcast exchange source.
-  velox::exec::ExchangeSource::registerFactory(
+  bolt::exec::ExchangeSource::registerFactory(
       operators::BroadcastExchangeSource::createExchangeSource);
 
   pool_ =
-      velox::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
-  nativeWorkerPool_ = velox::memory::MemoryManager::getInstance()->addLeafPool(
+      bolt::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
+  nativeWorkerPool_ = bolt::memory::MemoryManager::getInstance()->addLeafPool(
       "PrestoNativeWorker");
 
   taskManager_ = std::make_unique<TaskManager>(
@@ -472,26 +472,26 @@ void PrestoServer::run() {
         << "Spilling root directory: " << baseSpillDirectory;
   }
 
-  initVeloxPlanValidator();
+  initBoltPlanValidator();
   taskResource_ = std::make_unique<TaskResource>(
       pool_.get(),
       httpSrvCpuExecutor_.get(),
-      getVeloxPlanValidator(),
+      getBoltPlanValidator(),
       *taskManager_);
   taskResource_->registerUris(*httpServer_);
   if (systemConfig->enableSerializedPageChecksum()) {
     enableChecksum();
   }
 
-  if (systemConfig->enableVeloxTaskLogging()) {
+  if (systemConfig->enableBoltTaskLogging()) {
     if (auto listener = getTaskListener()) {
-      velox::exec::registerTaskListener(listener);
+      bolt::exec::registerTaskListener(listener);
     }
   }
 
-  if (systemConfig->enableVeloxExprSetLogging()) {
+  if (systemConfig->enableBoltExprSetLogging()) {
     if (auto listener = getExprSetListener()) {
-      velox::exec::registerExprSetListener(listener);
+      bolt::exec::registerExprSetListener(listener);
     }
   }
   prestoServerOperations_ =
@@ -531,8 +531,8 @@ void PrestoServer::run() {
 
   PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks";
 
-  auto* memoryAllocator = velox::memory::memoryManager()->allocator();
-  auto* asyncDataCache = velox::cache::AsyncDataCache::getInstance();
+  auto* memoryAllocator = bolt::memory::memoryManager()->allocator();
+  auto* asyncDataCache = bolt::cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       spillerExecutor_.get(),
@@ -543,7 +543,7 @@ void PrestoServer::run() {
       taskManager_.get(),
       memoryAllocator,
       asyncDataCache,
-      velox::connector::getAllConnectors(),
+      bolt::connector::getAllConnectors(),
       this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
@@ -615,12 +615,12 @@ void PrestoServer::run() {
     }
 
     if (coordinatorDiscoverer_ != nullptr) {
-      VELOX_CHECK_NOT_NULL(
+      BOLT_CHECK_NOT_NULL(
           announcer_,
           "The announcer is expected to have been created but wasn't.");
       const auto heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
       if (heartbeatFrequencyMs > 0) {
-        VELOX_CHECK_NOT_NULL(
+        BOLT_CHECK_NOT_NULL(
             heartbeatManager_,
             "The heartbeat manager is expected to have been created but wasn't.");
       }
@@ -780,7 +780,7 @@ class BatchThreadFactory : public folly::NamedThreadFactory {
       param.sched_priority = 0;
       const int ret =
           pthread_setschedparam(pthread_self(), SCHED_BATCH, &param);
-      VELOX_CHECK_EQ(
+      BOLT_CHECK_EQ(
           ret, 0, "Failed to set a thread priority: {}", folly::errnoStr(ret));
       _func();
     });
@@ -800,7 +800,7 @@ void PrestoServer::initializeThreadPools() {
 #ifdef __linux__
     threadFactory = std::make_shared<BatchThreadFactory>("Driver");
 #else
-    VELOX_FAIL("Batch scheduling policy can only be enabled on Linux");
+    BOLT_FAIL("Batch scheduling policy can only be enabled on Linux");
 #endif
   } else {
     threadFactory = std::make_shared<folly::NamedThreadFactory>("Driver");
@@ -828,8 +828,8 @@ void PrestoServer::initializeThreadPools() {
   }
 }
 
-std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
-  VELOX_CHECK_NULL(cacheExecutor_);
+std::unique_ptr<bolt::cache::SsdCache> PrestoServer::setupSsdCache() {
+  BOLT_CHECK_NULL(cacheExecutor_);
   auto* systemConfig = SystemConfig::instance();
   if (systemConfig->asyncCacheSsdGb() == 0) {
     return nullptr;
@@ -838,7 +838,7 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
   constexpr int32_t kNumSsdShards = 16;
   cacheExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
       kNumSsdShards, std::make_shared<folly::NamedThreadFactory>("SsdCache"));
-  velox::cache::SsdCache::Config cacheConfig(
+  bolt::cache::SsdCache::Config cacheConfig(
       systemConfig->asyncCacheSsdPath(),
       systemConfig->asyncCacheSsdGb() << 30,
       kNumSsdShards,
@@ -849,16 +849,16 @@ std::unique_ptr<velox::cache::SsdCache> PrestoServer::setupSsdCache() {
       systemConfig->ssdCacheReadVerificationEnabled());
   PRESTO_STARTUP_LOG(INFO) << "Initializing SSD cache with "
                            << cacheConfig.toString();
-  return std::make_unique<velox::cache::SsdCache>(cacheConfig);
+  return std::make_unique<bolt::cache::SsdCache>(cacheConfig);
 }
 
-void PrestoServer::initializeVeloxMemory() {
+void PrestoServer::initializeBoltMemory() {
   auto* systemConfig = SystemConfig::instance();
   const uint64_t memoryGb = systemConfig->systemMemoryGb();
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
-  // Set up velox memory manager.
-  velox::memory::MemoryManagerOptions options;
+  // Set up bolt memory manager.
+  bolt::memory::MemoryManagerOptions options;
   options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
     options.useMmapAllocator = true;
@@ -871,24 +871,24 @@ void PrestoServer::initializeVeloxMemory() {
   if (!systemConfig->memoryArbitratorKind().empty()) {
     options.arbitratorKind = systemConfig->memoryArbitratorKind();
     const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
-    VELOX_USER_CHECK_LE(
+    BOLT_USER_CHECK_LE(
         queryMemoryGb,
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
-    const uint64_t sharedArbitratorReservedMemoryGb = velox::config::toCapacity(
+    const uint64_t sharedArbitratorReservedMemoryGb = bolt::config::toCapacity(
         systemConfig->sharedArbitratorReservedCapacity(),
-        velox::config::CapacityUnit::GIGABYTE);
-    VELOX_USER_CHECK_LE(
+        bolt::config::CapacityUnit::GIGABYTE);
+    BOLT_USER_CHECK_LE(
         sharedArbitratorReservedMemoryGb,
         queryMemoryGb,
         "Shared arbitrator reserved memory capacity must not be larger than "
         "query memory capacity");
 
     options.largestSizeClassPages = systemConfig->largestSizeClassPages();
-    options.arbitrationStateCheckCb = velox::exec::memoryArbitrationStateCheck;
+    options.arbitrationStateCheckCb = bolt::exec::memoryArbitrationStateCheck;
 
-    using SharedArbitratorConfig = velox::memory::SharedArbitrator::ExtraConfig;
+    using SharedArbitratorConfig = bolt::memory::SharedArbitrator::ExtraConfig;
     options.extraArbitratorConfigs = {
         {std::string(SharedArbitratorConfig::kReservedCapacity),
          systemConfig->sharedArbitratorReservedCapacity()},
@@ -912,41 +912,41 @@ void PrestoServer::initializeVeloxMemory() {
         {std::string(SharedArbitratorConfig::kCheckUsageLeak),
          folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
   }
-  velox::memory::initializeMemoryManager(options);
+  bolt::memory::initializeMemoryManager(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
-                           << velox::memory::memoryManager()->toString();
+                           << bolt::memory::memoryManager()->toString();
 
   if (systemConfig->asyncDataCacheEnabled()) {
-    std::unique_ptr<velox::cache::SsdCache> ssd = setupSsdCache();
+    std::unique_ptr<bolt::cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
 
-    velox::cache::AsyncDataCache::Options cacheOptions{
+    bolt::cache::AsyncDataCache::Options cacheOptions{
         systemConfig->asyncCacheMaxSsdWriteRatio(),
         systemConfig->asyncCacheSsdSavableRatio(),
         systemConfig->asyncCacheMinSsdSavableBytes()};
-    cache_ = velox::cache::AsyncDataCache::create(
-        velox::memory::memoryManager()->allocator(),
+    cache_ = bolt::cache::AsyncDataCache::create(
+        bolt::memory::memoryManager()->allocator(),
         std::move(ssd),
         cacheOptions);
-    velox::cache::AsyncDataCache::setInstance(cache_.get());
+    bolt::cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
 
     if (isCacheTtlEnabled()) {
-      velox::cache::CacheTTLController::create(*cache_);
+      bolt::cache::CacheTTLController::create(*cache_);
       PRESTO_STARTUP_LOG(INFO) << fmt::format(
           "Cache TTL is enabled, with TTL {} enforced every {}.",
-          velox::succinctMillis(
+          bolt::succinctMillis(
               std::chrono::duration_cast<std::chrono::milliseconds>(
-                  systemConfig->cacheVeloxTtlThreshold())
+                  systemConfig->cacheBoltTtlThreshold())
                   .count()),
-          velox::succinctMillis(
+          bolt::succinctMillis(
               std::chrono::duration_cast<std::chrono::milliseconds>(
-                  systemConfig->cacheVeloxTtlCheckInterval())
+                  systemConfig->cacheBoltTtlCheckInterval())
                   .count()));
     }
   } else {
-    VELOX_CHECK_EQ(
+    BOLT_CHECK_EQ(
         systemConfig->asyncCacheSsdGb(),
         0,
         "Async data cache cannot be disabled if ssd cache is enabled");
@@ -990,7 +990,7 @@ void PrestoServer::stop() {
 }
 
 size_t PrestoServer::numDriverThreads() const {
-  VELOX_CHECK(
+  BOLT_CHECK(
       driverExecutor_ != nullptr,
       "Driver executor is expected to be not null, but it is null!");
   return driverExecutor_->numThreads();
@@ -1066,16 +1066,16 @@ void PrestoServer::addServerPeriodicTasks() {
   if (isCacheTtlEnabled()) {
     const int64_t ttlThreshold =
         std::chrono::duration_cast<std::chrono::seconds>(
-            SystemConfig::instance()->cacheVeloxTtlThreshold())
+            SystemConfig::instance()->cacheBoltTtlThreshold())
             .count();
     const int64_t ttlCheckInterval =
         std::chrono::duration_cast<std::chrono::microseconds>(
-            SystemConfig::instance()->cacheVeloxTtlCheckInterval())
+            SystemConfig::instance()->cacheBoltTtlCheckInterval())
             .count();
     periodicTaskManager_->addTask(
         [ttlThreshold]() {
           if (auto* cacheTTLController =
-                  velox::cache::CacheTTLController::getInstance()) {
+                  bolt::cache::CacheTTLController::getInstance()) {
             cacheTTLController->applyTTL(ttlThreshold);
           }
         },
@@ -1086,10 +1086,10 @@ void PrestoServer::addServerPeriodicTasks() {
   if (cachePeriodicPersistenceEnabled()) {
     PRESTO_STARTUP_LOG(INFO)
         << "Initializing cache periodic full persistence task...";
-    auto* cache = velox::cache::AsyncDataCache::getInstance();
-    VELOX_CHECK_NOT_NULL(cache);
+    auto* cache = bolt::cache::AsyncDataCache::getInstance();
+    BOLT_CHECK_NOT_NULL(cache);
     auto* ssdCache = cache->ssdCache();
-    VELOX_CHECK_NOT_NULL(ssdCache);
+    BOLT_CHECK_NOT_NULL(ssdCache);
     const auto* systemConfig = SystemConfig::instance();
     const int64_t cacheFullPersistenceIntervalUs =
         std::chrono::duration_cast<std::chrono::microseconds>(
@@ -1114,11 +1114,11 @@ void PrestoServer::addServerPeriodicTasks() {
   }
 }
 
-std::shared_ptr<velox::exec::TaskListener> PrestoServer::getTaskListener() {
+std::shared_ptr<bolt::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
 
-std::shared_ptr<velox::exec::ExprSetListener>
+std::shared_ptr<bolt::exec::ExprSetListener>
 PrestoServer::getExprSetListener() {
   return nullptr;
 }
@@ -1162,19 +1162,19 @@ PrestoServer::getAdditionalHttpServerFilters() {
 
 void PrestoServer::registerConnectorFactories() {
   // These checks for connector factories can be removed after we remove the
-  // registrations from the Velox library.
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>());
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::hive::HiveConnectorFactory>(
+  // registrations from the Bolt library.
+  if (!bolt::connector::hasConnectorFactory(
+          bolt::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
+    bolt::connector::registerConnectorFactory(
+        std::make_shared<bolt::connector::hive::HiveConnectorFactory>());
+    bolt::connector::registerConnectorFactory(
+        std::make_shared<bolt::connector::hive::HiveConnectorFactory>(
             kHiveHadoop2ConnectorName));
   }
-  if (!velox::connector::hasConnectorFactory(
-          velox::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    velox::connector::registerConnectorFactory(
-        std::make_shared<velox::connector::tpch::TpchConnectorFactory>());
+  if (!bolt::connector::hasConnectorFactory(
+          bolt::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
+    bolt::connector::registerConnectorFactory(
+        std::make_shared<bolt::connector::tpch::TpchConnectorFactory>());
   }
 }
 
@@ -1223,8 +1223,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
 
-      std::shared_ptr<const velox::config::ConfigBase> properties =
-          std::make_shared<const velox::config::ConfigBase>(
+      std::shared_ptr<const bolt::config::ConfigBase> properties =
+          std::make_shared<const bolt::config::ConfigBase>(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
@@ -1235,16 +1235,16 @@ std::vector<std::string> PrestoServer::registerConnectors(
                                << " using connector " << connectorName;
 
       // make sure connector type is supported
-      getPrestoToVeloxConnector(connectorName);
+      getPrestoToBoltConnector(connectorName);
 
-      std::shared_ptr<velox::connector::Connector> connector =
-          velox::connector::getConnectorFactory(connectorName)
+      std::shared_ptr<bolt::connector::Connector> connector =
+          bolt::connector::getConnectorFactory(connectorName)
               ->newConnector(
                   catalogName,
                   std::move(properties),
                   connectorIoExecutor_.get(),
                   connectorCpuExecutor_.get());
-      velox::connector::registerConnector(connector);
+      bolt::connector::registerConnector(connector);
     }
   }
   return catalogNames;
@@ -1253,15 +1253,15 @@ std::vector<std::string> PrestoServer::registerConnectors(
 void PrestoServer::registerSystemConnector() {
   PRESTO_STARTUP_LOG(INFO) << "Registering system catalog "
                            << " using connector SystemConnector";
-  VELOX_CHECK(taskManager_);
+  BOLT_CHECK(taskManager_);
   auto systemConnector =
       std::make_shared<SystemConnector>("$system@system", taskManager_.get());
-  velox::connector::registerConnector(systemConnector);
+  bolt::connector::registerConnector(systemConnector);
 }
 
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
-  auto connectors = velox::connector::getAllConnectors();
+  auto connectors = bolt::connector::getAllConnectors();
   if (connectors.empty()) {
     PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
     return;
@@ -1270,7 +1270,7 @@ void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Unregistering " << connectors.size() << " connectors";
   for (const auto& connectorEntry : connectors) {
-    if (velox::connector::unregisterConnector(connectorEntry.first)) {
+    if (bolt::connector::unregisterConnector(connectorEntry.first)) {
       PRESTO_SHUTDOWN_LOG(INFO)
           << "Unregistered connector: " << connectorEntry.first;
     } else {
@@ -1279,7 +1279,7 @@ void PrestoServer::unregisterConnectors() {
     }
   }
 
-  velox::connector::unregisterConnector("$system@system");
+  bolt::connector::unregisterConnector("$system@system");
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Unregistered " << connectors.size() << " connectors";
 }
@@ -1291,29 +1291,29 @@ void PrestoServer::registerShuffleInterfaceFactories() {
 }
 
 void PrestoServer::registerCustomOperators() {
-  velox::exec::Operator::registerOperator(
+  bolt::exec::Operator::registerOperator(
       std::make_unique<operators::PartitionAndSerializeTranslator>());
-  velox::exec::Operator::registerOperator(
+  bolt::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleWriteTranslator>());
-  velox::exec::Operator::registerOperator(
+  bolt::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleReadTranslator>());
 
   // Todo - Split Presto & Presto-on-Spark server into different classes
   // which will allow server specific operator registration.
-  velox::exec::Operator::registerOperator(
+  bolt::exec::Operator::registerOperator(
       std::make_unique<operators::BroadcastWriteTranslator>());
 }
 
 void PrestoServer::registerFunctions() {
   static const std::string kPrestoDefaultPrefix{"presto.default."};
-  velox::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
-  velox::aggregate::prestosql::registerAllAggregateFunctions(
+  bolt::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  bolt::aggregate::prestosql::registerAllAggregateFunctions(
       kPrestoDefaultPrefix);
-  velox::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  bolt::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
   if (SystemConfig::instance()->registerTestFunctions()) {
-    velox::functions::prestosql::registerAllScalarFunctions(
+    bolt::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
-    velox::aggregate::prestosql::registerAllAggregateFunctions(
+    bolt::aggregate::prestosql::registerAllAggregateFunctions(
         "json.test_schema.");
   }
 }
@@ -1335,7 +1335,7 @@ void PrestoServer::registerRemoteFunctions() {
           << registeredCount << " remote functions registered in the '"
           << catalogName << "' catalog.";
     } else {
-      VELOX_FAIL(
+      BOLT_FAIL(
           "To register remote functions using a json file path you need to "
           "specify the remote server location using '{}', '{}' or '{}'.",
           SystemConfig::kRemoteFunctionServerThriftAddress,
@@ -1347,59 +1347,59 @@ void PrestoServer::registerRemoteFunctions() {
 }
 
 void PrestoServer::registerVectorSerdes() {
-  if (!velox::isRegisteredVectorSerde()) {
-    velox::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  if (!bolt::isRegisteredVectorSerde()) {
+    bolt::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
-  if (!velox::isRegisteredNamedVectorSerde(velox::VectorSerde::Kind::kPresto)) {
-    velox::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  if (!bolt::isRegisteredNamedVectorSerde(bolt::VectorSerde::Kind::kPresto)) {
+    bolt::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
   }
-  if (!velox::isRegisteredNamedVectorSerde(
-          velox::VectorSerde::Kind::kCompactRow)) {
-    velox::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  if (!bolt::isRegisteredNamedVectorSerde(
+          bolt::VectorSerde::Kind::kCompactRow)) {
+    bolt::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
   }
-  if (!velox::isRegisteredNamedVectorSerde(
-          velox::VectorSerde::Kind::kUnsafeRow)) {
-    velox::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+  if (!bolt::isRegisteredNamedVectorSerde(
+          bolt::VectorSerde::Kind::kUnsafeRow)) {
+    bolt::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
   }
 }
 
 void PrestoServer::registerFileSinks() {
-  velox::dwio::common::registerFileSinks();
+  bolt::dwio::common::registerFileSinks();
 }
 
 void PrestoServer::registerFileSystems() {
-  velox::filesystems::registerLocalFileSystem();
-  velox::filesystems::registerS3FileSystem();
-  velox::filesystems::registerHdfsFileSystem();
-  velox::filesystems::registerGcsFileSystem();
-  velox::filesystems::registerAbfsFileSystem();
+  bolt::filesystems::registerLocalFileSystem();
+  bolt::filesystems::registerS3FileSystem();
+  bolt::filesystems::registerHdfsFileSystem();
+  bolt::filesystems::registerGcsFileSystem();
+  bolt::filesystems::registerAbfsFileSystem();
 }
 
 void PrestoServer::unregisterFileSystems() {
-  velox::filesystems::finalizeS3FileSystem();
+  bolt::filesystems::finalizeS3FileSystem();
 }
 
 void PrestoServer::registerMemoryArbitrators() {
-  velox::memory::SharedArbitrator::registerFactory();
+  bolt::memory::SharedArbitrator::registerFactory();
 }
 
 void PrestoServer::registerFileReadersAndWriters() {
-  velox::dwrf::registerDwrfReaderFactory();
-  velox::dwrf::registerDwrfWriterFactory();
-  velox::parquet::registerParquetReaderFactory();
-  velox::parquet::registerParquetWriterFactory();
+  bolt::dwrf::registerDwrfReaderFactory();
+  bolt::dwrf::registerDwrfWriterFactory();
+  bolt::parquet::registerParquetReaderFactory();
+  bolt::parquet::registerParquetWriterFactory();
 }
 
 void PrestoServer::unregisterFileReadersAndWriters() {
-  velox::dwrf::unregisterDwrfReaderFactory();
-  velox::dwrf::unregisterDwrfWriterFactory();
-  velox::parquet::unregisterParquetReaderFactory();
-  velox::parquet::unregisterParquetWriterFactory();
+  bolt::dwrf::unregisterDwrfReaderFactory();
+  bolt::dwrf::unregisterDwrfWriterFactory();
+  bolt::parquet::unregisterParquetReaderFactory();
+  bolt::parquet::unregisterParquetWriterFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
   registerPrestoMetrics();
-  velox::registerVeloxMetrics();
+  bolt::registerBoltMetrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
@@ -1415,7 +1415,7 @@ std::string PrestoServer::getLocalIp() const {
       return fmt::format("{}", addr.to_string());
     }
   }
-  VELOX_FAIL(
+  BOLT_FAIL(
       "Could not infer Node IP. Please specify node.internal-address in the node.properties file.");
 }
 
@@ -1425,16 +1425,16 @@ std::string PrestoServer::getBaseSpillDirectory() const {
 
 void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
-  facebook::velox::BaseStatsReporter::registered = true;
+  facebook::bolt::BaseStatsReporter::registered = true;
   registerStatsCounters();
 }
 
-void PrestoServer::initVeloxPlanValidator() {
-  VELOX_CHECK_NULL(planValidator_);
-  planValidator_ = std::make_shared<VeloxPlanValidator>();
+void PrestoServer::initBoltPlanValidator() {
+  BOLT_CHECK_NULL(planValidator_);
+  planValidator_ = std::make_shared<BoltPlanValidator>();
 }
 
-VeloxPlanValidator* PrestoServer::getVeloxPlanValidator() {
+BoltPlanValidator* PrestoServer::getBoltPlanValidator() {
   return planValidator_.get();
 }
 
@@ -1455,7 +1455,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   const auto* queryCtxMgr = taskManager_->getQueryContextManager();
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
-                                    const velox::core::QueryCtx* queryCtx) {
+                                    const bolt::core::QueryCtx* queryCtx) {
     const protocol::Long bytes = queryCtx->pool()->usedBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
@@ -1528,7 +1528,7 @@ void PrestoServer::handleGracefulShutdown(
 }
 
 void PrestoServer::registerSidecarEndpoints() {
-  VELOX_CHECK(httpServer_);
+  BOLT_CHECK(httpServer_);
   httpServer_->registerGet(
       "/v1/properties/session",
       [this](
@@ -1547,16 +1547,16 @@ void PrestoServer::registerSidecarEndpoints() {
         http::sendOkResponse(downstream, getFunctionsMetadata());
       });
   httpServer_->registerPost(
-      "/v1/velox/plan",
+      "/v1/bolt/plan",
       [server = this](
           proxygen::HTTPMessage* message,
           const std::vector<std::unique_ptr<folly::IOBuf>>& body,
           proxygen::ResponseHandler* downstream) {
         std::string planFragmentJson = util::extractMessageBody(body);
-        protocol::PlanConversionResponse response = prestoToVeloxPlanConversion(
+        protocol::PlanConversionResponse response = prestoToBoltPlanConversion(
             planFragmentJson,
             server->nativeWorkerPool_.get(),
-            server->getVeloxPlanValidator());
+            server->getBoltPlanValidator());
         if (response.failures.empty()) {
           http::sendOkResponse(downstream, json(response));
         } else {

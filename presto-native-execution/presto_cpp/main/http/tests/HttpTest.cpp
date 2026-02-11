@@ -14,7 +14,7 @@
 #include "presto_cpp/main/http/tests/HttpTestBase.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
@@ -200,7 +200,7 @@ TEST_P(HttpTestSuite, httpResponseAllocationFailure) {
         sendGet(client.get(), fmt::format("/echo/{}", echoMessage)).get();
     ASSERT_EQ(response->headers()->getStatusCode(), http::kHttpOk);
     ASSERT_TRUE(response->hasError());
-    VELOX_ASSERT_THROW(response->consumeBody(), "");
+    BOLT_ASSERT_THROW(response->consumeBody(), "");
   }
   wrapper.stop();
 }
@@ -544,6 +544,6 @@ INSTANTIATE_TEST_CASE_P(
     ::testing::Values(true, false));
 
 // Initialize singleton for the reporter
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new facebook::velox::DummyStatsReporter();
+folly::Singleton<facebook::bolt::BaseStatsReporter> reporter([]() {
+  return new facebook::bolt::DummyStatsReporter();
 });

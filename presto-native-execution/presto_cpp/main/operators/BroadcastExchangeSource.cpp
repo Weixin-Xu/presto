@@ -17,7 +17,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 
@@ -42,18 +42,18 @@ BroadcastExchangeSource::request(
 
   atEnd_ = !reader_->hasNext();
   int64_t totalBytes = 0;
-  std::unique_ptr<velox::exec::SerializedPage> page;
+  std::unique_ptr<bolt::exec::SerializedPage> page;
   if (!atEnd_) {
     // Read outside the lock to avoid a potential deadlock
     // ExchangeClient guarantees not to call ExchangeSource#request concurrently
     auto buffer = reader_->next();
     totalBytes = buffer->size();
     auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-    page = std::make_unique<velox::exec::SerializedPage>(
+    page = std::make_unique<bolt::exec::SerializedPage>(
         std::move(ioBuf), [buffer](auto& /*unused*/) {});
   }
 
-  std::vector<velox::ContinuePromise> promises;
+  std::vector<bolt::ContinuePromise> promises;
   {
     // Limit locking scope to queue manipulation
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -104,10 +104,10 @@ BroadcastExchangeSource::createExchangeSource(
   try {
     broadcastFileInfo =
         BroadcastFileInfo::deserialize(broadcastInfoJson.value());
-  } catch (const VeloxException& e) {
+  } catch (const BoltException& e) {
     throw;
   } catch (const std::exception& e) {
-    VELOX_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
+    BOLT_USER_FAIL("BroadcastInfo deserialization failed: {}", e.what());
   }
 
   auto fileSystemBroadcast = BroadcastFactory(broadcastFileInfo->filePath_);

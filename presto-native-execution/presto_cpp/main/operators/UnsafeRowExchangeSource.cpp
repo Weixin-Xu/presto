@@ -16,17 +16,17 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "velox/serializers/RowSerializer.h"
+#include "bolt/serializers/RowSerializer.h"
 
 namespace facebook::presto::operators {
 
 #define CALL_SHUFFLE(call, methodName)                                \
   try {                                                               \
     call;                                                             \
-  } catch (const velox::VeloxException& e) {                          \
+  } catch (const bolt::BoltException& e) {                          \
     throw;                                                            \
   } catch (const std::exception& e) {                                 \
-    VELOX_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
+    BOLT_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
   }
 
 folly::SemiFuture<UnsafeRowExchangeSource::Response>
@@ -35,8 +35,8 @@ UnsafeRowExchangeSource::request(
     std::chrono::microseconds /*maxWait*/) {
   auto nextBatch = [this]() {
     return std::move(shuffle_->next())
-        .deferValue([this](velox::BufferPtr buffer) {
-          std::vector<velox::ContinuePromise> promises;
+        .deferValue([this](bolt::BufferPtr buffer) {
+          std::vector<bolt::ContinuePromise> promises;
           int64_t totalBytes{0};
 
           {
@@ -46,15 +46,15 @@ UnsafeRowExchangeSource::request(
               queue_->enqueueLocked(nullptr, promises);
             } else {
               totalBytes = buffer->size();
-              VELOX_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
+              BOLT_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
 
               ++numBatches_;
-              velox::serializer::detail::RowGroupHeader rowHeader{
+              bolt::serializer::detail::RowGroupHeader rowHeader{
                   .uncompressedSize = static_cast<int32_t>(totalBytes),
                   .compressedSize = static_cast<int32_t>(totalBytes),
                   .compressed = false};
               auto headBuffer = std::make_shared<std::string>(
-                  velox::serializer::detail::RowGroupHeader::size(), '0');
+                  bolt::serializer::detail::RowGroupHeader::size(), '0');
               rowHeader.write(const_cast<char*>(headBuffer->data()));
 
               auto ioBuf = folly::IOBuf::wrapBuffer(
@@ -62,7 +62,7 @@ UnsafeRowExchangeSource::request(
               ioBuf->appendToChain(
                   folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size()));
               queue_->enqueueLocked(
-                  std::make_unique<velox::exec::SerializedPage>(
+                  std::make_unique<bolt::exec::SerializedPage>(
                       std::move(ioBuf),
                       [buffer, headBuffer](auto& /*unused*/) {}),
                   promises);
@@ -78,7 +78,7 @@ UnsafeRowExchangeSource::request(
         .deferError(
             [](folly::exception_wrapper e) mutable
             -> UnsafeRowExchangeSource::Response {
-              VELOX_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
+              BOLT_FAIL("ShuffleReader::{} failed: {}", "next", e.what());
             });
   };
 
@@ -116,12 +116,12 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 } // namespace
 
 // static
-std::shared_ptr<velox::exec::ExchangeSource>
+std::shared_ptr<bolt::exec::ExchangeSource>
 UnsafeRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
-    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool) {
+    const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+    bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }
@@ -134,7 +134,7 @@ UnsafeRowExchangeSource::createExchangeSource(
   }
 
   auto shuffleName = SystemConfig::instance()->shuffleName();
-  VELOX_CHECK(
+  BOLT_CHECK(
       !shuffleName.empty(),
       "shuffle.name is not provided in config.properties to create a shuffle "
       "interface.");

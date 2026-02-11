@@ -13,10 +13,10 @@
  */
 #pragma once
 
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/MemoryPool.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/VectorStream.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MemoryPool.h"
+#include "bolt/vector/ComplexVector.h"
+#include "bolt/vector/VectorStream.h"
 
 namespace facebook::presto::operators {
 
@@ -39,21 +39,21 @@ class BroadcastFileWriter {
  public:
   BroadcastFileWriter(
       std::string_view filename,
-      const velox::RowTypePtr& inputType,
-      std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
-      velox::memory::MemoryPool* pool);
+      const bolt::RowTypePtr& inputType,
+      std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
+      bolt::memory::MemoryPool* pool);
 
   virtual ~BroadcastFileWriter() = default;
 
   /// Write to file.
-  void collect(const velox::RowVectorPtr& input);
+  void collect(const bolt::RowVectorPtr& input);
 
   /// Flush the data.
   void noMoreData();
 
   /// Returns file name if non zero rows written to file.
   /// Returns nullptr if there were no rows written.
-  velox::RowVectorPtr fileStats();
+  bolt::RowVectorPtr fileStats();
 
  private:
   /// Initializes write file.
@@ -61,16 +61,16 @@ class BroadcastFileWriter {
 
   /// Serializes input rowVector using PrestoVectorSerde and
   /// writes serialized data to file.
-  void write(const velox::RowVectorPtr& rowVector);
+  void write(const bolt::RowVectorPtr& rowVector);
 
-  std::unique_ptr<velox::WriteFile> writeFile_;
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::unique_ptr<bolt::WriteFile> writeFile_;
+  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
   std::string filename_;
   int64_t numRows_;
   int64_t maxSerializedSize_;
-  velox::memory::MemoryPool* pool_;
-  std::unique_ptr<velox::VectorSerde> serde_;
-  const velox::RowTypePtr& inputType_;
+  bolt::memory::MemoryPool* pool_;
+  std::unique_ptr<bolt::VectorSerde> serde_;
+  const bolt::RowTypePtr& inputType_;
 };
 
 /// Reads broadcast data back from files.
@@ -78,8 +78,8 @@ class BroadcastFileReader {
  public:
   BroadcastFileReader(
       std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
-      std::shared_ptr<velox::filesystems::FileSystem> fileSystem,
-      velox::memory::MemoryPool* pool);
+      std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
+      bolt::memory::MemoryPool* pool);
 
   ~BroadcastFileReader() = default;
 
@@ -87,17 +87,17 @@ class BroadcastFileReader {
   bool hasNext();
 
   /// Read next block of data.
-  velox::BufferPtr next();
+  bolt::BufferPtr next();
 
   /// Reader stats - number of bytes.
   folly::F14FastMap<std::string, int64_t> stats();
 
  private:
   std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
   bool hasData_;
   int64_t numBytes_;
-  velox::memory::MemoryPool* pool_;
+  bolt::memory::MemoryPool* pool_;
 };
 
 /// Factory to create Writers & Reader for file based broadcast.
@@ -108,15 +108,15 @@ class BroadcastFactory {
   virtual ~BroadcastFactory() = default;
 
   std::unique_ptr<BroadcastFileWriter> createWriter(
-      velox::memory::MemoryPool* pool,
-      const velox::RowTypePtr& inputType);
+      bolt::memory::MemoryPool* pool,
+      const bolt::RowTypePtr& inputType);
 
   std::shared_ptr<BroadcastFileReader> createReader(
       const std::unique_ptr<BroadcastFileInfo> fileInfo,
-      velox::memory::MemoryPool* pool);
+      bolt::memory::MemoryPool* pool);
 
  private:
   const std::string basePath_;
-  std::shared_ptr<velox::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
 };
 } // namespace facebook::presto::operators

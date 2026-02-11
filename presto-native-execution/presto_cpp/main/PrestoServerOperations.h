@@ -44,7 +44,7 @@ class PrestoServerOperations {
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 
-  std::string veloxQueryConfigOperation(
+  std::string boltQueryConfigOperation(
       const ServerOperation& op,
       proxygen::HTTPMessage* message);
 

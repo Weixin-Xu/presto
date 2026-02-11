@@ -15,14 +15,14 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #include <fstream>
 #include "presto_cpp/main/JsonSignatureParser.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/base/Fs.h"
-#include "velox/functions/remote/client/Remote.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/Fs.h"
+#include "bolt/functions/remote/client/Remote.h"
 
 namespace facebook::presto {
 namespace {
 
-using velox::functions::remote::PageFormat;
+using bolt::functions::remote::PageFormat;
 
 std::string genFunctionName(
     const std::string& baseFunctionName,
@@ -41,7 +41,7 @@ PageFormat fromSerdeString(const std::string_view& serdeName) {
   } else if (serdeName == "spark_unsafe_row") {
     return PageFormat::SPARK_UNSAFE_ROW;
   } else {
-    VELOX_FAIL(
+    BOLT_FAIL(
         "Unknown serde name for remote function server: '{}'", serdeName);
   }
 }
@@ -58,14 +58,14 @@ size_t processFile(
   std::stringstream buffer;
   buffer << stream.rdbuf();
 
-  velox::functions::RemoteVectorFunctionMetadata metadata;
+  bolt::functions::RemoteVectorFunctionMetadata metadata;
   metadata.location = location;
   metadata.serdeFormat = fromSerdeString(serde);
 
   // First group possible functions with the same name but different
   // schemas.
   std::
-      unordered_map<std::string, std::vector<velox::exec::FunctionSignaturePtr>>
+      unordered_map<std::string, std::vector<bolt::exec::FunctionSignaturePtr>>
           functionMap;
 
   for (const auto& it : JsonSignatureParser(buffer.str())) {
@@ -77,9 +77,9 @@ size_t processFile(
 
   size_t signaturesCount = 0;
 
-  // Register signatures in Velox.
+  // Register signatures in Bolt.
   for (const auto& it : functionMap) {
-    velox::functions::registerRemoteFunction(it.first, it.second, metadata);
+    bolt::functions::registerRemoteFunction(it.first, it.second, metadata);
     signaturesCount += it.second.size();
   }
   return signaturesCount;

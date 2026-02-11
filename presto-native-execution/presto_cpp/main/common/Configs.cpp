@@ -15,7 +15,7 @@
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/core/QueryConfig.h"
+#include "bolt/core/QueryConfig.h"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
@@ -65,15 +65,15 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
     mutableConfig = folly::to<bool>(it->second);
   }
 
-  config_ = std::make_unique<velox::config::ConfigBase>(
+  config_ = std::make_unique<bolt::config::ConfigBase>(
       std::move(values), mutableConfig);
 }
 
 std::string ConfigBase::capacityPropertyAsBytesString(
     std::string_view propertyName) const {
-  return folly::to<std::string>(velox::config::toCapacity(
+  return folly::to<std::string>(bolt::config::toCapacity(
       optionalProperty(propertyName).value(),
-      velox::config::CapacityUnit::BYTE));
+      bolt::config::CapacityUnit::BYTE));
 }
 
 bool ConfigBase::registerProperty(
@@ -94,7 +94,7 @@ bool ConfigBase::registerProperty(
 folly::Optional<std::string> ConfigBase::setValue(
     const std::string& propertyName,
     const std::string& value) {
-  VELOX_USER_CHECK_EQ(
+  BOLT_USER_CHECK_EQ(
       1,
       registeredProps_.count(propertyName),
       "Property '{}' is not registered in the config.",
@@ -200,8 +200,8 @@ SystemConfig::SystemConfig() {
           STR_PROP(kSharedArbitratorMaxMemoryArbitrationTime, "5m"),
           STR_PROP(kSharedArbitratorGlobalArbitrationEnabled, "false"),
           NUM_PROP(kLargestSizeClassPages, 256),
-          BOOL_PROP(kEnableVeloxTaskLogging, false),
-          BOOL_PROP(kEnableVeloxExprSetLogging, false),
+          BOOL_PROP(kEnableBoltTaskLogging, false),
+          BOOL_PROP(kEnableBoltExprSetLogging, false),
           NUM_PROP(kLocalShuffleMaxPartitionBytes, 268435456),
           STR_PROP(kShuffleName, ""),
           STR_PROP(kRemoteFunctionServerCatalogName, ""),
@@ -235,9 +235,9 @@ SystemConfig::SystemConfig() {
           BOOL_PROP(kUseLegacyArrayAgg, false),
           STR_PROP(kSinkMaxBufferSize, "32MB"),
           STR_PROP(kDriverMaxPagePartitioningBufferSize, "32MB"),
-          BOOL_PROP(kCacheVeloxTtlEnabled, false),
-          STR_PROP(kCacheVeloxTtlThreshold, "2d"),
-          STR_PROP(kCacheVeloxTtlCheckInterval, "1h"),
+          BOOL_PROP(kCacheBoltTtlEnabled, false),
+          STR_PROP(kCacheBoltTtlThreshold, "2d"),
+          STR_PROP(kCacheBoltTtlCheckInterval, "1h"),
           BOOL_PROP(kEnableRuntimeMetricsCollection, false),
           BOOL_PROP(kPlanValidatorFailOnNestedLoopJoin, false),
       };
@@ -320,7 +320,7 @@ SystemConfig::remoteFunctionServerLocation() const {
               SocketAddress{remoteServerAddress.value(), remoteServerPort.value()}
         : folly::SocketAddress{"::1", remoteServerPort.value()};
   } else if (remoteServerAddress.hasValue()) {
-    VELOX_FAIL(
+    BOLT_FAIL(
         "Remote function server port not provided using '{}'.",
         kRemoteFunctionServerThriftPort);
   }
@@ -505,7 +505,7 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
 
 std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()
     const {
-  return velox::config::toDuration(
+  return bolt::config::toDuration(
       optionalProperty(kAsyncCachePersistenceInterval).value());
 }
 
@@ -529,12 +529,12 @@ bool SystemConfig::enableSerializedPageChecksum() const {
   return optionalProperty<bool>(kEnableSerializedPageChecksum).value();
 }
 
-bool SystemConfig::enableVeloxTaskLogging() const {
-  return optionalProperty<bool>(kEnableVeloxTaskLogging).value();
+bool SystemConfig::enableBoltTaskLogging() const {
+  return optionalProperty<bool>(kEnableBoltTaskLogging).value();
 }
 
-bool SystemConfig::enableVeloxExprSetLogging() const {
-  return optionalProperty<bool>(kEnableVeloxExprSetLogging).value();
+bool SystemConfig::enableBoltExprSetLogging() const {
+  return optionalProperty<bool>(kEnableBoltExprSetLogging).value();
 }
 
 bool SystemConfig::useMmapAllocator() const {
@@ -645,9 +645,9 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
 }
 
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
-  return velox::config::toCapacity(
+  return bolt::config::toCapacity(
       optionalProperty(kQueryMaxMemoryPerNode).value(),
-      velox::config::CapacityUnit::BYTE);
+      bolt::config::CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
@@ -680,17 +680,17 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
-  return velox::config::toDuration(
+  return bolt::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
-  return velox::config::toDuration(
+  return bolt::config::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
-  return velox::config::toDuration(
+  return bolt::config::toDuration(
       optionalProperty(kExchangeConnectTimeout).value());
 }
 
@@ -741,18 +741,18 @@ bool SystemConfig::useLegacyArrayAgg() const {
   return optionalProperty<bool>(kUseLegacyArrayAgg).value();
 }
 
-bool SystemConfig::cacheVeloxTtlEnabled() const {
-  return optionalProperty<bool>(kCacheVeloxTtlEnabled).value();
+bool SystemConfig::cacheBoltTtlEnabled() const {
+  return optionalProperty<bool>(kCacheBoltTtlEnabled).value();
 }
 
-std::chrono::duration<double> SystemConfig::cacheVeloxTtlThreshold() const {
-  return velox::config::toDuration(
-      optionalProperty(kCacheVeloxTtlThreshold).value());
+std::chrono::duration<double> SystemConfig::cacheBoltTtlThreshold() const {
+  return bolt::config::toDuration(
+      optionalProperty(kCacheBoltTtlThreshold).value());
 }
 
-std::chrono::duration<double> SystemConfig::cacheVeloxTtlCheckInterval() const {
-  return velox::config::toDuration(
-      optionalProperty(kCacheVeloxTtlCheckInterval).value());
+std::chrono::duration<double> SystemConfig::cacheBoltTtlCheckInterval() const {
+  return bolt::config::toDuration(
+      optionalProperty(kCacheBoltTtlCheckInterval).value());
 }
 
 int32_t SystemConfig::largestSizeClassPages() const {
@@ -811,16 +811,16 @@ std::string NodeConfig::nodeInternalAddress(
   } else if (defaultIp != nullptr) {
     return defaultIp();
   } else {
-    VELOX_FAIL(
+    BOLT_FAIL(
         "Node Internal Address or IP was not found in NodeConfigs. Default IP was not provided "
         "either.");
   }
 }
 
-BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
+BaseBoltQueryConfig::BaseBoltQueryConfig() {
   // Use empty instance to get default property values.
-  velox::core::QueryConfig c{{}};
-  using namespace velox::core;
+  bolt::core::QueryConfig c{{}};
+  using namespace bolt::core;
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
@@ -889,18 +889,18 @@ BaseVeloxQueryConfig::BaseVeloxQueryConfig() {
       };
 }
 
-BaseVeloxQueryConfig* BaseVeloxQueryConfig::instance() {
-  static std::unique_ptr<BaseVeloxQueryConfig> instance =
-      std::make_unique<BaseVeloxQueryConfig>();
+BaseBoltQueryConfig* BaseBoltQueryConfig::instance() {
+  static std::unique_ptr<BaseBoltQueryConfig> instance =
+      std::make_unique<BaseBoltQueryConfig>();
   return instance.get();
 }
 
-void BaseVeloxQueryConfig::updateLoadedValues(
+void BaseBoltQueryConfig::updateLoadedValues(
     std::unordered_map<std::string, std::string>& values) const {
-  // Update velox config with values from presto system config.
+  // Update bolt config with values from presto system config.
   auto systemConfig = SystemConfig::instance();
 
-  using namespace velox::core;
+  using namespace bolt::core;
   std::unordered_map<std::string, std::string> updatedValues{
       {QueryConfig::kPrestoArrayAggIgnoreNulls,
        bool2String(systemConfig->useLegacyArrayAgg())},

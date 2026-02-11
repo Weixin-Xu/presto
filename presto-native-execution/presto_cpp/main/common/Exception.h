@@ -15,7 +15,7 @@
 
 #include <unordered_map>
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/common/base/VeloxException.h"
+#include "bolt/common/base/BoltException.h"
 
 namespace std {
 class exception;
@@ -27,11 +27,11 @@ struct ExecutionFailureInfo;
 struct ErrorCode;
 } // namespace protocol
 
-class VeloxToPrestoExceptionTranslator {
+class BoltToPrestoExceptionTranslator {
  public:
-  // Translates to Presto error from Velox exceptions
+  // Translates to Presto error from Bolt exceptions
   static protocol::ExecutionFailureInfo translate(
-      const velox::VeloxException& e);
+      const bolt::BoltException& e);
 
   // Translates to Presto error from std::exceptions
   static protocol::ExecutionFailureInfo translate(const std::exception& e);
@@ -45,47 +45,47 @@ class VeloxToPrestoExceptionTranslator {
         std::string,
         std::unordered_map<std::string, protocol::ErrorCode>>
         kTranslateMap = {
-            {velox::error_source::kErrorSourceRuntime,
-             {{velox::error_code::kMemCapExceeded,
+            {bolt::error_source::kErrorSourceRuntime,
+             {{bolt::error_code::kMemCapExceeded,
                {0x00020007,
                 "EXCEEDED_LOCAL_MEMORY_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {velox::error_code::kMemAborted,
+              {bolt::error_code::kMemAborted,
                {0x00020000,
                 "GENERIC_INSUFFICIENT_RESOURCES",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {velox::error_code::kSpillLimitExceeded,
+              {bolt::error_code::kSpillLimitExceeded,
                {0x00020006,
                 "EXCEEDED_SPILL_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {velox::error_code::kInvalidState,
+              {bolt::error_code::kInvalidState,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {velox::error_code::kUnreachableCode,
+              {bolt::error_code::kUnreachableCode,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {velox::error_code::kNotImplemented,
+              {bolt::error_code::kNotImplemented,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {velox::error_code::kUnknown,
+              {bolt::error_code::kUnknown,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}}}},
-            {velox::error_source::kErrorSourceUser,
-             {{velox::error_code::kInvalidArgument,
+            {bolt::error_source::kErrorSourceUser,
+             {{bolt::error_code::kInvalidArgument,
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}},
-              {velox::error_code::kUnsupported,
+              {bolt::error_code::kUnsupported,
                {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
-              {velox::error_code::kArithmeticError,
+              {bolt::error_code::kArithmeticError,
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}}}},
-            {velox::error_source::kErrorSourceSystem, {}}};
+            {bolt::error_source::kErrorSourceSystem, {}}};
     return kTranslateMap;
   }
 };

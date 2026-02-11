@@ -12,11 +12,11 @@
  * limitations under the License.
  */
 #include "presto_cpp/presto_protocol/Base64Util.h"
-#include "velox/common/encode/Base64.h"
-#include "velox/common/memory/ByteStream.h"
-#include "velox/serializers/PrestoSerializer.h"
+#include "bolt/common/encode/Base64.h"
+#include "bolt/common/memory/ByteStream.h"
+#include "bolt/serializers/PrestoSerializer.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 namespace facebook::presto::protocol {
 namespace {
 std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
@@ -28,11 +28,11 @@ std::unique_ptr<ByteInputStream> toByteStream(const std::string& input) {
 }
 } // namespace
 
-velox::VectorPtr readBlock(
-    const velox::TypePtr& type,
+bolt::VectorPtr readBlock(
+    const bolt::TypePtr& type,
     const std::string& base64Encoded,
-    velox::memory::MemoryPool* pool) {
-  const std::string data = velox::encoding::Base64::decode(base64Encoded);
+    bolt::memory::MemoryPool* pool) {
+  const std::string data = bolt::encoding::Base64::decode(base64Encoded);
 
   auto byteStream = toByteStream(data);
   VectorPtr result;

@@ -13,11 +13,11 @@
  */
 #pragma once
 
-#include "velox/connectors/Connector.h"
+#include "bolt/connectors/Connector.h"
 
 namespace facebook::presto {
 
-struct SystemSplit : public velox::connector::ConnectorSplit {
+struct SystemSplit : public bolt::connector::ConnectorSplit {
   explicit SystemSplit(
       const std::string& connectorId,
       const std::string& schemaName,

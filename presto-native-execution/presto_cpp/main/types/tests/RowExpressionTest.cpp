@@ -14,14 +14,14 @@
 #include <gtest/gtest.h>
 #include <array>
 
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/PrestoToBoltExpr.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/core/Expressions.h"
-#include "velox/type/Type.h"
+#include "bolt/core/Expressions.h"
+#include "bolt/type/Type.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
-using namespace facebook::velox::core;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::core;
 
 class RowExpressionTest : public ::testing::Test {
  public:
@@ -32,7 +32,7 @@ class RowExpressionTest : public ::testing::Test {
   void SetUp() override {
     pool_ = memory::MemoryManager::getInstance()->addLeafPool();
     converter_ =
-        std::make_unique<VeloxExprConverter>(pool_.get(), &typeParser_);
+        std::make_unique<BoltExprConverter>(pool_.get(), &typeParser_);
   }
 
   void testConstantExpression(
@@ -43,7 +43,7 @@ class RowExpressionTest : public ::testing::Test {
     std::shared_ptr<protocol::RowExpression> p = j;
 
     auto cexpr = std::static_pointer_cast<const ConstantTypedExpr>(
-        converter_->toVeloxExpr(p));
+        converter_->toBoltExpr(p));
 
     ASSERT_EQ(cexpr->type()->toString(), type);
     ASSERT_EQ(cexpr->value().toJson(cexpr->type()), value);
@@ -98,7 +98,7 @@ class RowExpressionTest : public ::testing::Test {
   }
 
   std::shared_ptr<memory::MemoryPool> pool_;
-  std::unique_ptr<VeloxExprConverter> converter_;
+  std::unique_ptr<BoltExprConverter> converter_;
   TypeParser typeParser_;
 };
 
@@ -515,7 +515,7 @@ TEST_F(RowExpressionTest, call) {
     InputTypedExpr rowExpr(BIGINT());
 
     auto callexpr = std::static_pointer_cast<const CallTypedExpr>(
-        converter_->toVeloxExpr(p));
+        converter_->toBoltExpr(p));
 
     // Check some values ...
     ASSERT_EQ(callexpr->name(), callExprNames[i]);
@@ -544,7 +544,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(false, "varchar", "varchar"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -556,7 +556,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(true, "varchar", "varchar"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -568,7 +568,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(false, "varchar", "varchar(3)"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -584,7 +584,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(false, "varchar", "varchar(1000)"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -600,14 +600,14 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(true, "varchar", "varchar(3)"));
 
-    ASSERT_THROW(converter_->toVeloxExpr(p), VeloxRuntimeError);
+    ASSERT_THROW(converter_->toBoltExpr(p), BoltRuntimeError);
   }
   // CAST(nonvarchar_col AS varchar(3))
   {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(false, "double", "varchar(3)"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -619,7 +619,7 @@ TEST_F(RowExpressionTest, castToVarchar) {
     std::shared_ptr<protocol::CallExpression> p =
         json::parse(makeCastToVarchar(true, "double", "varchar(3)"));
 
-    auto expr = converter_->toVeloxExpr(p);
+    auto expr = converter_->toBoltExpr(p);
 
     auto returnExpr = std::dynamic_pointer_cast<const CastTypedExpr>(expr);
     ASSERT_NE(returnExpr, nullptr);
@@ -707,7 +707,7 @@ TEST_F(RowExpressionTest, special) {
   std::shared_ptr<protocol::RowExpression> p = j;
 
   auto callexpr =
-      std::static_pointer_cast<const CallTypedExpr>(converter_->toVeloxExpr(p));
+      std::static_pointer_cast<const CallTypedExpr>(converter_->toBoltExpr(p));
 
   // Check some values ...
   ASSERT_EQ(callexpr->type()->toString(), "BOOLEAN");
@@ -845,7 +845,7 @@ TEST_F(RowExpressionTest, bind) {
   json j = json::parse(str);
   std::shared_ptr<protocol::RowExpression> p = j;
 
-  auto expr = converter_->toVeloxExpr(p);
+  auto expr = converter_->toBoltExpr(p);
 
   auto lambda = std::dynamic_pointer_cast<const LambdaTypedExpr>(expr);
   ASSERT_NE(lambda, nullptr);
@@ -904,7 +904,7 @@ TEST_F(RowExpressionTest, likeSimple) {
   json j = json::parse(str);
   std::shared_ptr<protocol::RowExpression> p = j;
 
-  auto expr = converter_->toVeloxExpr(p);
+  auto expr = converter_->toBoltExpr(p);
 
   auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
   ASSERT_NE(callExpr, nullptr);
@@ -967,7 +967,7 @@ TEST_F(RowExpressionTest, likeWithEscape) {
   json j = json::parse(str);
   std::shared_ptr<protocol::RowExpression> p = j;
 
-  auto expr = converter_->toVeloxExpr(p);
+  auto expr = converter_->toBoltExpr(p);
 
   auto callExpr = std::dynamic_pointer_cast<const CallTypedExpr>(expr);
   ASSERT_NE(callExpr, nullptr);
@@ -1063,7 +1063,7 @@ TEST_F(RowExpressionTest, dereference) {
   json j = json::parse(str);
   std::shared_ptr<protocol::RowExpression> p = j;
 
-  auto expr = converter_->toVeloxExpr(p);
+  auto expr = converter_->toBoltExpr(p);
 
   auto fieldAccess =
       std::dynamic_pointer_cast<const DereferenceTypedExpr>(expr);

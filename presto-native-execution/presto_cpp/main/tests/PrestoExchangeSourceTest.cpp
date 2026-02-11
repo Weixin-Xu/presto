@@ -22,20 +22,20 @@
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/common/memory/MemoryAllocator.h"
-#include "velox/common/memory/MmapAllocator.h"
-#include "velox/common/testutil/TestValue.h"
-#include "velox/exec/ExchangeQueue.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MemoryAllocator.h"
+#include "bolt/common/memory/MmapAllocator.h"
+#include "bolt/common/testutil/TestValue.h"
+#include "bolt/exec/ExchangeQueue.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(bolt_memory_leak_check_enabled);
 
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
-using namespace facebook::velox;
-using namespace facebook::velox::memory;
-using namespace facebook::velox::common::testutil;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::memory;
+using namespace facebook::bolt::common::testutil;
 using namespace testing;
 
 namespace facebook::presto::test {
@@ -188,7 +188,7 @@ class Producer {
                 .thenValue([this, downstream, taskId, sequence, sequenceOpt](
                                bool /*value*/) {
                   auto [data, remainingBytes, noMoreData] = getData(sequence);
-                  VELOX_CHECK(!data.empty() || noMoreData);
+                  BOLT_CHECK(!data.empty() || noMoreData);
                   sendResponse(
                       downstream,
                       taskId,
@@ -317,7 +317,7 @@ class Producer {
     {
       std::lock_guard<std::mutex> l(mutex_);
       const auto getIndex = sequence - startSequence_;
-      VELOX_CHECK_GE(getIndex, 0);
+      BOLT_CHECK_GE(getIndex, 0);
       if (queue_.size() > getIndex) {
         data = queue_[getIndex];
         for (auto remainingIndex = getIndex + 1; remainingIndex < queue_.size();
@@ -337,7 +337,7 @@ class Producer {
     {
       std::lock_guard<std::mutex> l(mutex_);
       const auto startIndex = sequence - startSequence_;
-      VELOX_CHECK_GE(startIndex, 0);
+      BOLT_CHECK_GE(startIndex, 0);
       for (auto index = startIndex; index < queue_.size(); ++index) {
         remainingBytes += queue_[index].size();
       }
@@ -423,7 +423,7 @@ std::string toString(exec::SerializedPage* page) {
 std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  facebook::velox::ContinueFuture future;
+  facebook::bolt::ContinueFuture future;
   auto pages = queue->dequeueLocked(1, &atEnd, &future);
   EXPECT_LE(pages.size(), 1);
   EXPECT_FALSE(atEnd);
@@ -437,7 +437,7 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
 
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  facebook::velox::ContinueFuture future;
+  facebook::bolt::ContinueFuture future;
   auto pages = queue->dequeueLocked(1, &atEnd, &future);
   ASSERT_TRUE(pages.empty());
   if (!atEnd) {
@@ -554,7 +554,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
       size_t maxWaitMs = 2'000) {
     {
       std::lock_guard<std::mutex> l(queue->mutex());
-      VELOX_CHECK(exchangeSource->shouldRequestLocked());
+      BOLT_CHECK(exchangeSource->shouldRequestLocked());
     }
     exchangeSource->request(1 << 20, std::chrono::milliseconds(maxWaitMs));
   }
@@ -566,7 +566,7 @@ class PrestoExchangeSourceTest : public ::testing::TestWithParam<Params> {
       bool& atEnd) {
     {
       std::lock_guard<std::mutex> l(queue->mutex());
-      VELOX_CHECK(exchangeSource->shouldRequestLocked());
+      BOLT_CHECK(exchangeSource->shouldRequestLocked());
     }
     const auto response =
         exchangeSource->requestDataSizes(std::chrono::seconds(2)).get();
@@ -731,10 +731,10 @@ TEST_P(PrestoExchangeSourceTest, invalidDataResponseWithoutTokenSet) {
   ASSERT_EQ(sourceHelper.sequence(), 0);
 
   requestNextPage(queue, exchangeSource, 10);
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       waitForNextPage(queue),
       "next token is not set in non-empty data response");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       waitForEndMarker(queue),
       "next token is not set in non-empty data response");
 
@@ -1026,7 +1026,7 @@ DEBUG_ONLY_TEST_P(
     const std::string injectedErrorMessage{"Inject allocation error"};
     std::atomic<int> numAllocations{0};
     SCOPED_TESTVALUE_SET(
-        "facebook::velox::memory::MemoryPoolImpl::reserveThreadSafe",
+        "facebook::bolt::memory::MemoryPoolImpl::reserveThreadSafe",
         std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
           if (pool->name().compare(leafPoolName) != 0) {
             return;
@@ -1036,7 +1036,7 @@ DEBUG_ONLY_TEST_P(
           if (numAllocations > 1 && !persistentError) {
             return;
           }
-          VELOX_FAIL(injectedErrorMessage);
+          BOLT_FAIL(injectedErrorMessage);
         })));
 
     auto producer = std::make_unique<Producer>();
@@ -1057,7 +1057,7 @@ DEBUG_ONLY_TEST_P(
     producer->enqueue(payload);
 
     if (persistentError) {
-      VELOX_ASSERT_THROW(waitForNextPage(queue), "Failed to fetch data from");
+      BOLT_ASSERT_THROW(waitForNextPage(queue), "Failed to fetch data from");
     } else {
       const auto receivedPage = waitForNextPage(queue);
       ASSERT_EQ(toString(receivedPage.get()), payload);
@@ -1286,6 +1286,6 @@ INSTANTIATE_TEST_CASE_P(
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
   folly::Init init{&argc, &argv};
-  FLAGS_velox_memory_leak_check_enabled = true;
+  FLAGS_bolt_memory_leak_check_enabled = true;
   return RUN_ALL_TESTS();
 }

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
-#include <velox/common/memory/Memory.h>
+#include "bolt/common/memory/Memory.h>
 
 namespace facebook::presto {
 PeriodicHeartbeatManager::PeriodicHeartbeatManager(

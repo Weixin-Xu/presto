@@ -13,7 +13,7 @@
  */
 
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto::http::filters {
 
@@ -80,10 +80,10 @@ void HttpEndpointLatencyFilter::onRequest(
       break;
     }
   }
-  VELOX_CHECK(!requestEndpoint_.empty());
+  BOLT_CHECK(!requestEndpoint_.empty());
 
   // Starts the timer.
-  timer_ = std::make_unique<velox::MicrosecondTimer>(&timeUs_);
+  timer_ = std::make_unique<bolt::MicrosecondTimer>(&timeUs_);
   proxygen::Filter::onRequest(std::move(msg));
 }
 

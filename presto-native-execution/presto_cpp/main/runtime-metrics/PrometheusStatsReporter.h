@@ -13,14 +13,14 @@
  */
 
 #include "presto_cpp/main/common/Configs.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/base/GTestMacros.h"
-#include "velox/common/base/StatsReporter.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/GTestMacros.h"
+#include "bolt/common/base/StatsReporter.h"
 
 namespace facebook::presto::prometheus {
 
 struct StatsInfo {
-  velox::StatType statType;
+  bolt::StatType statType;
   void* metricPtr;
 };
 
@@ -34,17 +34,17 @@ struct StatsInfo {
 /// For metric http_latency_ms labels could be {method="GET"}, {method="PUT"},
 /// {method="POST"} etc. Prometheus treats {<metric_name>, [labels]} as unique
 /// metric object.
-class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
+class PrometheusStatsReporter : public facebook::bolt::BaseStatsReporter {
   class PrometheusImpl;
 
  public:
   explicit PrometheusStatsReporter(
       const std::map<std::string, std::string>& labels);
 
-  void registerMetricExportType(const char* key, velox::StatType)
+  void registerMetricExportType(const char* key, bolt::StatType)
       const override;
 
-  void registerMetricExportType(folly::StringPiece key, velox::StatType)
+  void registerMetricExportType(folly::StringPiece key, bolt::StatType)
       const override;
 
   void registerHistogramMetricExportType(
@@ -77,7 +77,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
 
   std::string fetchMetrics() override;
 
-  static std::unique_ptr<velox::BaseStatsReporter> createPrometheusReporter() {
+  static std::unique_ptr<bolt::BaseStatsReporter> createPrometheusReporter() {
     auto nodeConfig = NodeConfig::instance();
     const std::string cluster = nodeConfig->nodeEnvironment();
     const char* hostName = std::getenv("HOSTNAME");
@@ -92,7 +92,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
   mutable std::unordered_map<std::string, StatsInfo> registeredMetricsMap_;
-  VELOX_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
-  VELOX_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
+  BOLT_FRIEND_TEST(PrometheusReporterTest, testCountAndGauge);
+  BOLT_FRIEND_TEST(PrometheusReporterTest, testHistogramSummary);
 };
 } // namespace facebook::presto::prometheus

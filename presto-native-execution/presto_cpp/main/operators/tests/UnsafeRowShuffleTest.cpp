@@ -20,19 +20,19 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/testutil/TestValue.h"
-#include "velox/exec/Exchange.h"
-#include "velox/exec/ExchangeClient.h"
-#include "velox/exec/tests/utils/AssertQueryBuilder.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/row/CompactRow.h"
-#include "velox/vector/fuzzer/VectorFuzzer.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/testutil/TestValue.h"
+#include "bolt/exec/Exchange.h"
+#include "bolt/exec/ExchangeClient.h"
+#include "bolt/exec/tests/utils/AssertQueryBuilder.h"
+#include "bolt/exec/tests/utils/OperatorTestBase.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/row/CompactRow.h"
+#include "bolt/vector/fuzzer/VectorFuzzer.h"
 
-using namespace facebook::velox;
-using namespace facebook::velox::common::testutil;
+using namespace bytedance::bolt;
+using namespace facebook::bolt::common::testutil;
 using namespace facebook::presto;
 using namespace facebook::presto::operators;
 using namespace ::testing;
@@ -73,7 +73,7 @@ class TestShuffleWriter : public ShuffleWriter {
     readyPartitions_->resize(numPartitions_);
   }
 
-  void initialize(velox::memory::MemoryPool* pool) {
+  void initialize(bolt::memory::MemoryPool* pool) {
     if (pool_ == nullptr) {
       pool_ = pool;
     }
@@ -115,7 +115,7 @@ class TestShuffleWriter : public ShuffleWriter {
   }
 
   void noMoreData(bool success) override {
-    VELOX_CHECK(success, "Unexpected error");
+    BOLT_CHECK(success, "Unexpected error");
     // Flush in-progress buffers.
     for (auto i = 0; i < numPartitions_; ++i) {
       if (inProgressSizes_[i] > 0) {
@@ -149,7 +149,7 @@ class TestShuffleWriter : public ShuffleWriter {
 
   static std::shared_ptr<TestShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool) {
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
     std::shared_ptr<TestShuffleWriter>& instance = getInstance();
     if (instance) {
       return instance;
@@ -200,7 +200,7 @@ class TestShuffleReader : public ShuffleReader {
   }
 
   void noMoreData(bool success) override {
-    VELOX_CHECK(success, "Unexpected error");
+    BOLT_CHECK(success, "Unexpected error");
   }
 
   folly::F14FastMap<std::string, int64_t> stats() const override {
@@ -221,14 +221,14 @@ class TestShuffleFactory : public ShuffleInterfaceFactory {
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& /* serializedShuffleInfo */,
       const int partition,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
     return std::make_shared<TestShuffleReader>(
         partition, TestShuffleWriter::getInstance()->readyPartitions());
   }
 
   std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool) override {
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
     return TestShuffleWriter::createWriter(serializedShuffleInfo, pool);
   }
 };
@@ -255,7 +255,7 @@ void registerExchangeSource(const std::string& shuffleName) {
                   pool);
             }
           }
-          VELOX_USER_FAIL(
+          BOLT_USER_FAIL(
               "No shuffle read info provided in taskId. taskId: {}", taskId);
         }
         return nullptr;
@@ -371,7 +371,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     auto vector = std::static_pointer_cast<RowVector>(
         BaseVector::create(result->type(), result->size(), pool()));
     vector->copy(result.get(), 0, 0, result->size());
-    VELOX_CHECK_EQ(vector->size(), result->size());
+    BOLT_CHECK_EQ(vector->size(), result->size());
     return vector;
   }
 
@@ -396,11 +396,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     // Verify 'data'.
     auto deserialized = deserialize(results, asRowType(data->type()));
-    velox::test::assertEqualVectors(data, deserialized);
+    bolt::test::assertEqualVectors(data, deserialized);
 
     // Verify 'replicate' flags.
     if (replicateNullsAndAny) {
-      velox::test::assertEqualVectors(results->childAt(2), expectedReplicate);
+      bolt::test::assertEqualVectors(results->childAt(2), expectedReplicate);
     }
   }
 
@@ -423,7 +423,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         result->append(deserialized.get());
       }
     }
-    velox::test::assertEqualVectors(expected, result);
+    bolt::test::assertEqualVectors(expected, result);
     if (expectedOutputCount) {
       ASSERT_EQ(expectedOutputCount.value(), serializedResults.size());
     }
@@ -475,7 +475,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     exec::Operator::registerOperator(std::make_unique<ShuffleReadTranslator>());
 
     // Flatten the inputs to avoid issues assertEqualResults referred here:
-    // https://github.com/facebookincubator/velox/issues/2859
+    // https://github.com/facebookincubator/bolt/issues/2859
     auto dataType = asRowType(data[0]->type());
 
     auto writerPlan =
@@ -576,7 +576,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
       // TODO: Add assertContainResults for the remaining elements
     } else {
-      velox::exec::test::assertEqualResults(
+      bolt::exec::test::assertEqualResults(
           expectedOutputVectors, outputVectors);
     }
   }
@@ -616,7 +616,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     // nested data structures given the limitations of the fuzzer and
     // assertEqualResults:
     // Limitations of assertEqualResults:
-    // https://github.com/facebookincubator/velox/issues/2859
+    // https://github.com/facebookincubator/bolt/issues/2859
     auto rowType = ROW({
         {"c0", INTEGER()},
         {"c1", TINYINT()},
@@ -638,8 +638,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     });
 
     // Create a local file system storage based shuffle.
-    velox::filesystems::registerLocalFileSystem();
-    auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
+    bolt::filesystems::registerLocalFileSystem();
+    auto rootDirectory = bolt::exec::test::TempDirectoryPath::create();
     auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
         localShuffleWriteInfo(rootPath, numPartitions);
@@ -661,7 +661,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         auto input = fuzzer.fuzzInputRow(rowType);
         inputVectors.push_back(input);
       }
-      velox::exec::ExchangeSource::factories().clear();
+      bolt::exec::ExchangeSource::factories().clear();
       registerExchangeSource(
           std::string(LocalPersistentShuffleFactory::kShuffleName));
       runShuffleTest(
@@ -721,7 +721,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   }
 
   void cleanupDirectory(const std::string& rootPath) {
-    auto fileSystem = velox::filesystems::getFileSystem(rootPath, nullptr);
+    auto fileSystem = bolt::filesystems::getFileSystem(rootPath, nullptr);
     auto files = fileSystem->list(rootPath);
     for (auto& file : files) {
       fileSystem->remove(file);
@@ -766,7 +766,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
           [&](TestShuffleWriter* /*writer*/) {
             // Trigger a std::bad_function_call exception.
             std::function<bool()> nullFunction = nullptr;
-            VELOX_CHECK(nullFunction());
+            BOLT_CHECK(nullFunction());
           }));
 
   exec::CursorParameters params;
@@ -778,7 +778,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleWriterExceptions) {
               4, std::string(TestShuffleFactory::kShuffleName), info))
           .planNode();
 
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       exec::test::readCursor(params, [](auto /*task*/) {}),
       "ShuffleWriter::collect failed");
 
@@ -810,7 +810,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
       [&](TestShuffleReader* /*reader*/) {
         // Trigger a std::bad_function_call exception.
         std::function<bool()> nullFunction = nullptr;
-        VELOX_CHECK(nullFunction());
+        BOLT_CHECK(nullFunction());
       };
 
   exec::Operator::registerOperator(std::make_unique<ShuffleReadTranslator>());
@@ -824,7 +824,7 @@ DEBUG_ONLY_TEST_F(UnsafeRowShuffleTest, shuffleReaderExceptions) {
         "facebook::presto::operators::test::TestShuffleReader::next",
         injectFailure);
 
-    VELOX_ASSERT_THROW(
+    BOLT_ASSERT_THROW(
         runShuffleReadTask(params, info), "ShuffleReader::next failed");
   }
 
@@ -842,7 +842,7 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  velox::exec::ExchangeSource::factories().clear();
+  bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleInfo = testShuffleInfo(numPartitions, 1 << 20);
   TestShuffleWriter::createWriter(shuffleInfo, pool());
   registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
@@ -868,7 +868,7 @@ TEST_F(UnsafeRowShuffleTest, endToEndWithReplicateNullAndAny) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  velox::exec::ExchangeSource::factories().clear();
+  bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleInfo = testShuffleInfo(numPartitions, 1 << 20);
   TestShuffleWriter::createWriter(shuffleInfo, pool());
   registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
@@ -981,8 +981,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   uint32_t numMapDrivers = 1;
 
   // Create a local file system storage based shuffle.
-  velox::filesystems::registerLocalFileSystem();
-  auto rootDirectory = velox::exec::test::TempDirectoryPath::create();
+  bolt::filesystems::registerLocalFileSystem();
+  auto rootDirectory = bolt::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->getPath();
 
   auto data = makeRowVector({
@@ -991,7 +991,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  velox::exec::ExchangeSource::factories().clear();
+  bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleWriteInfo =
       localShuffleWriteInfo(rootPath, numPartitions);
   registerExchangeSource(
@@ -1169,12 +1169,12 @@ class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
       const int32_t partition,
-      velox::memory::MemoryPool* pool) override {
+      bolt::memory::MemoryPool* pool) override {
     return nullptr;
   }
   std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      velox::memory::MemoryPool* pool) override {
+      bolt::memory::MemoryPool* pool) override {
     return nullptr;
   }
 };

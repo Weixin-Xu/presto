@@ -13,14 +13,14 @@
  */
 #include "presto_cpp/main/PeriodicMemoryChecker.h"
 #include <gtest/gtest.h>
-#include "velox/common/base/VeloxException.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/caching/FileIds.h"
-#include "velox/common/caching/SsdCache.h"
-#include "velox/common/memory/Memory.h"
+#include "bolt/common/base/BoltException.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/caching/AsyncDataCache.h"
+#include "bolt/common/caching/FileIds.h"
+#include "bolt/common/caching/SsdCache.h"
+#include "bolt/common/memory/Memory.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 class PeriodicMemoryCheckerTest : public testing::Test {
@@ -83,22 +83,22 @@ TEST_F(PeriodicMemoryCheckerTest, basic) {
 
   ASSERT_NO_THROW(TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
       1'000, true, 1024, 32, true, 5, "/path/to/dir", "prefix", 5, 512}));
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
           1'000, true, 0, 32, true, 5, "/path/to/dir", "prefix", 5, 512}),
       "(0 vs. 0)");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
           1'000, true, 1024, 32, true, 5, "", "prefix", 5, 512}),
       "heapDumpLogDir cannot be empty when heap dump is enabled.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       TestPeriodicMemoryChecker(PeriodicMemoryChecker::Config{
           1'000, true, 1024, 32, true, 5, "/path/to/dir", "", 5, 512}),
       "heapDumpFilePrefix cannot be empty when heap dump is enabled.");
   TestPeriodicMemoryChecker memChecker(PeriodicMemoryChecker::Config{
       1'000, false, 0, 0, false, 5, "/path/to/dir", "prefix", 5, 512});
   ASSERT_NO_THROW(memChecker.start());
-  VELOX_ASSERT_THROW(memChecker.start(), "start() called more than once");
+  BOLT_ASSERT_THROW(memChecker.start(), "start() called more than once");
   ASSERT_NO_THROW(memChecker.stop());
 }
 

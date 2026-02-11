@@ -12,26 +12,19 @@
 
 add_library(presto_type_test_utils OBJECT TestUtils.cpp)
 
-add_executable(presto_velox_split_test PrestoToVeloxSplitTest.cpp)
+add_executable(presto_bolt_split_test PrestoToBoltSplitTest.cpp)
 
-add_test(presto_velox_split_test presto_velox_split_test)
+add_test(presto_bolt_split_test presto_bolt_split_test)
 
 target_link_libraries(
-  presto_velox_split_test
+  presto_bolt_split_test
   GTest::gtest
   GTest::gtest_main
   presto_operators
   presto_protocol
-  velox_dwio_common
-  velox_dwio_orc_reader
-  velox_hive_connector
-  velox_tpch_connector
-  velox_exec
-  velox_dwio_common_exception
   presto_type_converter
   presto_types
-  velox_type_fbhive
-  velox_hive_partition_function)
+  bolt::bolt)
 
 add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
                                        PlanConverterTest.cpp)
@@ -53,20 +46,7 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_types>
   presto_operators
   presto_type_test_utils
-  velox_core
-  velox_dwio_common_exception
-  velox_encode
-  velox_exec
-  velox_exec_test_lib
-  velox_functions_prestosql
-  velox_functions_lib
-  velox_hive_connector
-  velox_tpch_connector
-  velox_hive_partition_function
-  velox_presto_serializer
-  velox_serialization
-  velox_type
-  velox_type_parser
+  bolt::bolt
   Boost::filesystem
   ${RE2}
   ${FOLLY_WITH_DEPENDENCIES}
@@ -77,22 +57,20 @@ target_link_libraries(
 set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
                                                      presto_link_job_pool)
 
-add_executable(presto_to_velox_connector_test PrestoToVeloxConnectorTest.cpp)
+add_executable(presto_to_bolt_connector_test PrestoToBoltConnectorTest.cpp)
 
 add_test(
-  NAME presto_to_velox_connector_test
-  COMMAND presto_to_velox_connector_test
+  NAME presto_to_bolt_connector_test
+  COMMAND presto_to_bolt_connector_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
-  presto_to_velox_connector_test
+  presto_to_bolt_connector_test
   presto_protocol
   presto_operators
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_hive_connector
-  velox_tpch_connector
+  bolt::bolt
   GTest::gtest
   GTest::gtest_main)
 
@@ -108,26 +86,23 @@ target_link_libraries(
   presto_function_metadata
   presto_protocol
   presto_type_test_utils
-  velox_aggregates
-  velox_functions_prestosql
-  velox_window
+  bolt::bolt
   GTest::gtest
   GTest::gtest_main)
 
-add_executable(presto_to_velox_query_plan_test PrestoToVeloxQueryPlanTest.cpp)
+add_executable(presto_to_bolt_query_plan_test PrestoToBoltQueryPlanTest.cpp)
 
 add_test(
-  NAME presto_to_velox_query_plan_test
-  COMMAND presto_to_velox_query_plan_test
+  NAME presto_to_bolt_query_plan_test
+  COMMAND presto_to_bolt_query_plan_test
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(
-  presto_to_velox_query_plan_test
+  presto_to_bolt_query_plan_test
   presto_operators
   presto_protocol
   presto_type_converter
   presto_types
-  velox_dwio_common
-  velox_exec_test_lib
+  bolt::bolt
   GTest::gtest
   GTest::gtest_main)

@@ -43,43 +43,18 @@ struct ColumnIdentity {
 void to_json(json& j, const ColumnIdentity& p);
 void from_json(const json& j, ColumnIdentity& p);
 } // namespace facebook::presto::protocol::iceberg
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// IcebergColumnHandle is special since it needs an implementation of
-// operator<().
-
 namespace facebook::presto::protocol::iceberg {
-
 struct IcebergColumnHandle : public ColumnHandle {
   ColumnIdentity columnIdentity = {};
   Type type = {};
   std::shared_ptr<String> comment = {};
-  hive::ColumnType columnType = {};
+  ColumnType columnType = {};
   List<Subfield> requiredSubfields = {};
 
   IcebergColumnHandle() noexcept;
-
-  bool operator<(const ColumnHandle& o) const override {
-    return columnIdentity.name <
-        dynamic_cast<const IcebergColumnHandle&>(o).columnIdentity.name;
-  }
 };
-
 void to_json(json& j, const IcebergColumnHandle& p);
 void from_json(const json& j, IcebergColumnHandle& p);
-
 } // namespace facebook::presto::protocol::iceberg
 namespace facebook::presto::protocol::iceberg {
 struct ChangelogSplitInfo {
@@ -173,23 +148,6 @@ struct PrestoIcebergPartitionSpec {
 void to_json(json& j, const PrestoIcebergPartitionSpec& p);
 void from_json(const json& j, PrestoIcebergPartitionSpec& p);
 } // namespace facebook::presto::protocol::iceberg
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// IcebergInsertTableHandle is special since it needs an usage of
-// hive::.
-
 namespace facebook::presto::protocol::iceberg {
 struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   String schemaName = {};
@@ -199,7 +157,7 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
   FileFormat fileFormat = {};
-  hive::HiveCompressionCodec compressionCodec = {};
+  HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
 
   IcebergInsertTableHandle() noexcept;
@@ -207,23 +165,6 @@ struct IcebergInsertTableHandle : public ConnectorInsertTableHandle {
 void to_json(json& j, const IcebergInsertTableHandle& p);
 void from_json(const json& j, IcebergInsertTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// IcebergInsertTableHandle is special since it needs an usage of
-// hive::.
-
 namespace facebook::presto::protocol::iceberg {
 struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
   String schemaName = {};
@@ -233,7 +174,7 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
   List<IcebergColumnHandle> inputColumns = {};
   String outputPath = {};
   FileFormat fileFormat = {};
-  hive::HiveCompressionCodec compressionCodec = {};
+  HiveCompressionCodec compressionCodec = {};
   Map<String, String> storageProperties = {};
 
   IcebergOutputTableHandle() noexcept;
@@ -241,23 +182,6 @@ struct IcebergOutputTableHandle : public ConnectorOutputTableHandle {
 void to_json(json& j, const IcebergOutputTableHandle& p);
 void from_json(const json& j, IcebergOutputTableHandle& p);
 } // namespace facebook::presto::protocol::iceberg
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// IcebergSplit is special since it needs an usage of
-// hive::.
-
 namespace facebook::presto::protocol::iceberg {
 struct IcebergSplit : public ConnectorSplit {
   String path = {};
@@ -265,7 +189,7 @@ struct IcebergSplit : public ConnectorSplit {
   int64_t length = {};
   FileFormat fileFormat = {};
   List<HostAddress> addresses = {};
-  Map<Integer, hive::HivePartitionKey> partitionKeys = {};
+  Map<Integer, HivePartitionKey> partitionKeys = {};
   String partitionSpecAsJson = {};
   std::shared_ptr<String> partitionDataJson = {};
   NodeSelectionStrategy nodeSelectionStrategy = {};

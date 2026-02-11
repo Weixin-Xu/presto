@@ -15,8 +15,8 @@
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/main/common/Configs.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 
@@ -51,7 +51,7 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
     uint32_t shuffleId,
     uint32_t numPartitions,
     uint64_t maxBytesPerPartition,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    bolt::memory::MemoryPool* FOLLY_NONNULL pool)
     : threadId_(std::this_thread::get_id()),
       pool_(pool),
       numPartitions_(numPartitions),
@@ -64,10 +64,10 @@ LocalPersistentShuffleWriter::LocalPersistentShuffleWriter(
   inProgressPartitions_.assign(numPartitions_, nullptr);
   inProgressSizes_.resize(numPartitions_);
   inProgressSizes_.assign(numPartitions_, 0);
-  fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
+  fileSystem_ = bolt::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
-std::unique_ptr<velox::WriteFile>
+std::unique_ptr<bolt::WriteFile>
 LocalPersistentShuffleWriter::getNextOutputFile(int32_t partition) {
   auto filename = nextAvailablePartitionFileName(rootPath_, partition);
   return fileSystem_->openFileForWrite(filename);
@@ -152,12 +152,12 @@ LocalPersistentShuffleReader::LocalPersistentShuffleReader(
     const std::string& rootPath,
     const std::string& queryId,
     std::vector<std::string> partitionIds,
-    velox::memory::MemoryPool* FOLLY_NONNULL pool)
+    bolt::memory::MemoryPool* FOLLY_NONNULL pool)
     : rootPath_(rootPath),
       queryId_(queryId),
       partitionIds_(std::move(partitionIds)),
       pool_(pool) {
-  fileSystem_ = velox::filesystems::getFileSystem(rootPath_, nullptr);
+  fileSystem_ = bolt::filesystems::getFileSystem(rootPath_, nullptr);
 }
 
 folly::SemiFuture<BufferPtr> LocalPersistentShuffleReader::next() {
@@ -242,7 +242,7 @@ LocalShuffleReadInfo LocalShuffleReadInfo::deserialize(
 std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
     const std::string& serializedStr,
     const int32_t /*partition*/,
-    velox::memory::MemoryPool* pool) {
+    bolt::memory::MemoryPool* pool) {
   const operators::LocalShuffleReadInfo readInfo =
       operators::LocalShuffleReadInfo::deserialize(serializedStr);
   return std::make_shared<operators::LocalPersistentShuffleReader>(
@@ -251,7 +251,7 @@ std::shared_ptr<ShuffleReader> LocalPersistentShuffleFactory::createReader(
 
 std::shared_ptr<ShuffleWriter> LocalPersistentShuffleFactory::createWriter(
     const std::string& serializedStr,
-    velox::memory::MemoryPool* pool) {
+    bolt::memory::MemoryPool* pool) {
   static const uint64_t maxBytesPerPartition =
       SystemConfig::instance()->localShuffleMaxPartitionBytes();
   const operators::LocalShuffleWriteInfo writeInfo =

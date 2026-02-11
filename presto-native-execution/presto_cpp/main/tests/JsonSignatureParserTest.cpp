@@ -14,10 +14,10 @@
 
 #include "presto_cpp/main/JsonSignatureParser.h"
 #include <gtest/gtest.h>
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/base/tests/GTestUtils.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/tests/GTestUtils.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::test {
 namespace {
@@ -26,39 +26,39 @@ class JsonSignatureParserTest : public testing::Test {};
 
 TEST_F(JsonSignatureParserTest, broken) {
   // Needs to parse and provide a top level `udfSignatureMap` object.
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser(""), "Unable to parse function signature JSON file");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{}"),
       "Unable to find top level 'udfSignatureMap' key.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"wrong_key\": 123}"),
       "Unable to find top level 'udfSignatureMap' key.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"udfSignatureMap\": 123}"),
       "Input signatures should be an object.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"udfSignatureMap\": []}"),
       "Input signatures should be an object");
 
   EXPECT_NO_THROW(JsonSignatureParser parser("{\"udfSignatureMap\": {}}"));
 
   // Broken signatures.
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"udfSignatureMap\": {\"\": []}}"),
       "The key for a function item should be a non-empty string.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"udfSignatureMap\": {\"func\": [123]}}"),
       "Function signature should be an object.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser("{\"udfSignatureMap\": {\"func\": [{}, {}]}}"),
       "`outputType` and `paramTypes` are mandatory in a signature");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser(
           "{\"udfSignatureMap\": "
           "{\"func\": [{\"outputType\": 123, \"paramTypes\": []}]}}"),
       "Function type name should be a string.");
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       JsonSignatureParser(
           "{\"udfSignatureMap\": {\"func\": "
           "[{\"outputType\": \"varchar\", \"paramTypes\": [123]}]}}"),

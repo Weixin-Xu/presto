@@ -36,18 +36,10 @@ add_test(
 
 target_link_libraries(
   presto_server_test
-  velox_caching
-  velox_exec_test_lib
   presto_server_lib
-  velox_dwio_common_test_utils
   $<TARGET_OBJECTS:presto_type_converter>
   $<TARGET_OBJECTS:presto_types>
-  velox_hive_connector
-  velox_tpch_connector
-  velox_presto_serializer
-  velox_functions_prestosql
-  velox_aggregates
-  velox_hive_partition_function
+  bolt::bolt
   ${RE2}
   GTest::gmock
   GTest::gtest
@@ -68,8 +60,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   target_link_libraries(
     presto_server_remote_function_test
     presto_server_remote_function
-    velox_expression
-    velox_temp_path
+    bolt::bolt
     GTest::gmock
     GTest::gtest
     GTest::gtest_main)

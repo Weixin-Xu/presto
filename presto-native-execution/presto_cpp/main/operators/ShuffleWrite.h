@@ -14,20 +14,20 @@
 #pragma once
 
 #include "presto_cpp/main/operators/ShuffleInterface.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
-class ShuffleWriteNode : public velox::core::PlanNode {
+class ShuffleWriteNode : public bolt::core::PlanNode {
  public:
   ShuffleWriteNode(
-      const velox::core::PlanNodeId& id,
+      const bolt::core::PlanNodeId& id,
       uint32_t numPartitions,
       const std::string& shuffleName,
       const std::string& serializedShuffleWriteInfo,
-      velox::core::PlanNodePtr source)
-      : velox::core::PlanNode(id),
+      bolt::core::PlanNodePtr source)
+      : bolt::core::PlanNode(id),
         numPartitions_{numPartitions},
         shuffleName_{shuffleName},
         serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
@@ -35,15 +35,15 @@ class ShuffleWriteNode : public velox::core::PlanNode {
 
   folly::dynamic serialize() const override;
 
-  static velox::core::PlanNodePtr create(
+  static bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const velox::RowTypePtr& outputType() const override {
+  const bolt::RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }
 
-  const std::vector<velox::core::PlanNodePtr>& sources() const override {
+  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
@@ -71,15 +71,15 @@ class ShuffleWriteNode : public velox::core::PlanNode {
   const uint32_t numPartitions_;
   const std::string shuffleName_;
   const std::string serializedShuffleWriteInfo_;
-  const std::vector<velox::core::PlanNodePtr> sources_;
+  const std::vector<bolt::core::PlanNodePtr> sources_;
 };
 
 class ShuffleWriteTranslator
-    : public velox::exec::Operator::PlanNodeTranslator {
+    : public bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<velox::exec::Operator> toOperator(
-      velox::exec::DriverCtx* ctx,
+  std::unique_ptr<bolt::exec::Operator> toOperator(
+      bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const velox::core::PlanNodePtr& node) override;
+      const bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

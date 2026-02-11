@@ -14,28 +14,28 @@
 
 #include "presto_cpp/main/JsonSignatureParser.h"
 #include <folly/json.h>
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto {
 namespace {
 
 // Parse a single type signature.
-velox::exec::TypeSignature parseTypeSignature(const folly::dynamic& input) {
-  VELOX_USER_CHECK(
+bolt::exec::TypeSignature parseTypeSignature(const folly::dynamic& input) {
+  BOLT_USER_CHECK(
       input.isString(),
       "Function type name should be a string. Got: {}",
       input.typeName());
-  return velox::exec::parseTypeSignature(input.asString());
+  return bolt::exec::parseTypeSignature(input.asString());
 }
 
 // Parses a list of type signatures.
-std::vector<velox::exec::TypeSignature> parseTypeSignatures(
+std::vector<bolt::exec::TypeSignature> parseTypeSignatures(
     const folly::dynamic& input) {
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       input.isArray(),
       "Function paramType should be an array. Got: {}",
       input.typeName());
-  std::vector<velox::exec::TypeSignature> typeSignatures;
+  std::vector<bolt::exec::TypeSignature> typeSignatures;
   typeSignatures.reserve(input.size());
 
   for (const auto& it : input) {
@@ -47,14 +47,14 @@ std::vector<velox::exec::TypeSignature> parseTypeSignatures(
 // Parses a single signature.
 JsonSignatureParser::FunctionSignatureItem parseSignature(
     const folly::dynamic& input) {
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       input.isObject(),
       "Function signature should be an object. Got: {}",
       input.typeName());
 
   auto* outputType = input.get_ptr("outputType");
   auto* paramTypes = input.get_ptr("paramTypes");
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       (outputType != nullptr) && (paramTypes != nullptr),
       "`outputType` and `paramTypes` are mandatory in a signature.");
 
@@ -64,8 +64,8 @@ JsonSignatureParser::FunctionSignatureItem parseSignature(
   std::vector<bool> constantArguments(paramTypeSignatures.size(), false);
 
   return JsonSignatureParser::FunctionSignatureItem{
-      std::make_shared<velox::exec::FunctionSignature>(
-          std::unordered_map<std::string, velox::exec::SignatureVariable>{},
+      std::make_shared<bolt::exec::FunctionSignature>(
+          std::unordered_map<std::string, bolt::exec::SignatureVariable>{},
           parseTypeSignature(*outputType),
           std::move(paramTypeSignatures),
           std::move(constantArguments),
@@ -76,7 +76,7 @@ JsonSignatureParser::FunctionSignatureItem parseSignature(
 // Parses a list of signatures for a function.
 std::vector<JsonSignatureParser::FunctionSignatureItem> parseSignatures(
     const folly::dynamic& input) {
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       input.isArray(),
       "The value for a function item should be an array of signatures. Got: {}",
       input.typeName());
@@ -96,11 +96,11 @@ JsonSignatureParser::JsonSignatureParser(const std::string& input) {
   try {
     topLevelJson = folly::parseJson(input);
   } catch (const std::exception& e) {
-    VELOX_USER_FAIL(
+    BOLT_USER_FAIL(
         "Unable to parse function signature JSON file: {}", e.what());
   }
 
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       topLevelJson.isObject(),
       "Top level json item needs to be an object. Got: {}",
       topLevelJson.typeName());
@@ -109,12 +109,12 @@ JsonSignatureParser::JsonSignatureParser(const std::string& input) {
   if (auto* found = topLevelJson.get_ptr("udfSignatureMap")) {
     parse(*found);
   } else {
-    VELOX_USER_FAIL("Unable to find top level 'udfSignatureMap' key.");
+    BOLT_USER_FAIL("Unable to find top level 'udfSignatureMap' key.");
   }
 }
 
 void JsonSignatureParser::parse(const folly::dynamic& input) {
-  VELOX_USER_CHECK(
+  BOLT_USER_CHECK(
       input.isObject(),
       "Input signatures should be an object. Got: {}",
       input.typeName());
@@ -123,7 +123,7 @@ void JsonSignatureParser::parse(const folly::dynamic& input) {
   for (auto it : input.items()) {
     // Check function name.
     const auto& key = it.first;
-    VELOX_USER_CHECK(
+    BOLT_USER_CHECK(
         key.isString() && !key.getString().empty(),
         "The key for a function item should be a non-empty string. Got: '{}'",
         key.asString());

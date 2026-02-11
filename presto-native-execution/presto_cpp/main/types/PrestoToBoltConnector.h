@@ -13,89 +13,89 @@
  */
 #pragma once
 
-#include "PrestoToVeloxExpr.h"
+#include "PrestoToBoltExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.h"
 #include "presto_cpp/presto_protocol/core/ConnectorProtocol.h"
-#include "velox/connectors/Connector.h"
-#include "velox/connectors/hive/TableHandle.h"
-#include "velox/core/PlanNode.h"
-#include "velox/vector/ComplexVector.h"
+#include "bolt/connectors/Connector.h"
+#include "bolt/connectors/hive/TableHandle.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/vector/ComplexVector.h"
 
 namespace facebook::presto {
 
-class PrestoToVeloxConnector;
+class PrestoToBoltConnector;
 
-void registerPrestoToVeloxConnector(
-    std::unique_ptr<const PrestoToVeloxConnector> connector);
+void registerPrestoToBoltConnector(
+    std::unique_ptr<const PrestoToBoltConnector> connector);
 
-void unregisterPrestoToVeloxConnector(const std::string& connectorName);
+void unregisterPrestoToBoltConnector(const std::string& connectorName);
 
-const PrestoToVeloxConnector& getPrestoToVeloxConnector(
+const PrestoToBoltConnector& getPrestoToBoltConnector(
     const std::string& connectorName);
 
-class PrestoToVeloxConnector {
+class PrestoToBoltConnector {
  public:
-  virtual ~PrestoToVeloxConnector() = default;
+  virtual ~PrestoToBoltConnector() = default;
 
   [[nodiscard]] const std::string& connectorName() const {
     return connectorName_;
   }
 
-  [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorSplit>
-  toVeloxSplit(
+  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ConnectorSplit>
+  toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const = 0;
 
-  [[nodiscard]] virtual std::unique_ptr<velox::connector::ColumnHandle>
-  toVeloxColumnHandle(
+  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ColumnHandle>
+  toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const = 0;
 
-  [[nodiscard]] virtual std::unique_ptr<velox::connector::ConnectorTableHandle>
-  toVeloxTableHandle(
+  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ConnectorTableHandle>
+  toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
+      const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
       const = 0;
 
   [[nodiscard]] virtual std::unique_ptr<
-      velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
+      bolt::connector::ConnectorInsertTableHandle>
+  toBoltInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const {
     return {};
   }
 
   [[nodiscard]] virtual std::unique_ptr<
-      velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
+      bolt::connector::ConnectorInsertTableHandle>
+  toBoltInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const {
     return {};
   }
 
-  [[nodiscard]] std::unique_ptr<velox::core::PartitionFunctionSpec>
-  createVeloxPartitionFunctionSpec(
+  [[nodiscard]] std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<velox::column_index_t>& channels,
-      const std::vector<velox::VectorPtr>& constValues) const {
+      const std::vector<bolt::column_index_t>& channels,
+      const std::vector<bolt::VectorPtr>& constValues) const {
     bool ignored;
-    return createVeloxPartitionFunctionSpec(
+    return createBoltPartitionFunctionSpec(
         partitioningHandle, bucketToPartition, channels, constValues, ignored);
   }
 
-  [[nodiscard]] virtual std::unique_ptr<velox::core::PartitionFunctionSpec>
-  createVeloxPartitionFunctionSpec(
+  [[nodiscard]] virtual std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<velox::column_index_t>& channels,
-      const std::vector<velox::VectorPtr>& constValues,
+      const std::vector<bolt::column_index_t>& channels,
+      const std::vector<bolt::VectorPtr>& constValues,
       bool& effectivelyGather) const {
     return {};
   }
@@ -104,111 +104,111 @@ class PrestoToVeloxConnector {
   createConnectorProtocol() const = 0;
 
  protected:
-  explicit PrestoToVeloxConnector(std::string connectorName)
+  explicit PrestoToBoltConnector(std::string connectorName)
       : connectorName_(std::move(connectorName)) {}
   const std::string connectorName_;
 };
 
-class HivePrestoToVeloxConnector final : public PrestoToVeloxConnector {
+class HivePrestoToBoltConnector final : public PrestoToBoltConnector {
  public:
-  explicit HivePrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
+  explicit HivePrestoToBoltConnector(std::string connectorName)
+      : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
+      const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
       const final;
 
-  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+  toBoltInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::connector::ConnectorInsertTableHandle>
-  toVeloxInsertTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+  toBoltInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::core::PartitionFunctionSpec>
-  createVeloxPartitionFunctionSpec(
+  std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<velox::column_index_t>& channels,
-      const std::vector<velox::VectorPtr>& constValues,
+      const std::vector<bolt::column_index_t>& channels,
+      const std::vector<bolt::VectorPtr>& constValues,
       bool& effectivelyGather) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 
  private:
-  std::vector<std::shared_ptr<const velox::connector::hive::HiveColumnHandle>>
+  std::vector<std::shared_ptr<const bolt::connector::hive::HiveColumnHandle>>
   toHiveColumns(
       const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
       const TypeParser& typeParser,
       bool& hasPartitionColumn) const;
 };
 
-class IcebergPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+class IcebergPrestoToBoltConnector final : public PrestoToBoltConnector {
  public:
-  explicit IcebergPrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
+  explicit IcebergPrestoToBoltConnector(std::string connectorName)
+      : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
+      const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 };
 
-class TpchPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+class TpchPrestoToBoltConnector final : public PrestoToBoltConnector {
  public:
-  explicit TpchPrestoToVeloxConnector(std::string connectorName)
-      : PrestoToVeloxConnector(std::move(connectorName)) {}
+  explicit TpchPrestoToBoltConnector(std::string connectorName)
+      : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
+      const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()

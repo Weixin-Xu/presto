@@ -20,10 +20,10 @@
 
 #include "presto_cpp/main/QueryContextManager.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/testutil/TestValue.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/testutil/TestValue.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 namespace {
@@ -99,9 +99,9 @@ PrestoExchangeSource::PrestoExchangeSource(
   const auto connectTimeoutMs =
       std::chrono::duration_cast<std::chrono::milliseconds>(
           SystemConfig::instance()->exchangeConnectTimeoutMs());
-  VELOX_CHECK_NOT_NULL(driverExecutor_);
-  VELOX_CHECK_NOT_NULL(ioEventBase);
-  VELOX_CHECK_NOT_NULL(pool_);
+  BOLT_CHECK_NOT_NULL(driverExecutor_);
+  BOLT_CHECK_NOT_NULL(ioEventBase);
+  BOLT_CHECK_NOT_NULL(pool_);
   httpClient_ = std::make_shared<http::HttpClient>(
       ioEventBase,
       connPool,
@@ -125,7 +125,7 @@ bool PrestoExchangeSource::shouldRequestLocked() {
   }
 
   if (!requestPending_) {
-    VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    BOLT_CHECK(!promise_.valid() || promise_.isFulfilled());
     requestPending_ = true;
     return true;
   }
@@ -140,16 +140,16 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
-  VELOX_CHECK(requestPending_);
+  BOLT_CHECK(requestPending_);
   // This call cannot be made concurrently from multiple threads, but other
   // calls that mutate promise_ can be called concurrently.
-  auto promise = VeloxPromise<Response>("PrestoExchangeSource::request");
+  auto promise = BoltPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
-  velox::common::testutil::TestValue::adjust(
+  bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::request", this);
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
-    VELOX_CHECK(!promise_.valid() || promise_.isFulfilled());
+    BOLT_CHECK(!promise_.valid() || promise_.isFulfilled());
     if (closed_.load()) {
       promise.setValue(Response{0, false});
       return future;
@@ -186,7 +186,7 @@ void PrestoExchangeSource::doRequest(
   }
   auto requestBuilder = http::RequestBuilder().method(method).url(path);
 
-  velox::common::testutil::TestValue::adjust(
+  bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
   requestBuilder
       .header(
@@ -212,7 +212,7 @@ void PrestoExchangeSource::handleDataResponse(
     std::chrono::microseconds maxWait,
     uint32_t maxBytes,
     const std::string& httpRequestPath) {
-  velox::common::testutil::TestValue::adjust(
+  bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::handleDataResponse", this);
   if (responseTry.hasException()) {
     processDataError(
@@ -262,7 +262,7 @@ void PrestoExchangeSource::processDataResponse(
     return;
   }
   auto* headers = response->headers();
-  VELOX_CHECK(
+  BOLT_CHECK(
       !headers->getIsChunked(),
       "Chunked http transferring encoding is not supported.");
   const uint64_t contentLength =
@@ -286,7 +286,7 @@ void PrestoExchangeSource::processDataResponse(
   if (!remainingBytesString.empty()) {
     folly::split(',', remainingBytesString, remainingBytes);
     if (!remainingBytes.empty() && remainingBytes[0] == 0) {
-      VELOX_CHECK_EQ(remainingBytes.size(), 1);
+      BOLT_CHECK_EQ(remainingBytes.size(), 1);
       remainingBytes.clear();
     }
   }
@@ -301,7 +301,7 @@ void PrestoExchangeSource::processDataResponse(
     // the rolled back 'sequence_'.
     ackSequenceOpt = atol(nextTokenStr.c_str());
   } else {
-    VELOX_CHECK_EQ(
+    BOLT_CHECK_EQ(
         contentLength, 0, "next token is not set in non-empty data response");
   }
 
@@ -349,7 +349,7 @@ void PrestoExchangeSource::processDataResponse(
   }
 
   const int64_t pageSize = empty ? 0 : page->size();
-  VeloxPromise<Response> requestPromise;
+  BoltPromise<Response> requestPromise;
   std::vector<ContinuePromise> queuePromises;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -381,7 +381,7 @@ void PrestoExchangeSource::processDataResponse(
         Response{pageSize, complete, std::move(remainingBytes)});
   } else {
     // The source must have been closed.
-    VELOX_CHECK(closed_.load());
+    BOLT_CHECK(closed_.load());
   }
 
   if (complete) {
@@ -417,7 +417,7 @@ void PrestoExchangeSource::processDataError(
 
   if (!checkSetRequestPromise()) {
     // The source must have been closed.
-    VELOX_CHECK(closed_.load());
+    BOLT_CHECK(closed_.load());
   }
 }
 
@@ -512,7 +512,7 @@ void PrestoExchangeSource::handleAbortResponse(
 }
 
 bool PrestoExchangeSource::checkSetRequestPromise() {
-  VeloxPromise<Response> promise;
+  BoltPromise<Response> promise;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     promise = std::move(promise_);
@@ -533,8 +533,8 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
     int destination,
-    const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-    velox::memory::MemoryPool* memoryPool,
+    const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+    bolt::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
     http::HttpClientConnectionPool* connPool,
@@ -542,7 +542,7 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
   folly::Uri uri(url);
   auto* eventBase = ioExecutor->getEventBase();
   if (uri.scheme() == "http") {
-    VELOX_CHECK_NULL(sslContext);
+    BOLT_CHECK_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), false);
     return std::make_shared<PrestoExchangeSource>(
         uri,
@@ -556,7 +556,7 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
         sslContext);
   }
   if (uri.scheme() == "https") {
-    VELOX_CHECK_NOT_NULL(sslContext);
+    BOLT_CHECK_NOT_NULL(sslContext);
     proxygen::Endpoint ep(uri.host(), uri.port(), true);
     return std::make_shared<PrestoExchangeSource>(
         uri,
@@ -579,7 +579,7 @@ void PrestoExchangeSource::updateMemoryUsage(int64_t updateBytes) {
     peakQueuedMemoryBytes() =
         std::max<int64_t>(peakQueuedMemoryBytes(), newMemoryBytes);
   } else {
-    VELOX_CHECK_GE(currQueuedMemoryBytes(), 0);
+    BOLT_CHECK_GE(currQueuedMemoryBytes(), 0);
   }
 }
 

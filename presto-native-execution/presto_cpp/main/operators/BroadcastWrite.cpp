@@ -14,12 +14,12 @@
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/BroadcastFactory.h"
 
-using namespace facebook::velox::exec;
-using namespace facebook::velox;
+using namespace facebook::bolt::exec;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 namespace {
-velox::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -114,7 +114,7 @@ folly::dynamic BroadcastWriteNode::serialize() const {
   return obj;
 }
 
-velox::core::PlanNodePtr BroadcastWriteNode::create(
+bolt::core::PlanNodePtr BroadcastWriteNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<BroadcastWriteNode>(
@@ -122,7 +122,7 @@ velox::core::PlanNodePtr BroadcastWriteNode::create(
       ISerializable::deserialize<std::string>(
           obj["broadcastWriteBasePath"], context),
       ISerializable::deserialize<RowType>(obj["rowType"]),
-      ISerializable::deserialize<std::vector<velox::core::PlanNode>>(
+      ISerializable::deserialize<std::vector<bolt::core::PlanNode>>(
           obj["sources"], context)[0]);
 }
 

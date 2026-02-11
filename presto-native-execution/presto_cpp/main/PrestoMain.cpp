@@ -17,7 +17,7 @@
 #include <glog/logging.h>
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "velox/common/base/StatsReporter.h"
+#include "bolt/common/base/StatsReporter.h"
 
 DEFINE_string(etc_dir, ".", "etc directory for presto configuration");
 
@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
 #ifndef PRESTO_STATS_REPORTER_TYPE
 // Initialize singleton for the reporter.
-folly::Singleton<facebook::velox::BaseStatsReporter> reporter([]() {
-  return new facebook::velox::DummyStatsReporter();
+folly::Singleton<facebook::bolt::BaseStatsReporter> reporter([]() {
+  return new facebook::bolt::DummyStatsReporter();
 });
 #endif

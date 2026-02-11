@@ -16,9 +16,9 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/tests/MultableConfigs.h"
-#include "velox/common/file/FileSystems.h"
+#include "bolt/common/file/FileSystems.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 namespace {

@@ -18,7 +18,7 @@
 #endif // PRESTO_ENABLE_JWT
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/synchronization/Latch.h>
-#include <velox/common/base/Exceptions.h>
+#include "bolt/common/base/Exceptions.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -32,7 +32,7 @@ HttpClient::HttpClient(
     const folly::SocketAddress& address,
     std::chrono::milliseconds transactionTimeout,
     std::chrono::milliseconds connectTimeout,
-    std::shared_ptr<velox::memory::MemoryPool> pool,
+    std::shared_ptr<bolt::memory::MemoryPool> pool,
     folly::SSLContextPtr sslContext,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
@@ -56,7 +56,7 @@ HttpClient::~HttpClient() {
 
 HttpResponse::HttpResponse(
     std::unique_ptr<proxygen::HTTPMessage> headers,
-    std::shared_ptr<velox::memory::MemoryPool> pool,
+    std::shared_ptr<bolt::memory::MemoryPool> pool,
     uint64_t minResponseAllocBytes,
     uint64_t maxResponseAllocBytes)
     : headers_(std::move(headers)),
@@ -70,9 +70,9 @@ HttpResponse::~HttpResponse() {
 }
 
 void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
-  VELOX_CHECK_NOT_NULL(pool_);
-  VELOX_CHECK(!iobuf->isChained());
-  VELOX_CHECK(!hasError());
+  BOLT_CHECK_NOT_NULL(pool_);
+  BOLT_CHECK(!iobuf->isChained());
+  BOLT_CHECK(!hasError());
 
   uint64_t dataLength = iobuf->length();
   auto dataStart = iobuf->data();
@@ -93,14 +93,14 @@ void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
   void* newBuf{nullptr};
   try {
     newBuf = pool_->allocate(roundedSize);
-  } catch (const velox::VeloxException& ex) {
+  } catch (const bolt::BoltException& ex) {
     // NOTE: we need to catch exception and process it later in driver execution
     // context when processing the data response. Otherwise, the presto server
     // process will die.
     setError(ex);
     return;
   }
-  VELOX_CHECK_NOT_NULL(newBuf);
+  BOLT_CHECK_NOT_NULL(newBuf);
   bodyChainBytes_ += roundedSize;
   ::memcpy(newBuf, dataStart, dataLength);
   bodyChain_.emplace_back(folly::IOBuf::wrapBuffer(newBuf, roundedSize));
@@ -108,9 +108,9 @@ void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
 }
 
 void HttpResponse::appendWithoutCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
-  VELOX_CHECK_NULL(pool_);
-  VELOX_CHECK(!iobuf->isChained());
-  VELOX_CHECK(!hasError());
+  BOLT_CHECK_NULL(pool_);
+  BOLT_CHECK(!iobuf->isChained());
+  BOLT_CHECK(!hasError());
   bodyChainBytes_ += iobuf->length();
   bodyChain_.emplace_back(std::move(iobuf));
 }
@@ -124,12 +124,12 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
 }
 
 std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
-    velox::memory::MemoryPool* pool) {
-  VELOX_CHECK_NULL(pool_);
-  VELOX_CHECK(!hasError());
+    bolt::memory::MemoryPool* pool) {
+  BOLT_CHECK_NULL(pool_);
+  BOLT_CHECK(!hasError());
   uint64_t totalBytes{0};
   for (const auto& iobuf : bodyChain_) {
-    VELOX_CHECK(!iobuf->isChained());
+    BOLT_CHECK(!iobuf->isChained());
     totalBytes += iobuf->length();
   }
   void* newBuf = pool->allocate(totalBytes);
@@ -157,13 +157,13 @@ void HttpResponse::freeBuffers() {
 
 FOLLY_ALWAYS_INLINE size_t
 HttpResponse::nextAllocationSize(uint64_t dataLength) const {
-  const size_t minAllocSize = velox::bits::nextPowerOfTwo(
-      velox::bits::roundUp(dataLength, minResponseAllocBytes_));
+  const size_t minAllocSize = bolt::bits::nextPowerOfTwo(
+      bolt::bits::roundUp(dataLength, minResponseAllocBytes_));
   return std::max<size_t>(
       minAllocSize,
       std::min<size_t>(
           maxResponseAllocBytes_,
-          velox::bits::nextPowerOfTwo(velox::bits::roundUp(
+          bolt::bits::nextPowerOfTwo(bolt::bits::roundUp(
               dataLength + bodyChainBytes_, minResponseAllocBytes_))));
 }
 
@@ -185,7 +185,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
         minResponseAllocBytes_(
             client->memoryPool() == nullptr
                 ? 0
-                : velox::memory::AllocationTraits::pageBytes(
+                : bolt::memory::AllocationTraits::pageBytes(
                       client->memoryPool()->sizeClasses().front())),
         maxResponseAllocBytes_(
             std::max(minResponseAllocBytes_, maxResponseAllocBytes)),
@@ -355,7 +355,7 @@ constexpr int kMaxConnectionsPerServer = 250;
 std::pair<proxygen::SessionPool*, proxygen::ServerIdleSessionController*>
 HttpClientConnectionPool::getSessionPoolImpl(SessionPools& endpointPools) {
   auto* evb = folly::EventBaseManager::get()->getExistingEventBase();
-  VELOX_CHECK_NOT_NULL(evb);
+  BOLT_CHECK_NOT_NULL(evb);
   {
     auto rlock = endpointPools.byEventBase.rlock();
     auto it = rlock->find(evb);
@@ -367,7 +367,7 @@ HttpClientConnectionPool::getSessionPoolImpl(SessionPools& endpointPools) {
   // entry.
   auto wlock = endpointPools.byEventBase.wlock();
   auto& pool = (*wlock)[evb];
-  VELOX_CHECK_NULL(pool);
+  BOLT_CHECK_NULL(pool);
   pool = std::make_unique<proxygen::SessionPool>(
       nullptr,
       kMaxConnectionsPerServer,
@@ -394,7 +394,7 @@ HttpClientConnectionPool::getSessionPool(const proxygen::Endpoint& endpoint) {
     return getSessionPoolImpl(*it->second);
   }
   auto& endpointPools = (*wlock)[endpoint];
-  VELOX_CHECK_NULL(endpointPools);
+  BOLT_CHECK_NULL(endpointPools);
   endpointPools = std::make_unique<SessionPools>();
   endpointPools->idleSessions.setMaxIdleCount(kMaxConnectionsPerServer);
   auto rlock = wlock.moveFromWriteToRead();
@@ -461,7 +461,7 @@ folly::SemiFuture<proxygen::HTTPTransaction*> HttpClient::createTransaction(
     auto* evb = session->getEventBase();
     // The event base from idle session should not be the current event base,
     // otherwise we should have already got it from the local session pool.
-    VELOX_CHECK(!evb || !evb->isInEventBaseThread());
+    BOLT_CHECK(!evb || !evb->isInEventBaseThread());
 #endif
     session->attachThreadLocals(
         eventBase_,

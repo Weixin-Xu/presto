@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/tests/HttpServerWrapper.h"
 #include <gtest/gtest.h>
-#include "velox/common/base/StatsReporter.h"
+#include "bolt/common/base/StatsReporter.h"
 
 namespace facebook::presto::test {
 

@@ -14,15 +14,15 @@
 #pragma once
 
 #include "presto_cpp/main/SystemSplit.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
 
-#include "velox/connectors/Connector.h"
+#include "bolt/connectors/Connector.h"
 
 namespace facebook::presto {
 
 class TaskManager;
 
-class SystemColumnHandle : public velox::connector::ColumnHandle {
+class SystemColumnHandle : public bolt::connector::ColumnHandle {
  public:
   explicit SystemColumnHandle(const std::string& name) : name_(name) {}
 
@@ -34,7 +34,7 @@ class SystemColumnHandle : public velox::connector::ColumnHandle {
   const std::string name_;
 };
 
-class SystemTableHandle : public velox::connector::ConnectorTableHandle {
+class SystemTableHandle : public bolt::connector::ConnectorTableHandle {
  public:
   explicit SystemTableHandle(
       std::string connectorId,
@@ -51,37 +51,37 @@ class SystemTableHandle : public velox::connector::ConnectorTableHandle {
     return tableName_;
   }
 
-  const velox::RowTypePtr taskSchema();
+  const bolt::RowTypePtr taskSchema();
 
  private:
   const std::string schemaName_;
   const std::string tableName_;
 };
 
-class SystemDataSource : public velox::connector::DataSource {
+class SystemDataSource : public bolt::connector::DataSource {
  public:
   SystemDataSource(
-      const velox::RowTypePtr& outputType,
-      const std::shared_ptr<velox::connector::ConnectorTableHandle>&
+      const bolt::RowTypePtr& outputType,
+      const std::shared_ptr<bolt::connector::ConnectorTableHandle>&
           tableHandle,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
+          std::shared_ptr<bolt::connector::ColumnHandle>>& columnHandles,
       const TaskManager* taskManager,
-      velox::memory::MemoryPool* pool);
+      bolt::memory::MemoryPool* pool);
 
   void addSplit(
-      std::shared_ptr<velox::connector::ConnectorSplit> split) override;
+      std::shared_ptr<bolt::connector::ConnectorSplit> split) override;
 
   void addDynamicFilter(
-      velox::column_index_t /*outputChannel*/,
-      const std::shared_ptr<velox::common::Filter>& /*filter*/) override {
-    VELOX_NYI("Dynamic filters not supported by SystemConnector.");
+      bolt::column_index_t /*outputChannel*/,
+      const std::shared_ptr<bolt::common::Filter>& /*filter*/) override {
+    BOLT_NYI("Dynamic filters not supported by SystemConnector.");
   }
 
-  std::optional<velox::RowVectorPtr> next(
+  std::optional<bolt::RowVectorPtr> next(
       uint64_t size,
-      velox::ContinueFuture& future) override;
+      bolt::ContinueFuture& future) override;
 
   uint64_t getCompletedRows() override {
     return completedRows_;
@@ -91,7 +91,7 @@ class SystemDataSource : public velox::connector::DataSource {
     return completedBytes_;
   }
 
-  std::unordered_map<std::string, velox::RuntimeCounter> runtimeStats()
+  std::unordered_map<std::string, bolt::RuntimeCounter> runtimeStats()
       override {
     return {};
   }
@@ -125,15 +125,15 @@ class SystemDataSource : public velox::connector::DataSource {
     kEnd,
   };
 
-  velox::RowVectorPtr getTaskResults();
+  bolt::RowVectorPtr getTaskResults();
 
   // Mapping between output columns and their indices (column_index_t)
   // corresponding to the taskInfo fields for them.
-  std::vector<velox::column_index_t> outputColumnMappings_;
-  velox::RowTypePtr outputType_;
+  std::vector<bolt::column_index_t> outputColumnMappings_;
+  bolt::RowTypePtr outputType_;
 
   const TaskManager* taskManager_;
-  velox::memory::MemoryPool* pool_;
+  bolt::memory::MemoryPool* pool_;
 
   std::shared_ptr<SystemSplit> currentSplit_;
 
@@ -141,20 +141,20 @@ class SystemDataSource : public velox::connector::DataSource {
   size_t completedBytes_{0};
 };
 
-class SystemConnector : public velox::connector::Connector {
+class SystemConnector : public bolt::connector::Connector {
  public:
   SystemConnector(const std::string& id, const TaskManager* taskManager)
       : Connector(id), taskManager_(taskManager) {}
 
-  std::unique_ptr<velox::connector::DataSource> createDataSource(
-      const velox::RowTypePtr& outputType,
-      const std::shared_ptr<velox::connector::ConnectorTableHandle>&
+  std::unique_ptr<bolt::connector::DataSource> createDataSource(
+      const bolt::RowTypePtr& outputType,
+      const std::shared_ptr<bolt::connector::ConnectorTableHandle>&
           tableHandle,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& columnHandles,
-      velox::connector::ConnectorQueryCtx* connectorQueryCtx) override final {
-    VELOX_CHECK(taskManager_);
+          std::shared_ptr<bolt::connector::ColumnHandle>>& columnHandles,
+      bolt::connector::ConnectorQueryCtx* connectorQueryCtx) override final {
+    BOLT_CHECK(taskManager_);
     return std::make_unique<SystemDataSource>(
         outputType,
         tableHandle,
@@ -163,41 +163,41 @@ class SystemConnector : public velox::connector::Connector {
         connectorQueryCtx->memoryPool());
   }
 
-  std::unique_ptr<velox::connector::DataSink> createDataSink(
-      velox::RowTypePtr /*inputType*/,
+  std::unique_ptr<bolt::connector::DataSink> createDataSink(
+      bolt::RowTypePtr /*inputType*/,
       std::shared_ptr<
-          velox::connector::
+          bolt::connector::
               ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
-      velox::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
-      velox::connector::CommitStrategy /*commitStrategy*/) override final {
-    VELOX_NYI("SystemConnector does not support data sink.");
+      bolt::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
+      bolt::connector::CommitStrategy /*commitStrategy*/) override final {
+    BOLT_NYI("SystemConnector does not support data sink.");
   }
 
  private:
   const TaskManager* taskManager_;
 };
 
-class SystemPrestoToVeloxConnector final : public PrestoToVeloxConnector {
+class SystemPrestoToBoltConnector final : public PrestoToBoltConnector {
  public:
-  explicit SystemPrestoToVeloxConnector(std::string connectorId)
-      : PrestoToVeloxConnector(std::move(connectorId)) {}
+  explicit SystemPrestoToBoltConnector(std::string connectorId)
+      : PrestoToBoltConnector(std::move(connectorId)) {}
 
-  std::unique_ptr<velox::connector::ConnectorSplit> toVeloxSplit(
+  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<velox::connector::ColumnHandle> toVeloxColumnHandle(
+  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<velox::connector::ConnectorTableHandle> toVeloxTableHandle(
+  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
-      const VeloxExprConverter& exprConverter,
+      const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()

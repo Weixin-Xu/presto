@@ -21,12 +21,12 @@
 
 #include "presto_cpp/main/SessionProperties.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/core/QueryCtx.h"
+#include "bolt/core/QueryCtx.h"
 
 namespace facebook::presto {
 class QueryContextCache {
  public:
-  using QueryCtxWeakPtr = std::weak_ptr<velox::core::QueryCtx>;
+  using QueryCtxWeakPtr = std::weak_ptr<bolt::core::QueryCtx>;
   using QueryIdList = std::list<protocol::QueryId>;
   using QueryCtxCacheValue = std::pair<QueryCtxWeakPtr, QueryIdList::iterator>;
   using QueryCtxMap = std::unordered_map<protocol::QueryId, QueryCtxCacheValue>;
@@ -41,7 +41,7 @@ class QueryContextCache {
     return queryCtxs_.size();
   }
 
-  std::shared_ptr<velox::core::QueryCtx> get(protocol::QueryId queryId) {
+  std::shared_ptr<bolt::core::QueryCtx> get(protocol::QueryId queryId) {
     auto iter = queryCtxs_.find(queryId);
     if (iter != queryCtxs_.end()) {
       queryIds_.erase(iter->second.second);
@@ -58,9 +58,9 @@ class QueryContextCache {
     return nullptr;
   }
 
-  std::shared_ptr<velox::core::QueryCtx> insert(
+  std::shared_ptr<bolt::core::QueryCtx> insert(
       protocol::QueryId queryId,
-      std::shared_ptr<velox::core::QueryCtx> queryCtx) {
+      std::shared_ptr<bolt::core::QueryCtx> queryCtx) {
     if (queryCtxs_.size() >= capacity_) {
       evict();
     }
@@ -105,14 +105,14 @@ class QueryContextManager {
       folly::Executor* driverExecutor,
       folly::Executor* spillerExecutor);
 
-  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+  std::shared_ptr<bolt::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       const protocol::SessionRepresentation& session);
 
   /// Calls the given functor for every present query context.
   void visitAllContexts(std::function<void(
                             const protocol::QueryId&,
-                            const velox::core::QueryCtx*)> visitor) const;
+                            const bolt::core::QueryCtx*)> visitor) const;
 
   /// Test method to clear the query context cache.
   void testingClearCache();
@@ -122,7 +122,7 @@ class QueryContextManager {
   }
 
  private:
-  std::shared_ptr<velox::core::QueryCtx> findOrCreateQueryCtx(
+  std::shared_ptr<bolt::core::QueryCtx> findOrCreateQueryCtx(
       const protocol::TaskId& taskId,
       std::unordered_map<std::string, std::string>&& configStrings,
       std::unordered_map<
@@ -130,7 +130,7 @@ class QueryContextManager {
           std::unordered_map<std::string, std::string>>&&
           connectorConfigStrings);
 
-  std::unordered_map<std::string, std::string> toVeloxConfigs(
+  std::unordered_map<std::string, std::string> toBoltConfigs(
       const protocol::SessionRepresentation& session);
 
   folly::Executor* const driverExecutor_{nullptr};

@@ -14,7 +14,7 @@
 #pragma once
 
 #include "presto_cpp/external/json/nlohmann/json.hpp"
-#include "velox/type/Type.h"
+#include "bolt/type/Type.h"
 
 using json = nlohmann::json;
 
@@ -29,18 +29,18 @@ class SessionProperty {
       const std::string& description,
       const std::string& type,
       bool hidden,
-      const std::string& veloxConfigName,
+      const std::string& boltConfigName,
       const std::string& defaultValue)
       : name_(name),
         description_(description),
         type_(type),
         hidden_(hidden),
-        veloxConfigName_(veloxConfigName),
+        boltConfigName_(boltConfigName),
         defaultValue_(defaultValue),
         value_(defaultValue) {}
 
-  const std::string getVeloxConfigName() {
-    return veloxConfigName_;
+  const std::string getBoltConfigName() {
+    return boltConfigName_;
   }
 
   void updateValue(const std::string& value) {
@@ -50,7 +50,7 @@ class SessionProperty {
   bool operator==(const SessionProperty& other) const {
     return name_ == other.name_ && description_ == other.description_ &&
         type_ == other.type_ && hidden_ == other.hidden_ &&
-        veloxConfigName_ == other.veloxConfigName_ &&
+        boltConfigName_ == other.boltConfigName_ &&
         defaultValue_ == other.defaultValue_;
   }
 
@@ -63,14 +63,14 @@ class SessionProperty {
   // Datatype of presto native property.
   const std::string type_;
   const bool hidden_;
-  const std::string veloxConfigName_;
+  const std::string boltConfigName_;
   const std::string defaultValue_;
   std::string value_;
 };
 
 /// Defines all system session properties supported by native worker to ensure
 /// that they are the source of truth and to differentiate them from Java based
-/// session properties. Also maps the native session properties to velox.
+/// session properties. Also maps the native session properties to bolt.
 class SessionProperties {
  public:
   /// Enable simplified path in expression evaluation.
@@ -302,10 +302,10 @@ class SessionProperties {
   getSessionProperties();
 
   /// Utility function to translate a config name in Presto to its equivalent in
-  /// Velox. Returns 'name' as is if there is no mapping.
-  const std::string toVeloxConfig(const std::string& name);
+  /// Bolt. Returns 'name' as is if there is no mapping.
+  const std::string toBoltConfig(const std::string& name);
 
-  void updateVeloxConfig(const std::string& name, const std::string& value);
+  void updateBoltConfig(const std::string& name, const std::string& value);
 
   json serialize();
 
@@ -313,10 +313,10 @@ class SessionProperties {
   void addSessionProperty(
       const std::string& name,
       const std::string& description,
-      const velox::TypePtr& type,
+      const bolt::TypePtr& type,
       bool isHidden,
-      const std::string& veloxConfigName,
-      const std::string& veloxDefault);
+      const std::string& boltConfigName,
+      const std::string& boltDefault);
 
   std::unordered_map<std::string, std::shared_ptr<SessionProperty>>
       sessionProperties_;

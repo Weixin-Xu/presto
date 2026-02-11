@@ -18,18 +18,18 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
-#include "presto_cpp/main/types/PrestoToVeloxQueryPlan.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
-#include "velox/connectors/hive/TableHandle.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/connectors/hive/TableHandle.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
 
 using namespace facebook::presto;
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace {
 
-core::PlanFragment assertToVeloxFragment(
+core::PlanFragment assertToBoltFragment(
     const std::string& fileName,
     memory::MemoryPool* pool = nullptr) {
   std::string fragment = slurp(test::utils::getDataPath(fileName));
@@ -42,18 +42,18 @@ core::PlanFragment assertToVeloxFragment(
   }
 
   auto queryCtx = core::QueryCtx::create();
-  VeloxInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
-  return converter.toVeloxQueryPlan(
+  BoltInteractiveQueryPlanConverter converter(queryCtx.get(), pool);
+  return converter.toBoltQueryPlan(
       prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3");
 }
 
-std::shared_ptr<const core::PlanNode> assertToVeloxQueryPlan(
+std::shared_ptr<const core::PlanNode> assertToBoltQueryPlan(
     const std::string& fileName,
     memory::MemoryPool* pool = nullptr) {
-  return assertToVeloxFragment(fileName, pool).planNode;
+  return assertToBoltFragment(fileName, pool).planNode;
 }
 
-std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
+std::shared_ptr<const core::PlanNode> assertToBatchBoltQueryPlan(
     const std::string& fileName,
     const std::string& shuffleName,
     std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
@@ -63,14 +63,14 @@ std::shared_ptr<const core::PlanNode> assertToBatchVeloxQueryPlan(
   protocol::PlanFragment prestoPlan = json::parse(fragment);
   auto pool = memory::deprecatedAddDefaultLeafMemoryPool();
   auto queryCtx = core::QueryCtx::create();
-  VeloxBatchQueryPlanConverter converter(
+  BoltBatchQueryPlanConverter converter(
       shuffleName,
       std::move(serializedShuffleWriteInfo),
       std::move(broadcastBasePath),
       queryCtx.get(),
       pool.get());
   return converter
-      .toVeloxQueryPlan(
+      .toBoltQueryPlan(
           prestoPlan, nullptr, "20201107_130540_00011_wrpkw.1.2.3")
       .planNode;
 }
@@ -83,22 +83,22 @@ class PlanConverterTest : public ::testing::Test {
   }
 
   void SetUp() override {
-    registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive"));
-    registerPrestoToVeloxConnector(
-        std::make_unique<HivePrestoToVeloxConnector>("hive-plus"));
+    registerPrestoToBoltConnector(
+        std::make_unique<HivePrestoToBoltConnector>("hive"));
+    registerPrestoToBoltConnector(
+        std::make_unique<HivePrestoToBoltConnector>("hive-plus"));
   }
 
   void TearDown() override {
-    unregisterPrestoToVeloxConnector("hive");
-    unregisterPrestoToVeloxConnector("hive-plus");
+    unregisterPrestoToBoltConnector("hive");
+    unregisterPrestoToBoltConnector("hive-plus");
   }
 };
 
 // Leaf stage plan for select regionkey, sum(1) from nation group by 1
 // Scan + Partial Agg + Repartitioning
 TEST_F(PlanConverterTest, scanAgg) {
-  auto partitionedOutput = assertToVeloxQueryPlan("ScanAgg.json");
+  auto partitionedOutput = assertToBoltQueryPlan("ScanAgg.json");
   auto* tableScan = dynamic_cast<const core::TableScanNode*>(
       partitionedOutput->sources()[0]->sources()[0]->sources()[0].get());
   ASSERT_TRUE(tableScan != nullptr);
@@ -124,7 +124,7 @@ TEST_F(PlanConverterTest, scanAgg) {
   ASSERT_EQ(tableParameters.find("totalSize")->second, "1451");
   ASSERT_EQ(tableParameters.find("foobar"), tableParameters.end());
 
-  assertToVeloxQueryPlan("ScanAggCustomConnectorId.json");
+  assertToBoltQueryPlan("ScanAggCustomConnectorId.json");
 }
 
 // Partitioned output with partitioned scheme over const key and a variable.
@@ -132,7 +132,7 @@ TEST_F(PlanConverterTest, partitionedOutput) {
   std::shared_ptr<memory::MemoryPool> poolPtr =
       memory::deprecatedAddDefaultLeafMemoryPool();
   core::PlanFragment fragment =
-      assertToVeloxFragment("PartitionedOutput.json", poolPtr.get());
+      assertToBoltFragment("PartitionedOutput.json", poolPtr.get());
   auto partitionedOutput =
       dynamic_cast<const core::PartitionedOutputNode*>(fragment.planNode.get());
 
@@ -149,17 +149,17 @@ TEST_F(PlanConverterTest, partitionedOutput) {
 
 // Final Agg stage plan for select regionkey, sum(1) from nation group by 1
 TEST_F(PlanConverterTest, finalAgg) {
-  assertToVeloxQueryPlan("FinalAgg.json");
+  assertToBoltQueryPlan("FinalAgg.json");
 }
 
 // Last stage (output) plan for select regionkey, sum(1) from nation group by 1
 TEST_F(PlanConverterTest, output) {
-  assertToVeloxQueryPlan("Output.json");
+  assertToBoltQueryPlan("Output.json");
 }
 
 // Last stage plan for SELECT * FROM nation ORDER BY nationkey OFFSET 7 LIMIT 5.
 TEST_F(PlanConverterTest, offsetLimit) {
-  auto plan = assertToVeloxQueryPlan("OffsetLimit.json");
+  auto plan = assertToBoltQueryPlan("OffsetLimit.json");
 
   // Look for Limit(offset = 7, count = 5) node
   bool foundLimit = false;
@@ -179,7 +179,7 @@ TEST_F(PlanConverterTest, offsetLimit) {
 
 TEST_F(PlanConverterTest, batchPlanConversion) {
   filesystems::registerLocalFileSystem();
-  auto root = assertToBatchVeloxQueryPlan(
+  auto root = assertToBatchBoltQueryPlan(
       "ScanAggBatch.json",
       std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
       std::make_shared<std::string>(fmt::format(
@@ -208,7 +208,7 @@ TEST_F(PlanConverterTest, batchPlanConversion) {
   ASSERT_NE(partitionAndSerializeNode, nullptr);
   ASSERT_EQ(partitionAndSerializeNode->numPartitions(), 3);
 
-  auto curNode = assertToBatchVeloxQueryPlan(
+  auto curNode = assertToBatchBoltQueryPlan(
       "FinalAgg.json",
       std::string(operators::LocalPersistentShuffleFactory::kShuffleName),
       nullptr,

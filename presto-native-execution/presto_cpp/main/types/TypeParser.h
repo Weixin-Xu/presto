@@ -14,16 +14,16 @@
 
 #pragma once
 
-#include "velox/type/Type.h"
+#include "bolt/type/Type.h"
 
 namespace facebook::presto {
 
 class TypeParser {
  public:
-  velox::TypePtr parse(const std::string& text) const;
+  bolt::TypePtr parse(const std::string& text) const;
 
  private:
-  mutable std::unordered_map<std::string, velox::TypePtr> cache_;
+  mutable std::unordered_map<std::string, bolt::TypePtr> cache_;
 };
 
 } // namespace facebook::presto

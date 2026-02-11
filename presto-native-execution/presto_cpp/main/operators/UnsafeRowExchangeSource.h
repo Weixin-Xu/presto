@@ -14,20 +14,20 @@
 #pragma once
 
 #include "presto_cpp/main/operators/ShuffleWrite.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Exchange.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Exchange.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
-class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
+class UnsafeRowExchangeSource : public bolt::exec::ExchangeSource {
  public:
   UnsafeRowExchangeSource(
       const std::string& taskId,
       int destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool)
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
 
   bool shouldRequestLocked() override {
@@ -49,11 +49,11 @@ class UnsafeRowExchangeSource : public velox::exec::ExchangeSource {
 
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
-  static std::shared_ptr<velox::exec::ExchangeSource> createExchangeSource(
+  static std::shared_ptr<bolt::exec::ExchangeSource> createExchangeSource(
       const std::string& url,
       int32_t destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      velox::memory::MemoryPool* FOLLY_NONNULL pool);
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      bolt::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   const std::shared_ptr<ShuffleReader> shuffle_;

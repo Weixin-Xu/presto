@@ -14,7 +14,7 @@
 #pragma once
 
 #include <fmt/format.h>
-#include "velox/exec/Operator.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
@@ -39,7 +39,7 @@ class ShuffleReader {
 
   /// Reads the next block of data. The function returns null if it has read all
   /// the data. The function throws if run into any error.
-  virtual folly::SemiFuture<velox::BufferPtr> next() = 0;
+  virtual folly::SemiFuture<bolt::BufferPtr> next() = 0;
 
   /// Tell the shuffle system the reader is done. May be called with 'success'
   /// true before reading all the data. This happens when a query has a LIMIT or
@@ -58,11 +58,11 @@ class ShuffleInterfaceFactory {
   virtual std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
       const int32_t partition,
-      velox::memory::MemoryPool* pool) = 0;
+      bolt::memory::MemoryPool* pool) = 0;
 
   virtual std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      velox::memory::MemoryPool* pool) = 0;
+      bolt::memory::MemoryPool* pool) = 0;
 
   /// Register ShuffleInterfaceFactory to its registry. It returns true if the
   /// registration is successful, false if a factory with the name already
@@ -81,7 +81,7 @@ class ShuffleInterfaceFactory {
   static ShuffleInterfaceFactory* factory(const std::string& name) {
     auto factoryIter = factories().find(name);
     if (factoryIter == factories().end()) {
-      VELOX_FAIL("ShuffleInterface with name '{}' is not registered.", name);
+      BOLT_FAIL("ShuffleInterface with name '{}' is not registered.", name);
     }
     return factoryIter->second.get();
   }

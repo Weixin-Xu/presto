@@ -15,12 +15,12 @@
 #include "presto_cpp/main/RemoteFunctionRegisterer.h"
 #include <gtest/gtest.h>
 #include <fstream>
-#include "velox/common/base/Fs.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/exec/tests/utils/TempFilePath.h"
-#include "velox/expression/VectorFunction.h"
+#include "bolt/common/base/Fs.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/exec/tests/utils/TempFilePath.h"
+#include "bolt/expression/VectorFunction.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto::test {
 namespace {

@@ -14,11 +14,11 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/QueryContextManager.h"
 
-DECLARE_bool(velox_memory_leak_check_enabled);
+DECLARE_bool(bolt_memory_leak_check_enabled);
 
 namespace facebook::presto {
 
-using namespace velox;
+using namespace bolt;
 
 namespace {
 void verifyQueryCtxCache(
@@ -41,7 +41,7 @@ class QueryContextCacheTest : public testing::Test {
   }
 
   void SetUp() override {
-    FLAGS_velox_memory_leak_check_enabled = true;
+    FLAGS_bolt_memory_leak_check_enabled = true;
   }
 };
 

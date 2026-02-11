@@ -16,16 +16,16 @@
 #include "presto_cpp/main/operators/BroadcastExchangeSource.h"
 #include "presto_cpp/main/operators/BroadcastWrite.h"
 #include "presto_cpp/main/operators/tests/PlanBuilder.h"
-#include "velox/buffer/Buffer.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/FileSystems.h"
-#include "velox/exec/tests/utils/OperatorTestBase.h"
-#include "velox/exec/tests/utils/PlanBuilder.h"
-#include "velox/exec/tests/utils/QueryAssertions.h"
-#include "velox/exec/tests/utils/TempDirectoryPath.h"
-#include "velox/serializers/PrestoSerializer.h"
+#include "bolt/buffer/Buffer.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/exec/tests/utils/OperatorTestBase.h"
+#include "bolt/exec/tests/utils/PlanBuilder.h"
+#include "bolt/exec/tests/utils/QueryAssertions.h"
+#include "bolt/exec/tests/utils/TempDirectoryPath.h"
+#include "bolt/serializers/PrestoSerializer.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 using namespace facebook::presto;
 using namespace facebook::presto::operators;
 
@@ -97,14 +97,14 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return {serdeRowType, broadcastFilePaths};
   }
 
-  std::pair<std::unique_ptr<velox::exec::TaskCursor>, std::vector<RowVectorPtr>>
+  std::pair<std::unique_ptr<bolt::exec::TaskCursor>, std::vector<RowVectorPtr>>
   executeBroadcastRead(
       RowTypePtr dataType,
       const std::string& basePath,
       const std::vector<std::string>& broadcastFilePaths) {
     // Create plan for read node using file path.
     auto readerPlan = exec::test::PlanBuilder()
-                          .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                          .exchange(dataType, bolt::VectorSerde::Kind::kPresto)
                           .planNode();
     exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
@@ -181,7 +181,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto expected = reorderColumns(data, serdeLayout, serdeRowType);
 
     // Assert data from broadcast file matches input.
-    velox::exec::test::assertEqualResults(expected, {result});
+    bolt::exec::test::assertEqualResults(expected, {result});
 
     std::vector<RowVectorPtr> actualOutputVectors;
 
@@ -190,7 +190,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         serdeRowType, tempDirectoryPath->getPath(), broadcastFilePaths);
 
     // Assert its same as data.
-    velox::exec::test::assertEqualResults(expected, broadcastReadResults);
+    bolt::exec::test::assertEqualResults(expected, broadcastReadResults);
   }
 
   RowVectorPtr readFromFile(
@@ -214,7 +214,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         byteStream.get(),
         pool(),
         dataType,
-        velox::getNamedVectorSerde(velox::VectorSerde::Kind::kPresto),
+        bolt::getNamedVectorSerde(bolt::VectorSerde::Kind::kPresto),
         &result,
         nullptr);
     return result;
@@ -283,7 +283,7 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
   ASSERT_EQ(broadcastFilePaths.size(), 0);
 
   auto fileSystem =
-      velox::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+      bolt::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
   auto files = fileSystem->list(tempDirectoryPath->getPath());
 
   // Assert no file was generated in broadcast directory path.
@@ -317,7 +317,7 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
       broadcastFilePaths);
 
   // Validate BroadcastExchange reads back output of both writes.
-  velox::exec::test::assertEqualResults(dataVector, broadcastReadResults);
+  bolt::exec::test::assertEqualResults(dataVector, broadcastReadResults);
 }
 
 TEST_F(BroadcastTest, invalidFileSystem) {
@@ -328,7 +328,7 @@ TEST_F(BroadcastTest, invalidFileSystem) {
   auto dataType = asRowType(data->type());
   std::string basePath = "invalid-prefix:/invalid-path";
 
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       executeBroadcastWrite({data}, basePath),
       "No registered file system matched with file path 'invalid-prefix:/invalid-path'");
 }
@@ -341,9 +341,9 @@ TEST_F(BroadcastTest, invalidBroadcastFilePath) {
   auto dataType = asRowType(data->type());
   std::string basePath = "/tmp";
   std::string invalidBroadcastFilePath =
-      "/tmp/this-should-not-exist/velox--missing-broadcast-file.bin";
+      "/tmp/this-should-not-exist/bolt--missing-broadcast-file.bin";
 
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       executeBroadcastRead(dataType, basePath, {invalidBroadcastFilePath}),
       "No such file or directory");
 }
@@ -358,12 +358,12 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   std::string invalidBroadcastFilePath = "/tmp/file.bin";
 
   auto readerPlan = exec::test::PlanBuilder()
-                        .exchange(dataType, velox::VectorSerde::Kind::kPresto)
+                        .exchange(dataType, bolt::VectorSerde::Kind::kPresto)
                         .planNode();
   exec::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;
 
-  VELOX_ASSERT_THROW(
+  BOLT_ASSERT_THROW(
       exec::test::readCursor(
           broadcastReadParams,
           [&](auto* task) {

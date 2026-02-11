@@ -145,8 +145,8 @@ HttpServer::HttpServer(
       httpsConfig_(std::move(httpsConfig)),
       handlerFactory_(std::make_unique<DispatchingRequestHandlerFactory>()),
       httpIOExecutor_(httpIOExecutor) {
-  VELOX_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
-  VELOX_CHECK(httpIOExecutor_ != nullptr);
+  BOLT_CHECK((httpConfig_ != nullptr) || (httpsConfig_ != nullptr));
+  BOLT_CHECK(httpIOExecutor_ != nullptr);
 }
 
 bool EndPoint::check(

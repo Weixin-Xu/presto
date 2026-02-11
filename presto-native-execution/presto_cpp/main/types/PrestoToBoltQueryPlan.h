@@ -16,185 +16,185 @@
 #include <vector>
 #include "presto_cpp/main/operators/ShuffleInterface.h"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/core/Expressions.h"
-#include "velox/core/PlanFragment.h"
-#include "velox/core/PlanNode.h"
-#include "velox/type/Variant.h"
+#include "bolt/core/Expressions.h"
+#include "bolt/core/PlanFragment.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/type/Variant.h"
 
 #include "presto_cpp/main/types/PrestoTaskId.h"
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/PrestoToBoltExpr.h"
 #include "presto_cpp/main/types/TypeParser.h"
 
 namespace facebook::presto {
 
-class VeloxQueryPlanConverterBase {
+class BoltQueryPlanConverterBase {
  public:
-  VeloxQueryPlanConverterBase(
-      velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
+  BoltQueryPlanConverterBase(
+      bolt::core::QueryCtx* queryCtx,
+      bolt::memory::MemoryPool* pool)
       : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
 
-  virtual ~VeloxQueryPlanConverterBase() = default;
+  virtual ~BoltQueryPlanConverterBase() = default;
 
-  virtual velox::core::PlanFragment toVeloxQueryPlan(
+  virtual bolt::core::PlanFragment toBoltQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
   // visible for testing
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::PlanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
  protected:
-  virtual velox::core::PlanNodePtr toVeloxQueryPlan(
+  virtual bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) = 0;
 
-  virtual velox::connector::CommitStrategy getCommitStrategy() const = 0;
+  virtual bolt::connector::CommitStrategy getCommitStrategy() const = 0;
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::OutputNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::ExchangeNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::FilterNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::ProjectNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::ProjectNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::ProjectNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::ValuesNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::ValuesNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::ValuesNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::TableScanNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::TableScanNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableScanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::AggregationNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::AggregationNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::AggregationNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::GroupIdNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::GroupIdNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::GroupIdNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::DistinctLimitNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::JoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::SemiJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::MarkDistinctNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::MergeJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::TopNNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::TopNNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TopNNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::LimitNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::LimitNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::LimitNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::OrderByNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::OrderByNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::SortNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::TableWriteNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::TableWriteNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableWriterNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::TableWriteMergeNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::TableWriteMergeNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::UnnestNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::UnnestNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::UnnestNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::EnforceSingleRowNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::EnforceSingleRowNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::EnforceSingleRowNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::AssignUniqueIdNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::AssignUniqueIdNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::AssignUniqueId>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::WindowNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::WindowNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::WindowNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::RowNumberNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::RowNumberNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::RowNumberNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const velox::core::PlanNode> toVeloxQueryPlan(
+  std::shared_ptr<const bolt::core::PlanNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::vector<velox::core::FieldAccessTypedExprPtr> toVeloxExprs(
+  std::vector<bolt::core::FieldAccessTypedExprPtr> toBoltExprs(
       const std::vector<protocol::VariableReferenceExpression>& variables);
 
-  std::shared_ptr<const velox::core::ProjectNode> tryConvertOffsetLimit(
+  std::shared_ptr<const bolt::core::ProjectNode> tryConvertOffsetLimit(
       const std::shared_ptr<const protocol::ProjectNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  velox::core::WindowNode::Function toVeloxWindowFunction(
+  bolt::core::WindowNode::Function toBoltWindowFunction(
       const protocol::Function& func);
 
-  velox::VectorPtr evaluateConstantExpression(
-      const velox::core::TypedExprPtr& expression);
+  bolt::VectorPtr evaluateConstantExpression(
+      const bolt::core::TypedExprPtr& expression);
 
-  std::shared_ptr<velox::core::AggregationNode> generateAggregationNode(
+  std::shared_ptr<bolt::core::AggregationNode> generateAggregationNode(
       const std::shared_ptr<protocol::StatisticAggregations>&
           statisticsAggregation,
-      velox::core::AggregationNode::Step step,
+      bolt::core::AggregationNode::Step step,
       const protocol::PlanNodeId& id,
-      const velox::core::PlanNodePtr& sourceVeloxPlan,
+      const bolt::core::PlanNodePtr& sourceBoltPlan,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
@@ -209,60 +209,60 @@ class VeloxQueryPlanConverterBase {
       const std::map<
           protocol::VariableReferenceExpression,
           protocol::Aggregation>& aggregationMap,
-      std::vector<velox::core::AggregationNode::Aggregate>& aggregates,
+      std::vector<bolt::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
-  velox::memory::MemoryPool* const pool_;
-  velox::core::QueryCtx* const queryCtx_;
-  VeloxExprConverter exprConverter_;
+  bolt::memory::MemoryPool* const pool_;
+  bolt::core::QueryCtx* const queryCtx_;
+  BoltExprConverter exprConverter_;
   TypeParser typeParser_;
 };
 
-class VeloxInteractiveQueryPlanConverter : public VeloxQueryPlanConverterBase {
+class BoltInteractiveQueryPlanConverter : public BoltQueryPlanConverterBase {
  public:
-  using VeloxQueryPlanConverterBase::toVeloxQueryPlan;
+  using BoltQueryPlanConverterBase::toBoltQueryPlan;
 
-  explicit VeloxInteractiveQueryPlanConverter(
-      velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(queryCtx, pool) {}
+  explicit BoltInteractiveQueryPlanConverter(
+      bolt::core::QueryCtx* queryCtx,
+      bolt::memory::MemoryPool* pool)
+      : BoltQueryPlanConverterBase(queryCtx, pool) {}
 
  protected:
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
-  velox::connector::CommitStrategy getCommitStrategy() const override;
+  bolt::connector::CommitStrategy getCommitStrategy() const override;
 };
 
-class VeloxBatchQueryPlanConverter : public VeloxQueryPlanConverterBase {
+class BoltBatchQueryPlanConverter : public BoltQueryPlanConverterBase {
  public:
-  using VeloxQueryPlanConverterBase::toVeloxQueryPlan;
+  using BoltQueryPlanConverterBase::toBoltQueryPlan;
 
-  VeloxBatchQueryPlanConverter(
+  BoltBatchQueryPlanConverter(
       const std::string& shuffleName,
       std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
       std::shared_ptr<std::string>&& broadcastBasePath,
-      velox::core::QueryCtx* queryCtx,
-      velox::memory::MemoryPool* pool)
-      : VeloxQueryPlanConverterBase(queryCtx, pool),
+      bolt::core::QueryCtx* queryCtx,
+      bolt::memory::MemoryPool* pool)
+      : BoltQueryPlanConverterBase(queryCtx, pool),
         shuffleName_(shuffleName),
         serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)),
         broadcastBasePath_(std::move(broadcastBasePath)) {}
 
-  velox::core::PlanFragment toVeloxQueryPlan(
+  bolt::core::PlanFragment toBoltQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
  protected:
-  velox::core::PlanNodePtr toVeloxQueryPlan(
+  bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
-  velox::connector::CommitStrategy getCommitStrategy() const override;
+  bolt::connector::CommitStrategy getCommitStrategy() const override;
 
  private:
   const std::string shuffleName_;
@@ -274,6 +274,6 @@ void registerPrestoPlanNodeSerDe();
 
 void parseSqlFunctionHandle(
     const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
-    std::vector<velox::TypePtr>& rawInputTypes,
+    std::vector<bolt::TypePtr>& rawInputTypes,
     TypeParser& typeParser);
 } // namespace facebook::presto

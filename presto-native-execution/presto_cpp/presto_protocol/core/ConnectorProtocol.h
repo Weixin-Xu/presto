@@ -14,7 +14,7 @@
 #pragma once
 
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.h"
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto::protocol {
 
@@ -203,7 +203,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    BOLT_NYI("Not implemented: {}", typeid(BASE).name());
   }
 
   template <typename DERIVED, typename BASE>
@@ -224,7 +224,7 @@ class ConnectorProtocolTemplate final : public ConnectorProtocol {
       typename std::enable_if<
           std::is_same<DERIVED, NotImplemented>::value,
           BASE>::type* = 0) {
-    VELOX_NYI("Not implemented: {}", typeid(BASE).name());
+    BOLT_NYI("Not implemented: {}", typeid(BASE).name());
   }
 };
 using SystemConnectorProtocol = ConnectorProtocolTemplate<

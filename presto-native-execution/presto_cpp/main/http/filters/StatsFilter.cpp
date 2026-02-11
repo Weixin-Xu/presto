@@ -14,7 +14,7 @@
 
 #include "presto_cpp/main/http/filters/StatsFilter.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "velox/common/base/StatsReporter.h"
+#include "bolt/common/base/StatsReporter.h"
 
 namespace facebook::presto::http::filters {
 

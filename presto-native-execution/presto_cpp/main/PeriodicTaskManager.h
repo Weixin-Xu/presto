@@ -15,19 +15,19 @@
 
 #include <folly/experimental/FunctionScheduler.h>
 #include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
-#include "velox/common/memory/Memory.h"
-#include "velox/exec/Task.h"
+#include "bolt/common/memory/Memory.h"
+#include "bolt/exec/Task.h"
 
 namespace folly {
 class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
 } // namespace folly
 
-namespace facebook::velox::connector {
+namespace facebook::bolt::connector {
 class Connector;
 }
 
-namespace facebook::velox::cache {
+namespace facebook::bolt::cache {
 class AsyncDataCache;
 }
 
@@ -49,11 +49,11 @@ class PeriodicTaskManager {
       folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
       folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
       TaskManager* taskManager,
-      const velox::memory::MemoryAllocator* memoryAllocator,
-      const velox::cache::AsyncDataCache* asyncDataCache,
+      const bolt::memory::MemoryAllocator* memoryAllocator,
+      const bolt::cache::AsyncDataCache* asyncDataCache,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<velox::connector::Connector>>& connectors,
+          std::shared_ptr<bolt::connector::Connector>>& connectors,
       PrestoServer* server);
 
   /// Invoked to start all registered, and fundamental periodic tasks running at
@@ -135,12 +135,12 @@ class PeriodicTaskManager {
   folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor_{nullptr};
 
   TaskManager* taskManager_;
-  const velox::memory::MemoryAllocator* memoryAllocator_;
-  const velox::cache::AsyncDataCache* asyncDataCache_;
-  const velox::memory::MemoryArbitrator* arbitrator_;
+  const bolt::memory::MemoryAllocator* memoryAllocator_;
+  const bolt::cache::AsyncDataCache* asyncDataCache_;
+  const bolt::memory::MemoryArbitrator* arbitrator_;
   const std::unordered_map<
       std::string,
-      std::shared_ptr<velox::connector::Connector>>& connectors_;
+      std::shared_ptr<bolt::connector::Connector>>& connectors_;
   PrestoServer* server_;
 
   // Operating system related stats.

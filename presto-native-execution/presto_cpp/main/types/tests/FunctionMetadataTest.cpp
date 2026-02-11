@@ -16,11 +16,11 @@
 #include "presto_cpp/main/common/tests/test_json.h"
 #include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/tests/TestUtils.h"
-#include "velox/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
-#include "velox/functions/prestosql/registration/RegistrationFunctions.h"
-#include "velox/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "bolt/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "bolt/functions/prestosql/registration/RegistrationFunctions.h"
+#include "bolt/functions/prestosql/window/WindowFunctionsRegistration.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 using namespace facebook::presto;
 
 using json = nlohmann::json;

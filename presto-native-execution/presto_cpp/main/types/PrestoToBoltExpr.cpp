@@ -12,17 +12,17 @@
  * limitations under the License.
  */
 
-#include "presto_cpp/main/types/PrestoToVeloxExpr.h"
+#include "presto_cpp/main/types/PrestoToBoltExpr.h"
 #include <boost/algorithm/string/case_conv.hpp>
 #include "presto_cpp/presto_protocol/Base64Util.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/functions/prestosql/types/JsonType.h"
-#include "velox/vector/ComplexVector.h"
-#include "velox/vector/ConstantVector.h"
-#include "velox/vector/FlatVector.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/functions/prestosql/types/JsonType.h"
+#include "bolt/vector/ComplexVector.h"
+#include "bolt/vector/ConstantVector.h"
+#include "bolt/vector/FlatVector.h"
 
-using namespace facebook::velox::core;
-using facebook::velox::TypeKind;
+using namespace facebook::bolt::core;
+using facebook::bolt::TypeKind;
 
 namespace facebook::presto {
 namespace {
@@ -102,44 +102,44 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
 
 } // namespace
 
-velox::variant VeloxExprConverter::getConstantValue(
-    const velox::TypePtr& type,
+bolt::variant BoltExprConverter::getConstantValue(
+    const bolt::TypePtr& type,
     const protocol::Block& block) const {
   auto valueVector = protocol::readBlock(type, block.data, pool_);
 
   auto typeKind = type->kind();
   if (valueVector->isNullAt(0)) {
-    return velox::variant(typeKind);
+    return bolt::variant(typeKind);
   }
 
   switch (typeKind) {
     case TypeKind::HUGEINT:
-      return valueVector->as<velox::SimpleVector<velox::int128_t>>()->valueAt(
+      return valueVector->as<bolt::SimpleVector<bolt::int128_t>>()->valueAt(
           0);
     case TypeKind::BIGINT:
-      return valueVector->as<velox::SimpleVector<int64_t>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<int64_t>>()->valueAt(0);
     case TypeKind::INTEGER:
-      return valueVector->as<velox::SimpleVector<int32_t>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<int32_t>>()->valueAt(0);
     case TypeKind::SMALLINT:
-      return valueVector->as<velox::SimpleVector<int16_t>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<int16_t>>()->valueAt(0);
     case TypeKind::TINYINT:
-      return valueVector->as<velox::SimpleVector<int8_t>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<int8_t>>()->valueAt(0);
     case TypeKind::TIMESTAMP:
-      return valueVector->as<velox::SimpleVector<velox::Timestamp>>()->valueAt(
+      return valueVector->as<bolt::SimpleVector<bolt::Timestamp>>()->valueAt(
           0);
     case TypeKind::BOOLEAN:
-      return valueVector->as<velox::SimpleVector<bool>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
-      return valueVector->as<velox::SimpleVector<double>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<double>>()->valueAt(0);
     case TypeKind::REAL:
-      return valueVector->as<velox::SimpleVector<float>>()->valueAt(0);
+      return valueVector->as<bolt::SimpleVector<float>>()->valueAt(0);
     case TypeKind::VARCHAR:
-      return velox::variant(
-          valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
+      return bolt::variant(
+          valueVector->as<bolt::SimpleVector<bolt::StringView>>()->valueAt(
               0));
     case TypeKind::VARBINARY:
-      return velox::variant::binary(
-          valueVector->as<velox::SimpleVector<velox::StringView>>()->valueAt(
+      return bolt::variant::binary(
+          valueVector->as<bolt::SimpleVector<bolt::StringView>>()->valueAt(
               0));
     default:
       throw std::invalid_argument(
@@ -147,12 +147,12 @@ velox::variant VeloxExprConverter::getConstantValue(
   }
 }
 
-std::vector<TypedExprPtr> VeloxExprConverter::toVeloxExpr(
+std::vector<TypedExprPtr> BoltExprConverter::toBoltExpr(
     std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const {
   std::vector<TypedExprPtr> reply;
   reply.reserve(pexpr.size());
   for (auto arg : pexpr) {
-    reply.emplace_back(toVeloxExpr(arg));
+    reply.emplace_back(toBoltExpr(arg));
   }
 
   return reply;
@@ -168,7 +168,7 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
     const std::vector<TypedExprPtr>& args,
     bool nullOnFailure) {
   if (nullOnFailure) {
-    VELOX_NYI("TRY_CAST of varchar to {} is not supported.", returnType);
+    BOLT_NYI("TRY_CAST of varchar to {} is not supported.", returnType);
   }
 
   // Parse the max length from the return type string in the format of
@@ -177,28 +177,28 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
   char* end;
   const auto length =
       strtol(returnType.data() + strlen(kVarchar) + 1, &end, 10);
-  VELOX_DCHECK(errno != ERANGE);
-  VELOX_DCHECK(end == returnType.data() + returnType.size() - 1);
+  BOLT_DCHECK(errno != ERANGE);
+  BOLT_DCHECK(end == returnType.data() + returnType.size() - 1);
 
-  VELOX_DCHECK_EQ(args.size(), 1);
+  BOLT_DCHECK_EQ(args.size(), 1);
   const auto arg = args[0];
 
   return std::make_shared<CallTypedExpr>(
       arg->type(),
       std::vector<TypedExprPtr>{
           arg,
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), 1LL),
-          std::make_shared<ConstantTypedExpr>(velox::BIGINT(), (int64_t)length),
+          std::make_shared<ConstantTypedExpr>(bolt::BIGINT(), 1LL),
+          std::make_shared<ConstantTypedExpr>(bolt::BIGINT(), (int64_t)length),
       },
       "presto.default.substr");
 }
 
 /// Converts cast and try_cast functions to CastTypedExpr with nullOnFailure
 /// flag set to false and true appropriately.
-/// Removes cast to Re2JRegExp type. Velox doesn't have such type and uses
+/// Removes cast to Re2JRegExp type. Bolt doesn't have such type and uses
 /// different mechanism (stateful vector functions) to avoid re-compiling
 /// regular expressions needlessly.
-/// Removes cast to CodePoints type. Velox doesn't have such type and uses
+/// Removes cast to CodePoints type. Bolt doesn't have such type and uses
 /// different mechanisms to implement trim functions efficiently.
 /// Convert cast of varchar to substr if the target type is varchar with max
 /// length. Throw an exception for cast of varchar to varchar with max length.
@@ -237,7 +237,7 @@ std::optional<TypedExprPtr> tryConvertCast(
     return std::make_shared<CastTypedExpr>(
         type,
         std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
-            velox::JSON(), args, "presto.default.json_parse")},
+            bolt::JSON(), args, "presto.default.json_parse")},
         false);
   } else {
     return std::nullopt;
@@ -283,11 +283,11 @@ std::optional<TypedExprPtr> tryConvertTry(
     return std::nullopt;
   }
 
-  VELOX_CHECK_EQ(args.size(), 1);
+  BOLT_CHECK_EQ(args.size(), 1);
 
   auto lambda = std::dynamic_pointer_cast<const LambdaTypedExpr>(args[0]);
-  VELOX_CHECK(lambda);
-  VELOX_CHECK_EQ(lambda->signature()->size(), 0);
+  BOLT_CHECK(lambda);
+  BOLT_CHECK_EQ(lambda->signature()->size(), 0);
 
   auto type = typeParser->parse(returnType);
   std::vector<TypedExprPtr> newArgs = {lambda->body()};
@@ -298,7 +298,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const protocol::Signature& signature,
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args,
-    velox::memory::MemoryPool* pool,
+    bolt::memory::MemoryPool* pool,
     const TypeParser* typeParser) {
   static const char* kLiteralArray = "presto.default.$literal$array";
   static const char* kFromBase64 = "presto.default.from_base64";
@@ -311,10 +311,10 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     return std::nullopt;
   }
 
-  VELOX_CHECK_EQ(args.size(), 1);
+  BOLT_CHECK_EQ(args.size(), 1);
 
   auto call = std::dynamic_pointer_cast<const CallTypedExpr>(args[0]);
-  VELOX_CHECK_NOT_NULL(call);
+  BOLT_CHECK_NOT_NULL(call);
   if (call->name() != kFromBase64) {
     return std::nullopt;
   }
@@ -323,24 +323,24 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
 
   auto encoded =
       std::dynamic_pointer_cast<const ConstantTypedExpr>(call->inputs()[0]);
-  VELOX_CHECK_NOT_NULL(encoded);
-  auto encodedString = encoded->value().value<velox::StringView>();
+  BOLT_CHECK_NOT_NULL(encoded);
+  auto encodedString = encoded->value().value<bolt::StringView>();
   auto elementsVector =
       protocol::readBlock(type->asArray().elementType(), encodedString, pool);
 
-  velox::BufferPtr offsets =
-      velox::AlignedBuffer::allocate<velox::vector_size_t>(1, pool, 0);
-  velox::BufferPtr sizes = velox::AlignedBuffer::allocate<velox::vector_size_t>(
+  bolt::BufferPtr offsets =
+      bolt::AlignedBuffer::allocate<bolt::vector_size_t>(1, pool, 0);
+  bolt::BufferPtr sizes = bolt::AlignedBuffer::allocate<bolt::vector_size_t>(
       1, pool, elementsVector->size());
-  auto arrayVector = std::make_shared<velox::ArrayVector>(
+  auto arrayVector = std::make_shared<bolt::ArrayVector>(
       pool, type, nullptr, 1, offsets, sizes, elementsVector);
 
   return std::make_shared<ConstantTypedExpr>(
-      velox::BaseVector::wrapInConstant(1, 0, arrayVector));
+      bolt::BaseVector::wrapInConstant(1, 0, arrayVector));
 }
 } // namespace
 
-std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
+std::optional<TypedExprPtr> BoltExprConverter::tryConvertDate(
     const protocol::CallExpression& pexpr) const {
   static const char* kDate = "presto.default.date";
 
@@ -351,17 +351,17 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertDate(
     return std::nullopt;
   }
 
-  VELOX_CHECK_EQ(pexpr.arguments.size(), 1);
+  BOLT_CHECK_EQ(pexpr.arguments.size(), 1);
   std::vector<TypedExprPtr> args;
   // The argument to date function should be an expression that evaluates to
   // a VARCHAR or TIMESTAMP (with an optional timezone) type.
-  args.emplace_back(toVeloxExpr(pexpr.arguments[0]));
+  args.emplace_back(toBoltExpr(pexpr.arguments[0]));
 
   auto returnType = typeParser_->parse(pexpr.returnType);
   return std::make_shared<CastTypedExpr>(returnType, args, false);
 }
 
-std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
+std::optional<TypedExprPtr> BoltExprConverter::tryConvertLike(
     const protocol::CallExpression& pexpr) const {
   static const char* kLike = "presto.default.like";
   static const char* kLikePatternType = "presto.default.like_pattern";
@@ -375,34 +375,34 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
     return std::nullopt;
   }
 
-  VELOX_CHECK_EQ(pexpr.arguments.size(), 2);
+  BOLT_CHECK_EQ(pexpr.arguments.size(), 2);
 
   std::vector<TypedExprPtr> args;
   // The first argument to like is an expression that should evaluate to a
   // varchar type.
-  args.emplace_back(toVeloxExpr(pexpr.arguments[0]));
+  args.emplace_back(toBoltExpr(pexpr.arguments[0]));
 
   // The second argument in Presto like is either of cast('<pattern>' as
-  // LikePattern) or like_pattern('<pattern>', '<escape-char>'). However, Velox
+  // LikePattern) or like_pattern('<pattern>', '<escape-char>'). However, Bolt
   // function like requires <pattern> and <escape-char> to be its 2nd and 3rd
   // arguments.
   auto likePatternExpr =
       std::dynamic_pointer_cast<const protocol::CallExpression>(
           pexpr.arguments[1]);
-  VELOX_CHECK_NOT_NULL(likePatternExpr);
+  BOLT_CHECK_NOT_NULL(likePatternExpr);
   auto likePatternBuiltin =
       std::static_pointer_cast<protocol::BuiltInFunctionHandle>(
           likePatternExpr->functionHandle);
   auto likePatternSignature = likePatternBuiltin->signature;
   if (likePatternSignature.name == kCast) {
-    VELOX_CHECK_EQ(likePatternExpr->returnType, kLikeReturnType);
-    args.emplace_back(toVeloxExpr(likePatternExpr->arguments[0]));
+    BOLT_CHECK_EQ(likePatternExpr->returnType, kLikeReturnType);
+    args.emplace_back(toBoltExpr(likePatternExpr->arguments[0]));
   } else if (likePatternSignature.name == kLikePatternType) {
-    VELOX_CHECK_EQ(likePatternExpr->arguments.size(), 2);
-    args.emplace_back(toVeloxExpr(likePatternExpr->arguments[0]));
-    args.emplace_back(toVeloxExpr(likePatternExpr->arguments[1]));
+    BOLT_CHECK_EQ(likePatternExpr->arguments.size(), 2);
+    args.emplace_back(toBoltExpr(likePatternExpr->arguments[0]));
+    args.emplace_back(toBoltExpr(likePatternExpr->arguments[1]));
   } else {
-    VELOX_FAIL(
+    BOLT_FAIL(
         "Unexpected like signature: {}", toJsonString(pexpr.arguments[1]));
   }
 
@@ -412,7 +412,7 @@ std::optional<TypedExprPtr> VeloxExprConverter::tryConvertLike(
       returnType, args, getFunctionName(signature));
 }
 
-TypedExprPtr VeloxExprConverter::toVeloxExpr(
+TypedExprPtr BoltExprConverter::toBoltExpr(
     const protocol::CallExpression& pexpr) const {
   if (auto builtin = std::dynamic_pointer_cast<protocol::BuiltInFunctionHandle>(
           pexpr.functionHandle)) {
@@ -428,7 +428,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       return date.value();
     }
 
-    auto args = toVeloxExpr(pexpr.arguments);
+    auto args = toBoltExpr(pexpr.arguments);
     auto signature = builtin->signature;
 
     auto cast = tryConvertCast(signature, pexpr.returnType, args, typeParser_);
@@ -456,16 +456,16 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       auto sqlFunctionHandle =
           std::dynamic_pointer_cast<protocol::SqlFunctionHandle>(
               pexpr.functionHandle)) {
-    auto args = toVeloxExpr(pexpr.arguments);
+    auto args = toBoltExpr(pexpr.arguments);
     auto returnType = typeParser_->parse(pexpr.returnType);
     return std::make_shared<CallTypedExpr>(
         returnType, args, getFunctionName(sqlFunctionHandle->functionId));
   }
 
-  VELOX_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
+  BOLT_FAIL("Unsupported function handle: {}", pexpr.functionHandle->_type);
 }
 
-std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
+std::shared_ptr<const ConstantTypedExpr> BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::ConstantExpression> pexpr) const {
   const auto type = typeParser_->parse(pexpr->type);
   switch (type->kind()) {
@@ -477,7 +477,7 @@ std::shared_ptr<const ConstantTypedExpr> VeloxExprConverter::toVeloxExpr(
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(
-          velox::BaseVector::wrapInConstant(1, 0, valueVector));
+          bolt::BaseVector::wrapInConstant(1, 0, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
@@ -502,18 +502,18 @@ std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
     const TypedExprPtr& b) {
   std::vector<TypedExprPtr> inputs{a, b};
   return std::make_shared<CallTypedExpr>(
-      velox::BOOLEAN(), std::move(inputs), "presto.default.eq");
+      bolt::BOOLEAN(), std::move(inputs), "presto.default.eq");
 }
 
 std::shared_ptr<const CastTypedExpr> makeCastExpr(
     const TypedExprPtr& expr,
-    const velox::TypePtr& type) {
+    const bolt::TypePtr& type) {
   std::vector<TypedExprPtr> inputs{expr};
   return std::make_shared<CastTypedExpr>(type, std::move(inputs), false);
 }
 
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
-    const velox::TypePtr& returnType,
+    const bolt::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
   auto valueExpr = args.front();
   args.erase(args.begin());
@@ -550,12 +550,12 @@ std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
 }
 
 TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
-  VELOX_CHECK_GE(
+  BOLT_CHECK_GE(
       args.size(), 2, "BIND expression must have at least two arguments");
 
   // last argument must be a lambda
   auto lambda = std::dynamic_pointer_cast<const LambdaTypedExpr>(args.back());
-  VELOX_CHECK(lambda, "Last argument of a BIND must be a lambda expression");
+  BOLT_CHECK(lambda, "Last argument of a BIND must be a lambda expression");
 
   // replace first N arguments of the lambda with bind variables
   std::unordered_map<std::string, TypedExprPtr> mapping;
@@ -571,7 +571,7 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
 
   std::vector<std::string> newNames;
   newNames.reserve(numArgsLeft);
-  std::vector<velox::TypePtr> newTypes;
+  std::vector<bolt::TypePtr> newTypes;
   newTypes.reserve(numArgsLeft);
   for (auto i = 0; i < numArgsLeft; i++) {
     newNames.emplace_back(signature->nameOf(i + args.size() - 1));
@@ -584,26 +584,26 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
       newSignature, lambda->body()->rewriteInputNames(mapping));
 }
 
-velox::ArrayVectorPtr wrapInArray(const velox::VectorPtr& elements) {
+bolt::ArrayVectorPtr wrapInArray(const bolt::VectorPtr& elements) {
   auto* pool = elements->pool();
   auto size = elements->size();
-  auto offsets = velox::allocateOffsets(size, pool);
-  auto sizes = velox::allocateSizes(size, pool);
+  auto offsets = bolt::allocateOffsets(size, pool);
+  auto sizes = bolt::allocateSizes(size, pool);
 
-  auto rawSizes = sizes->asMutable<velox::vector_size_t>();
+  auto rawSizes = sizes->asMutable<bolt::vector_size_t>();
   rawSizes[0] = size;
 
-  return std::make_shared<velox::ArrayVector>(
+  return std::make_shared<bolt::ArrayVector>(
       pool, ARRAY(elements->type()), nullptr, 1, offsets, sizes, elements);
 }
 
-velox::ArrayVectorPtr toArrayOfComplexTypeVector(
-    const velox::TypePtr& elementType,
+bolt::ArrayVectorPtr toArrayOfComplexTypeVector(
+    const bolt::TypePtr& elementType,
     std::vector<TypedExprPtr>::const_iterator begin,
     std::vector<TypedExprPtr>::const_iterator end,
-    velox::memory::MemoryPool* pool) {
+    bolt::memory::MemoryPool* pool) {
   const auto size = end - begin;
-  auto elements = velox::BaseVector::create(elementType, size, pool);
+  auto elements = bolt::BaseVector::create(elementType, size, pool);
 
   for (auto i = 0; i < size; ++i) {
     auto constant =
@@ -618,16 +618,16 @@ velox::ArrayVectorPtr toArrayOfComplexTypeVector(
 }
 
 template <TypeKind KIND>
-velox::ArrayVectorPtr toArrayVector(
-    const velox::TypePtr& elementType,
+bolt::ArrayVectorPtr toArrayVector(
+    const bolt::TypePtr& elementType,
     std::vector<TypedExprPtr>::const_iterator begin,
     std::vector<TypedExprPtr>::const_iterator end,
-    velox::memory::MemoryPool* pool) {
-  using T = typename velox::TypeTraits<KIND>::NativeType;
+    bolt::memory::MemoryPool* pool) {
+  using T = typename bolt::TypeTraits<KIND>::NativeType;
 
   const auto size = end - begin;
-  auto elements = std::dynamic_pointer_cast<velox::FlatVector<T>>(
-      velox::BaseVector::create(elementType, size, pool));
+  auto elements = std::dynamic_pointer_cast<bolt::FlatVector<T>>(
+      bolt::BaseVector::create(elementType, size, pool));
 
   for (auto i = 0; i < size; ++i) {
     auto constant =
@@ -639,8 +639,8 @@ velox::ArrayVectorPtr toArrayVector(
     if (value.isNull()) {
       elements->setNull(i, true);
     } else {
-      if constexpr (std::is_same_v<T, velox::StringView>) {
-        elements->set(i, velox::StringView(value.value<T>()));
+      if constexpr (std::is_same_v<T, bolt::StringView>) {
+        elements->set(i, bolt::StringView(value.value<T>()));
       } else {
         elements->set(i, value.value<T>());
       }
@@ -652,24 +652,24 @@ velox::ArrayVectorPtr toArrayVector(
 
 TypedExprPtr convertInExpr(
     const std::vector<TypedExprPtr>& args,
-    velox::memory::MemoryPool* pool) {
+    bolt::memory::MemoryPool* pool) {
   auto numArgs = args.size();
-  VELOX_USER_CHECK_GE(numArgs, 2);
+  BOLT_USER_CHECK_GE(numArgs, 2);
 
   const auto typeKind = args[0]->type()->kind();
 
-  velox::ArrayVectorPtr arrayVector;
+  bolt::ArrayVectorPtr arrayVector;
   switch (typeKind) {
-    case velox::TypeKind::ARRAY:
+    case bolt::TypeKind::ARRAY:
       [[fallthrough]];
-    case velox::TypeKind::MAP:
+    case bolt::TypeKind::MAP:
       [[fallthrough]];
-    case velox::TypeKind::ROW:
+    case bolt::TypeKind::ROW:
       arrayVector = toArrayOfComplexTypeVector(
           args[0]->type(), args.begin() + 1, args.end(), pool);
       break;
     default:
-      arrayVector = VELOX_DYNAMIC_SCALAR_TYPE_DISPATCH(
+      arrayVector = BOLT_DYNAMIC_SCALAR_TYPE_DISPATCH(
           toArrayVector,
           typeKind,
           args[0]->type(),
@@ -679,46 +679,46 @@ TypedExprPtr convertInExpr(
   }
 
   if (arrayVector == nullptr) {
-    return std::make_shared<CallTypedExpr>(velox::BOOLEAN(), args, "in");
+    return std::make_shared<CallTypedExpr>(bolt::BOOLEAN(), args, "in");
   }
 
   auto constantVector =
-      std::make_shared<velox::ConstantVector<velox::ComplexType>>(
+      std::make_shared<bolt::ConstantVector<bolt::ComplexType>>(
           pool, 1, 0, arrayVector);
 
   std::vector<TypedExprPtr> newArgs = {
       args[0], std::make_shared<const ConstantTypedExpr>(constantVector)};
-  return std::make_shared<CallTypedExpr>(velox::BOOLEAN(), newArgs, "in");
+  return std::make_shared<CallTypedExpr>(bolt::BOOLEAN(), newArgs, "in");
 }
 
 TypedExprPtr convertDereferenceExpr(
-    const velox::TypePtr& returnType,
+    const bolt::TypePtr& returnType,
     const std::vector<TypedExprPtr>& args) {
-  VELOX_USER_CHECK_EQ(args.size(), 2);
+  BOLT_USER_CHECK_EQ(args.size(), 2);
 
   const auto& input = args[0];
-  VELOX_USER_CHECK_EQ(input->type()->kind(), TypeKind::ROW);
+  BOLT_USER_CHECK_EQ(input->type()->kind(), TypeKind::ROW);
   const auto& inputType = input->type()->asRow();
 
   // First argument is a struct. Second argument is a constant integer
   // zero-based index of the subfield in the struct.
 
   auto childIndexExpr = dynamic_cast<const ConstantTypedExpr*>(args[1].get());
-  VELOX_USER_CHECK_NOT_NULL(
+  BOLT_USER_CHECK_NOT_NULL(
       childIndexExpr,
       "Second argument for dereference special form must be a constant integer");
 
   auto childIndex = childIndexExpr->value().value<int32_t>();
 
-  VELOX_USER_CHECK_LT(childIndex, inputType.size());
+  BOLT_USER_CHECK_LT(childIndex, inputType.size());
 
   return std::make_shared<DereferenceTypedExpr>(returnType, input, childIndex);
 }
 } // namespace
 
-TypedExprPtr VeloxExprConverter::toVeloxExpr(
+TypedExprPtr BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::SpecialFormExpression> pexpr) const {
-  auto args = toVeloxExpr(pexpr->arguments);
+  auto args = toBoltExpr(pexpr->arguments);
 
   if (pexpr->form == protocol::Form::BIND) {
     return convertBindExpr(args);
@@ -744,7 +744,7 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
   }
 
   if (pexpr->form == protocol::Form::NULL_IF) {
-    VELOX_UNREACHABLE("NULL_IF not supported in specialForm");
+    BOLT_UNREACHABLE("NULL_IF not supported in specialForm");
   }
 
   auto form = std::string(json(pexpr->form));
@@ -752,15 +752,15 @@ TypedExprPtr VeloxExprConverter::toVeloxExpr(
       returnType, args, mapScalarFunction(form));
 }
 
-std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
+std::shared_ptr<const FieldAccessTypedExpr> BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::VariableReferenceExpression> pexpr) const {
   return std::make_shared<FieldAccessTypedExpr>(
       typeParser_->parse(pexpr->type), pexpr->name);
 }
 
-std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
+std::shared_ptr<const LambdaTypedExpr> BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::LambdaDefinitionExpression> lambda) const {
-  std::vector<velox::TypePtr> argumentTypes;
+  std::vector<bolt::TypePtr> argumentTypes;
   argumentTypes.reserve(lambda->argumentTypes.size());
   for (auto& typeName : lambda->argumentTypes) {
     argumentTypes.emplace_back(typeParser_->parse(typeName));
@@ -774,37 +774,37 @@ std::shared_ptr<const LambdaTypedExpr> VeloxExprConverter::toVeloxExpr(
   auto argCopy = lambda->arguments;
   auto signature = ROW(std::move(argCopy), std::move(argumentTypes));
   return std::make_shared<LambdaTypedExpr>(
-      signature, toVeloxExpr(lambda->body));
+      signature, toBoltExpr(lambda->body));
 }
 
-std::shared_ptr<const FieldAccessTypedExpr> VeloxExprConverter::toVeloxExpr(
+std::shared_ptr<const FieldAccessTypedExpr> BoltExprConverter::toBoltExpr(
     const protocol::VariableReferenceExpression& pexpr) const {
   return std::make_shared<FieldAccessTypedExpr>(
       typeParser_->parse(pexpr.type), pexpr.name);
 }
 
-TypedExprPtr VeloxExprConverter::toVeloxExpr(
+TypedExprPtr BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::RowExpression> pexpr) const {
   if (auto call = std::dynamic_pointer_cast<protocol::CallExpression>(pexpr)) {
-    return toVeloxExpr(*call);
+    return toBoltExpr(*call);
   }
   if (auto constant =
           std::dynamic_pointer_cast<protocol::ConstantExpression>(pexpr)) {
-    return toVeloxExpr(constant);
+    return toBoltExpr(constant);
   }
   if (auto special =
           std::dynamic_pointer_cast<protocol::SpecialFormExpression>(pexpr)) {
-    return toVeloxExpr(special);
+    return toBoltExpr(special);
   }
   if (auto variable =
           std::dynamic_pointer_cast<protocol::VariableReferenceExpression>(
               pexpr)) {
-    return toVeloxExpr(variable);
+    return toBoltExpr(variable);
   }
   if (auto lambda =
           std::dynamic_pointer_cast<protocol::LambdaDefinitionExpression>(
               pexpr)) {
-    return toVeloxExpr(lambda);
+    return toBoltExpr(lambda);
   }
 
   throw std::invalid_argument(

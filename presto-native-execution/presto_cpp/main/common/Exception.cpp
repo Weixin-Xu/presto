@@ -15,8 +15,8 @@
 #include "presto_cpp/main/common/Exception.h"
 
 namespace facebook::presto {
-protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
-    const velox::VeloxException& e) {
+protocol::ExecutionFailureInfo BoltToPrestoExceptionTranslator::translate(
+    const bolt::BoltException& e) {
   protocol::ExecutionFailureInfo error;
   // Line number must be >= 1
   error.errorLocation.lineNumber = e.line() >= 1 ? e.line() : 1;
@@ -54,7 +54,7 @@ protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
   return error;
 }
 
-protocol::ExecutionFailureInfo VeloxToPrestoExceptionTranslator::translate(
+protocol::ExecutionFailureInfo BoltToPrestoExceptionTranslator::translate(
     const std::exception& e) {
   protocol::ExecutionFailureInfo error;
   error.errorLocation.lineNumber = 1;

@@ -16,12 +16,12 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/connectors/hive/HiveConfig.h"
-#include "velox/core/QueryConfig.h"
-#include "velox/type/tz/TimeZoneMap.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/connectors/hive/HiveConfig.h"
+#include "bolt/core/QueryConfig.h"
+#include "bolt/type/tz/TimeZoneMap.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 using facebook::presto::protocol::QueryId;
 using facebook::presto::protocol::TaskId;
@@ -73,7 +73,7 @@ toConnectorConfigs(const protocol::SessionRepresentation& session) {
   return connectorConfigs;
 }
 
-void updateVeloxConfigs(
+void updateBoltConfigs(
     std::unordered_map<std::string, std::string>& configStrings) {
   // If `legacy_timestamp` is true, the coordinator expects timestamp
   // conversions without a timezone to be converted to the user's
@@ -85,7 +85,7 @@ void updateVeloxConfigs(
         core::QueryConfig::kAdjustTimestampToTimezone, "true");
   }
   // TODO: remove this once cpu driver slicing config is turned on by default in
-  // Velox.
+  // Bolt.
   it = configStrings.find(core::QueryConfig::kDriverCpuTimeSliceLimitMs);
   if (it == configStrings.end()) {
     // Set it to 1 second to be aligned with Presto Java.
@@ -94,7 +94,7 @@ void updateVeloxConfigs(
   }
 }
 
-void updateVeloxConnectorConfigs(
+void updateBoltConnectorConfigs(
     std::unordered_map<
         std::string,
         std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
@@ -134,12 +134,12 @@ QueryContextManager::QueryContextManager(
       spillerExecutor_(spillerExecutor),
       sessionProperties_(SessionProperties()) {}
 
-std::shared_ptr<velox::core::QueryCtx>
+std::shared_ptr<bolt::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::SessionRepresentation& session) {
   return findOrCreateQueryCtx(
-      taskId, toVeloxConfigs(session), toConnectorConfigs(session));
+      taskId, toBoltConfigs(session), toConnectorConfigs(session));
 }
 
 std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
@@ -156,8 +156,8 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
     return queryCtx;
   }
 
-  updateVeloxConfigs(configStrings);
-  updateVeloxConnectorConfigs(connectorConfigStrings);
+  updateBoltConfigs(configStrings);
+  updateBoltConnectorConfigs(connectorConfigStrings);
 
   std::unordered_map<std::string, std::shared_ptr<config::ConfigBase>>
       connectorConfigs;
@@ -167,7 +167,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
          std::make_shared<config::ConfigBase>(std::move(entry.second))});
   }
 
-  velox::core::QueryConfig queryConfig{std::move(configStrings)};
+  bolt::core::QueryConfig queryConfig{std::move(configStrings)};
   // NOTE: the monotonically increasing 'poolId' is appended to 'queryId' to
   // ensure that the name of root memory pool instance is always unique. In some
   // edge case, we found some background activities such as the long-running
@@ -192,7 +192,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
 }
 
 void QueryContextManager::visitAllContexts(
-    std::function<void(const protocol::QueryId&, const velox::core::QueryCtx*)>
+    std::function<void(const protocol::QueryId&, const bolt::core::QueryCtx*)>
         visitor) const {
   auto lockedCache = queryContextCache_.rlock();
   for (const auto& it : lockedCache->ctxs()) {
@@ -212,11 +212,11 @@ void QueryContextCache::testingClear() {
 }
 
 std::unordered_map<std::string, std::string>
-QueryContextManager::toVeloxConfigs(
+QueryContextManager::toBoltConfigs(
     const protocol::SessionRepresentation& session) {
-  // Use base velox query config as the starting point and add Presto session
+  // Use base bolt query config as the starting point and add Presto session
   // properties on top of it.
-  auto configs = BaseVeloxQueryConfig::instance()->values();
+  auto configs = BaseBoltQueryConfig::instance()->values();
   std::optional<std::string> traceFragmentId;
   std::optional<std::string> traceShardId;
   for (const auto& it : session.systemProperties) {
@@ -227,19 +227,19 @@ QueryContextManager::toVeloxConfigs(
     } else if (it.first == SessionProperties::kShuffleCompressionEnabled) {
       if (it.second == "true") {
         // NOTE: Presto java only support lz4 compression so configure the same
-        // compression kind on velox.
+        // compression kind on bolt.
         configs[core::QueryConfig::kShuffleCompressionKind] =
-            velox::common::compressionKindToString(
-                velox::common::CompressionKind_LZ4);
+            bolt::common::compressionKindToString(
+                bolt::common::CompressionKind_LZ4);
       } else {
-        VELOX_USER_CHECK_EQ(it.second, "false");
+        BOLT_USER_CHECK_EQ(it.second, "false");
         configs[core::QueryConfig::kShuffleCompressionKind] =
-            velox::common::compressionKindToString(
-                velox::common::CompressionKind_NONE);
+            bolt::common::compressionKindToString(
+                bolt::common::CompressionKind_NONE);
       }
     } else {
-      configs[sessionProperties_.toVeloxConfig(it.first)] = it.second;
-      sessionProperties_.updateVeloxConfig(it.first, it.second);
+      configs[sessionProperties_.toBoltConfig(it.first)] = it.second;
+      sessionProperties_.updateBoltConfig(it.first, it.second);
     }
   }
 
@@ -247,15 +247,15 @@ QueryContextManager::toVeloxConfigs(
   // configs. Throws if timeZoneKey can't be resolved.
   if (session.timeZoneKey != 0) {
     configs.emplace(
-        velox::core::QueryConfig::kSessionTimezone,
-        velox::tz::getTimeZoneName(session.timeZoneKey));
+        bolt::core::QueryConfig::kSessionTimezone,
+        bolt::tz::getTimeZoneName(session.timeZoneKey));
   }
 
-  // Construct query tracing regex and pass to Velox config.
+  // Construct query tracing regex and pass to Bolt config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
   if (traceFragmentId.has_value() || traceShardId.has_value()) {
     configs.emplace(
-        velox::core::QueryConfig::kQueryTraceTaskRegExp,
+        bolt::core::QueryConfig::kQueryTraceTaskRegExp,
         ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
             traceShardId.value_or(".*") + "\\..*");
   }

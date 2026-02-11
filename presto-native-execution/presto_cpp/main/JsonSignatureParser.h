@@ -15,7 +15,7 @@
 
 #include <string>
 #include <unordered_map>
-#include "velox/expression/VectorFunction.h"
+#include "bolt/expression/VectorFunction.h"
 
 namespace folly {
 struct dynamic;
@@ -56,7 +56,7 @@ namespace facebook::presto {
 class JsonSignatureParser {
  public:
   struct FunctionSignatureItem {
-    velox::exec::FunctionSignaturePtr signature;
+    bolt::exec::FunctionSignaturePtr signature;
     std::string schema;
   };
 

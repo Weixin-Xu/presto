@@ -13,14 +13,14 @@
  */
 #pragma once
 
-#include "velox/core/PlanNode.h"
+#include "bolt/core/PlanNode.h"
 
 namespace facebook::presto::operators {
 
 // Helper functions to use with PlanBuilder::addNode.
 
 std::function<
-    velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
 
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
@@ -28,17 +28,17 @@ addPartitionAndSerializeNode(
     const std::vector<std::string>& serializedColumns = {});
 
 std::function<
-    velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
-addShuffleReadNode(const velox::RowTypePtr& outputType);
+    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
+addShuffleReadNode(const bolt::RowTypePtr& outputType);
 
 std::function<
-    velox::core::PlanNodePtr(std::string nodeId, velox::core::PlanNodePtr)>
+    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
 addShuffleWriteNode(
     uint32_t numPartitions,
     const std::string& shuffleName,
     const std::string& serializedWriteInfo);
 
-std::function<velox::core::PlanNodePtr(std::string, velox::core::PlanNodePtr)>
+std::function<bolt::core::PlanNodePtr(std::string, bolt::core::PlanNodePtr)>
 
 /// Add BroadcastWriteNode for writing broadcast data to files under
 /// specified basePath

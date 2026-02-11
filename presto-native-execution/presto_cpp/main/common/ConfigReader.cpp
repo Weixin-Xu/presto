@@ -15,8 +15,8 @@
 #include "presto_cpp/main/common/ConfigReader.h"
 #include <fmt/format.h>
 #include <fstream>
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/config/Config.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/config/Config.h"
 
 namespace facebook::presto::util {
 
@@ -46,7 +46,7 @@ std::unordered_map<std::string, std::string> readConfig(
 
   std::ifstream configFile(filePath);
   if (!configFile.is_open()) {
-    VELOX_USER_FAIL("Couldn't open config file {} for reading.", filePath);
+    BOLT_USER_FAIL("Couldn't open config file {} for reading.", filePath);
   }
 
   std::unordered_map<std::string, std::string> properties;
@@ -58,13 +58,13 @@ std::unordered_map<std::string, std::string> readConfig(
     }
 
     const auto delimiterPos = line.find('=');
-    VELOX_CHECK_NE(
+    BOLT_CHECK_NE(
         delimiterPos,
         std::string::npos,
         "No '=' sign found for property pair '{}'",
         line);
     const auto name = line.substr(0, delimiterPos);
-    VELOX_CHECK(!name.empty(), "property pair '{}' has empty key", line);
+    BOLT_CHECK(!name.empty(), "property pair '{}' has empty key", line);
     auto value = line.substr(delimiterPos + 1);
     extractValueIfEnvironmentVariable(value);
     properties.emplace(name, value);
@@ -78,17 +78,17 @@ std::string requiredProperty(
     const std::string& name) {
   auto it = properties.find(name);
   if (it == properties.end()) {
-    VELOX_USER_FAIL("Missing configuration property {}", name);
+    BOLT_USER_FAIL("Missing configuration property {}", name);
   }
   return it->second;
 }
 
 std::string requiredProperty(
-    const velox::config::ConfigBase& properties,
+    const bolt::config::ConfigBase& properties,
     const std::string& name) {
   auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
-    VELOX_USER_FAIL("Missing configuration property {}", name);
+    BOLT_USER_FAIL("Missing configuration property {}", name);
   }
   return value.value();
 }
@@ -116,7 +116,7 @@ std::string getOptionalProperty(
 }
 
 std::string getOptionalProperty(
-    const velox::config::ConfigBase& properties,
+    const bolt::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue) {
   auto value = properties.get<std::string>(name);

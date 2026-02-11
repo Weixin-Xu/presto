@@ -14,23 +14,23 @@
 #pragma once
 
 #include "presto_cpp/main/operators/BroadcastFactory.h"
-#include "velox/core/PlanNode.h"
-#include "velox/exec/Exchange.h"
-#include "velox/exec/Operator.h"
+#include "bolt/core/PlanNode.h"
+#include "bolt/exec/Exchange.h"
+#include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
 
 /// Used for files based broadcast.
 /// Reads split location uri in format :
 /// batch://<taskid>?broadcastInfo={fileInfos:[<fileInfo>]}.
-class BroadcastExchangeSource : public velox::exec::ExchangeSource {
+class BroadcastExchangeSource : public bolt::exec::ExchangeSource {
  public:
   BroadcastExchangeSource(
       const std::string& taskId,
       int destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
       const std::shared_ptr<BroadcastFileReader>& reader,
-      velox::memory::MemoryPool* pool)
+      bolt::memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool), reader_(reader) {}
 
   bool shouldRequestLocked() override {
@@ -53,8 +53,8 @@ class BroadcastExchangeSource : public velox::exec::ExchangeSource {
   static std::shared_ptr<ExchangeSource> createExchangeSource(
       const std::string& url,
       int destination,
-      const std::shared_ptr<velox::exec::ExchangeQueue>& queue,
-      velox::memory::MemoryPool* pool);
+      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      bolt::memory::MemoryPool* pool);
 
  private:
   const std::shared_ptr<BroadcastFileReader> reader_;

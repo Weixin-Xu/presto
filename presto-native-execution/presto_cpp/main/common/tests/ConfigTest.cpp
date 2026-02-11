@@ -14,19 +14,19 @@
 #include <gtest/gtest.h>
 #include "presto_cpp/main/common/ConfigReader.h"
 #include "presto_cpp/main/common/Configs.h"
-#include "velox/common/base/Exceptions.h"
-#include "velox/common/base/tests/GTestUtils.h"
-#include "velox/common/file/File.h"
-#include "velox/common/file/FileSystems.h"
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/file/File.h"
+#include "bolt/common/file/FileSystems.h"
 
 namespace facebook::presto::test {
 
-using namespace velox;
+using namespace bolt;
 
 class ConfigTest : public testing::Test {
  protected:
   void SetUp() override {
-    velox::filesystems::registerLocalFileSystem();
+    bolt::filesystems::registerLocalFileSystem();
     setUpConfigFilePath();
   }
 
@@ -35,7 +35,7 @@ class ConfigTest : public testing::Test {
   }
 
   void setUpConfigFilePath() {
-    char path[] = "/tmp/velox_system_config_test_XXXXXX";
+    char path[] = "/tmp/bolt_system_config_test_XXXXXX";
     const char* tempDirectoryPath = mkdtemp(path);
     if (tempDirectoryPath == nullptr) {
       throw std::logic_error("Cannot open temp directory");
@@ -95,7 +95,7 @@ TEST_F(ConfigTest, defaultSystemConfig) {
       systemConfig->setValue(
           std::string(SystemConfig::kPrestoVersion),
           std::string(kPrestoVersion2_)),
-      VeloxException);
+      BoltException);
 }
 
 TEST_F(ConfigTest, mutableSystemConfig) {
@@ -120,15 +120,15 @@ TEST_F(ConfigTest, mutableSystemConfig) {
           .value());
   ASSERT_EQ(5UL << 30, systemConfig->queryMaxMemoryPerNode());
   ASSERT_THROW(
-      systemConfig->setValue("unregisteredProp1", "x"), VeloxException);
+      systemConfig->setValue("unregisteredProp1", "x"), BoltException);
 }
 
 TEST_F(ConfigTest, requiredSystemConfigs) {
   SystemConfig config;
   init(config, {});
 
-  ASSERT_THROW(config.httpServerHttpPort(), VeloxUserError);
-  ASSERT_THROW(config.prestoVersion(), VeloxUserError);
+  ASSERT_THROW(config.httpServerHttpPort(), BoltUserError);
+  ASSERT_THROW(config.prestoVersion(), BoltUserError);
 
   init(
       config,
@@ -189,7 +189,7 @@ TEST_F(ConfigTest, remoteFunctionServer) {
       config,
       {{std::string(SystemConfig::kRemoteFunctionServerThriftAddress),
         "127.1.2.3"}});
-  EXPECT_THROW(config.remoteFunctionServerLocation(), VeloxException);
+  EXPECT_THROW(config.remoteFunctionServerLocation(), BoltException);
 
   // Only port (address fallback to loopback).
   init(
@@ -253,7 +253,7 @@ TEST_F(ConfigTest, parseInvalid) {
     cleanupConfigFilePath();
     setUpConfigFilePath();
     writeConfigFile(fileContent);
-    VELOX_ASSERT_THROW(
+    BOLT_ASSERT_THROW(
         presto::util::readConfig(configFilePath_), expectedErrorMsg);
   };
   testInvalid(

@@ -11,15 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "presto_cpp/main/types/PrestoToVeloxSplit.h"
-#include "presto_cpp/main/types/PrestoToVeloxConnector.h"
-#include "velox/exec/Exchange.h"
+#include "presto_cpp/main/types/PrestoToBoltSplit.h"
+#include "presto_cpp/main/types/PrestoToBoltConnector.h"
+#include "bolt/exec/Exchange.h"
 
-using namespace facebook::velox;
+using namespace bytedance::bolt;
 
 namespace facebook::presto {
 
-velox::exec::Split toVeloxSplit(
+bolt::exec::Split toBoltSplit(
     const presto::protocol::ScheduledSplit& scheduledSplit) {
   const auto& connectorSplit = scheduledSplit.split.connectorSplit;
   const auto splitGroupId = scheduledSplit.split.lifespan.isgroup
@@ -27,7 +27,7 @@ velox::exec::Split toVeloxSplit(
       : -1;
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(
           connectorSplit)) {
-    return velox::exec::Split(
+    return bolt::exec::Split(
         std::make_shared<exec::RemoteConnectorSplit>(
             remoteSplit->location.location),
         splitGroupId);
@@ -35,15 +35,15 @@ velox::exec::Split toVeloxSplit(
 
   if (std::dynamic_pointer_cast<const protocol::EmptySplit>(connectorSplit)) {
     // We return NULL for empty splits to signal to do nothing.
-    return velox::exec::Split(nullptr, splitGroupId);
+    return bolt::exec::Split(nullptr, splitGroupId);
   }
 
-  auto& connector = getPrestoToVeloxConnector(connectorSplit->_type);
-  auto veloxSplit = connector.toVeloxSplit(
+  auto& connector = getPrestoToBoltConnector(connectorSplit->_type);
+  auto boltSplit = connector.toBoltSplit(
       scheduledSplit.split.connectorId,
       connectorSplit.get(),
       &scheduledSplit.split.splitContext);
-  return velox::exec::Split(std::move(veloxSplit), splitGroupId);
+  return bolt::exec::Split(std::move(boltSplit), splitGroupId);
 }
 
 } // namespace facebook::presto

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/ServerOperation.h"
-#include "velox/common/base/Exceptions.h"
+#include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto {
 
@@ -46,7 +46,7 @@ const folly::F14FastMap<std::string, ServerOperation::Target>
     ServerOperation::kTargetLookup{
         {"connector", ServerOperation::Target::kConnector},
         {"systemConfig", ServerOperation::Target::kSystemConfig},
-        {"veloxQueryConfig", ServerOperation::Target::kVeloxQueryConfig},
+        {"boltQueryConfig", ServerOperation::Target::kBoltQueryConfig},
         {"task", ServerOperation::Target::kTask},
         {"server", ServerOperation::Target::kServer}};
 
@@ -54,7 +54,7 @@ const folly::F14FastMap<ServerOperation::Target, std::string>
     ServerOperation::kReverseTargetLookup{
         {ServerOperation::Target::kConnector, "connector"},
         {ServerOperation::Target::kSystemConfig, "systemConfig"},
-        {ServerOperation::Target::kVeloxQueryConfig, "veloxQueryConfig"},
+        {ServerOperation::Target::kBoltQueryConfig, "boltQueryConfig"},
         {ServerOperation::Target::kTask, "task"},
         {ServerOperation::Target::kServer, "server"}};
 
@@ -62,7 +62,7 @@ ServerOperation::Target ServerOperation::targetFromString(
     const std::string& str) {
   auto it = kTargetLookup.find(str);
   if (it == kTargetLookup.end()) {
-    VELOX_USER_FAIL("Unsupported server operation target '{}'", str);
+    BOLT_USER_FAIL("Unsupported server operation target '{}'", str);
   }
   return it->second;
 }
@@ -70,7 +70,7 @@ ServerOperation::Target ServerOperation::targetFromString(
 std::string ServerOperation::targetString(ServerOperation::Target target) {
   auto it = kReverseTargetLookup.find(target);
   if (it == kReverseTargetLookup.end()) {
-    VELOX_FAIL();
+    BOLT_FAIL();
   }
   return it->second;
 }
@@ -79,7 +79,7 @@ ServerOperation::Action ServerOperation::actionFromString(
     const std::string& str) {
   auto it = kActionLookup.find(str);
   if (it == kActionLookup.end()) {
-    VELOX_USER_FAIL("Unsupported server operation action '{}'", str);
+    BOLT_USER_FAIL("Unsupported server operation action '{}'", str);
   }
   return it->second;
 }
@@ -87,7 +87,7 @@ ServerOperation::Action ServerOperation::actionFromString(
 std::string ServerOperation::actionString(Action action) {
   auto it = kReverseActionLookup.find(action);
   if (it == kReverseActionLookup.end()) {
-    VELOX_FAIL();
+    BOLT_FAIL();
   }
   return it->second;
 }
@@ -95,7 +95,7 @@ std::string ServerOperation::actionString(Action action) {
 ServerOperation buildServerOpFromHttpMsgPath(const std::string& httpMsgPath) {
   static const auto targetPos = std::string("/v1/operation/").length();
   auto actionPos = httpMsgPath.find('/', targetPos);
-  VELOX_USER_CHECK_NE(actionPos, std::string::npos);
+  BOLT_USER_CHECK_NE(actionPos, std::string::npos);
   // Go beyond '/' to point to the first letter of action
   actionPos += 1;
   auto target = httpMsgPath.substr(targetPos, actionPos - 1 - targetPos);

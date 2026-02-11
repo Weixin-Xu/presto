@@ -19,15 +19,15 @@
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
-#include "velox/common/base/PeriodicStatsReporter.h"
-#include "velox/common/base/StatsReporter.h"
-#include "velox/common/base/SuccinctPrinter.h"
-#include "velox/common/caching/AsyncDataCache.h"
-#include "velox/common/caching/CacheTTLController.h"
-#include "velox/common/memory/MemoryAllocator.h"
-#include "velox/common/memory/MmapAllocator.h"
-#include "velox/connectors/hive/HiveConnector.h"
-#include "velox/exec/Driver.h"
+#include "bolt/common/base/PeriodicStatsReporter.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/base/SuccinctPrinter.h"
+#include "bolt/common/caching/AsyncDataCache.h"
+#include "bolt/common/caching/CacheTTLController.h"
+#include "bolt/common/memory/MemoryAllocator.h"
+#include "bolt/common/memory/MmapAllocator.h"
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/exec/Driver.h"
 
 #include <sys/resource.h>
 
@@ -44,27 +44,27 @@ namespace facebook::presto {
 
 namespace {
 folly::StringPiece getCounterForBlockingReason(
-    velox::exec::BlockingReason reason) {
+    bolt::exec::BlockingReason reason) {
   switch (reason) {
-    case velox::exec::BlockingReason::kWaitForConsumer:
+    case bolt::exec::BlockingReason::kWaitForConsumer:
       return kCounterNumBlockedWaitForConsumerDrivers;
-    case velox::exec::BlockingReason::kWaitForSplit:
+    case bolt::exec::BlockingReason::kWaitForSplit:
       return kCounterNumBlockedWaitForSplitDrivers;
-    case velox::exec::BlockingReason::kWaitForProducer:
+    case bolt::exec::BlockingReason::kWaitForProducer:
       return kCounterNumBlockedWaitForProducerDrivers;
-    case velox::exec::BlockingReason::kWaitForJoinBuild:
+    case bolt::exec::BlockingReason::kWaitForJoinBuild:
       return kCounterNumBlockedWaitForJoinBuildDrivers;
-    case velox::exec::BlockingReason::kWaitForJoinProbe:
+    case bolt::exec::BlockingReason::kWaitForJoinProbe:
       return kCounterNumBlockedWaitForJoinProbeDrivers;
-    case velox::exec::BlockingReason::kWaitForMergeJoinRightSide:
+    case bolt::exec::BlockingReason::kWaitForMergeJoinRightSide:
       return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
-    case velox::exec::BlockingReason::kWaitForMemory:
+    case bolt::exec::BlockingReason::kWaitForMemory:
       return kCounterNumBlockedWaitForMemoryDrivers;
-    case velox::exec::BlockingReason::kWaitForConnector:
+    case bolt::exec::BlockingReason::kWaitForConnector:
       return kCounterNumBlockedWaitForConnectorDrivers;
-    case velox::exec::BlockingReason::kYield:
+    case bolt::exec::BlockingReason::kYield:
       return kCounterNumBlockedYieldDrivers;
-    case velox::exec::BlockingReason::kNotBlocked:
+    case bolt::exec::BlockingReason::kNotBlocked:
       [[fallthrough]];
     default:
       return {};
@@ -88,10 +88,10 @@ class ThreadPoolExecutorStatsReporter {
             fmt::format(kCounterThreadPoolNumTotalTasksFormat, poolName)),
         maxIdleTimeNsMetricName_(
             fmt::format(kCounterThreadPoolMaxIdleTimeNsFormat, poolName)) {
-    VELOX_CHECK_NOT_NULL(executor_);
+    BOLT_CHECK_NOT_NULL(executor_);
     const auto numThreads = executor_->numThreads();
     const auto numHistogramBuckets = 100;
-    DEFINE_METRIC(numThreadsMetricName_, facebook::velox::StatType::AVG);
+    DEFINE_METRIC(numThreadsMetricName_, facebook::bolt::StatType::AVG);
     DEFINE_HISTOGRAM_METRIC(
         numActiveThreadsMetricName_, 1, 0, numThreads, 50, 90, 100);
     DEFINE_HISTOGRAM_METRIC(
@@ -146,7 +146,7 @@ class ThreadPoolExecutorStatsReporter {
 class HiveConnectorStatsReporter {
  public:
   explicit HiveConnectorStatsReporter(
-      std::shared_ptr<velox::connector::hive::HiveConnector> connector)
+      std::shared_ptr<bolt::connector::hive::HiveConnector> connector)
       : connector_(std::move(connector)),
         numElementsMetricName_(fmt::format(
             kCounterHiveFileHandleCacheNumElementsFormat,
@@ -169,13 +169,13 @@ class HiveConnectorStatsReporter {
         numLookupsMetricName_(fmt::format(
             kCounterHiveFileHandleCacheNumLookupsFormat,
             connector_->connectorId())) {
-    DEFINE_METRIC(numElementsMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(pinnedSizeMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(curSizeMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(numAccumulativeHitsMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(numAccumulativeLookupsMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(numHitsMetricName_, velox::StatType::AVG);
-    DEFINE_METRIC(numLookupsMetricName_, velox::StatType::AVG);
+    DEFINE_METRIC(numElementsMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(pinnedSizeMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(curSizeMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeHitsMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeLookupsMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(numHitsMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(numLookupsMetricName_, bolt::StatType::AVG);
   }
 
   void report() {
@@ -193,7 +193,7 @@ class HiveConnectorStatsReporter {
   }
 
  private:
-  const std::shared_ptr<velox::connector::hive::HiveConnector> connector_;
+  const std::shared_ptr<bolt::connector::hive::HiveConnector> connector_;
   const std::string numElementsMetricName_;
   const std::string pinnedSizeMetricName_;
   const std::string curSizeMetricName_;
@@ -231,11 +231,11 @@ PeriodicTaskManager::PeriodicTaskManager(
     folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
     folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
     TaskManager* taskManager,
-    const velox::memory::MemoryAllocator* memoryAllocator,
-    const velox::cache::AsyncDataCache* asyncDataCache,
+    const bolt::memory::MemoryAllocator* memoryAllocator,
+    const bolt::cache::AsyncDataCache* asyncDataCache,
     const std::unordered_map<
         std::string,
-        std::shared_ptr<velox::connector::Connector>>& connectors,
+        std::shared_ptr<bolt::connector::Connector>>& connectors,
     PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
       spillerExecutor_(spillerExecutor),
@@ -246,25 +246,25 @@ PeriodicTaskManager::PeriodicTaskManager(
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
-      arbitrator_(velox::memory::memoryManager()->arbitrator()),
+      arbitrator_(bolt::memory::memoryManager()->arbitrator()),
       connectors_(connectors),
       server_(server) {}
 
 void PeriodicTaskManager::start() {
-  VELOX_CHECK_NOT_NULL(arbitrator_);
-  velox::PeriodicStatsReporter::Options opts;
+  BOLT_CHECK_NOT_NULL(arbitrator_);
+  bolt::PeriodicStatsReporter::Options opts;
   opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
   opts.allocator = memoryAllocator_;
   opts.cache = asyncDataCache_;
-  opts.spillMemoryPool = velox::memory::spillMemoryPool();
-  velox::startPeriodicStatsReporter(opts);
+  opts.spillMemoryPool = bolt::memory::spillMemoryPool();
+  bolt::startPeriodicStatsReporter(opts);
 
   // If executors are null, don't bother starting this task.
   if ((driverCPUExecutor_ != nullptr) || (httpSrvIoExecutor_ != nullptr)) {
     addExecutorStatsTask();
   }
 
-  VELOX_CHECK_NOT_NULL(taskManager_);
+  BOLT_CHECK_NOT_NULL(taskManager_);
   addTaskStatsTask();
 
   if (SystemConfig::instance()->enableOldTaskCleanUp()) {
@@ -292,7 +292,7 @@ void PeriodicTaskManager::start() {
 }
 
 void PeriodicTaskManager::stop() {
-  velox::stopPeriodicStatsReporter();
+  bolt::stopPeriodicStatsReporter();
   oneTimeRunner_.cancelAllFunctionsAndWait();
   oneTimeRunner_.shutdown();
   repeatedRunner_.stop();
@@ -334,19 +334,19 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
   RECORD_METRIC_VALUE(
       kCounterNumTasksRunning,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kRunning)]);
+      taskNumbers[static_cast<int>(bolt::exec::TaskState::kRunning)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFinished,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kFinished)]);
+      taskNumbers[static_cast<int>(bolt::exec::TaskState::kFinished)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksCancelled,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kCanceled)]);
+      taskNumbers[static_cast<int>(bolt::exec::TaskState::kCanceled)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksAborted,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kAborted)]);
+      taskNumbers[static_cast<int>(bolt::exec::TaskState::kAborted)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed,
-      taskNumbers[static_cast<int>(velox::exec::TaskState::kFailed)]);
+      taskNumbers[static_cast<int>(bolt::exec::TaskState::kFailed)]);
 
   const auto driverCounts = taskManager_->getDriverCounts();
   RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
@@ -362,7 +362,7 @@ void PeriodicTaskManager::updateTaskStats() {
   }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      velox::exec::OutputBufferManager::getInstance().lock()->numBuffers());
+      bolt::exec::OutputBufferManager::getInstance().lock()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
@@ -407,7 +407,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
   std::vector<HiveConnectorStatsReporter> reporters;
   for (const auto& itr : connectors_) {
     if (auto hiveConnector =
-            std::dynamic_pointer_cast<velox::connector::hive::HiveConnector>(
+            std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
                 itr.second)) {
       reporters.emplace_back(std::move(hiveConnector));
     }
@@ -509,7 +509,7 @@ void PeriodicTaskManager::addWatchdogTask() {
   addTask(
       [this] {
         std::vector<std::string> deadlockTasks;
-        std::vector<velox::exec::Task::OpCallInfo> stuckOpCalls;
+        std::vector<bolt::exec::Task::OpCallInfo> stuckOpCalls;
         if (!taskManager_->getStuckOpCalls(deadlockTasks, stuckOpCalls)) {
           LOG(ERROR)
               << "Cannot take lock on task manager, likely starving or deadlocked";
@@ -525,7 +525,7 @@ void PeriodicTaskManager::addWatchdogTask() {
         for (const auto& call : stuckOpCalls) {
           LOG(ERROR) << "Stuck operator: tid=" << call.tid
                      << " taskId=" << call.taskId << " opCall=" << call.opCall
-                     << " duration= " << velox::succinctMillis(call.durationMs);
+                     << " duration= " << bolt::succinctMillis(call.durationMs);
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
 
@@ -549,7 +549,7 @@ void PeriodicTaskManager::addWatchdogTask() {
 
 void PeriodicTaskManager::detachWorker(const char* reason) {
   LOG(WARNING) << "TraceContext::status:\n"
-               << velox::process::TraceContext::statusLine();
+               << bolt::process::TraceContext::statusLine();
   if (server_ && server_->nodeState() == NodeState::kActive) {
     LOG(WARNING) << "Will detach worker due to " << reason;
     server_->detachWorker();

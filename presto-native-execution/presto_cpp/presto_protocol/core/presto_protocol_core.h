@@ -28,10 +28,10 @@
 
 #include <folly/Format.h>
 #include <utility>
+#include "bolt/common/encode/Base64.h"
 #include "presto_cpp/external/json/nlohmann/json.hpp"
 #include "presto_cpp/presto_protocol/core/DataSize.h"
 #include "presto_cpp/presto_protocol/core/Duration.h"
-#include "velox/common/encode/Base64.h"
 
 using nlohmann::json;
 
@@ -374,51 +374,15 @@ enum class SortOrder {
 extern void to_json(json& j, const SortOrder& e);
 extern void from_json(const json& j, SortOrder& e);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
-
-struct VariableReferenceExpression : RowExpression {
-  String name;
-  Type type; // dependency
+struct VariableReferenceExpression : public RowExpression {
+  String name = {};
+  Type type = {};
 
   VariableReferenceExpression() noexcept;
-  explicit VariableReferenceExpression(const String& str) {
-    _type = "variable";
-
-    std::vector<std::string, std::allocator<std::string>> parts;
-
-    folly::split("<", str, parts);
-    name = parts[0];
-    type = parts[1].substr(0, parts[1].length() - 1);
-  }
-
-  bool operator<(const VariableReferenceExpression& o) const {
-    if (name == o.name) {
-      return type < o.type;
-    }
-
-    return name < o.name;
-  }
 };
-
 void to_json(json& j, const VariableReferenceExpression& p);
 void from_json(const json& j, VariableReferenceExpression& p);
-
-std::string json_map_key(
-    const facebook::presto::protocol::VariableReferenceExpression& p);
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct Ordering {
@@ -544,49 +508,6 @@ struct OutputBuffers {
 void to_json(json& j, const OutputBuffers& p);
 void from_json(const json& j, OutputBuffers& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-
-std::ostream& operator<<(std::ostream& os, const DataSize& d);
-
-void to_json(nlohmann::json& j, const DataSize& p);
-void from_json(const nlohmann::json& j, DataSize& p);
-
-} // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-namespace facebook::presto::protocol {
-
-std::ostream& operator<<(std::ostream& os, const Duration& d);
-
-void to_json(json& j, const Duration& p);
-void from_json(const json& j, Duration& p);
-
-} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ResourceEstimates {
   std::shared_ptr<Duration> executionTime = {};
@@ -660,32 +581,16 @@ struct LongVariableConstraint {
 void to_json(json& j, const LongVariableConstraint& p);
 void from_json(const json& j, LongVariableConstraint& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
-
 struct TypeVariableConstraint {
   String name = {};
   bool comparableRequired = {};
   bool orderableRequired = {};
   String variadicBound = {};
   bool nonDecimalNumericRequired = {};
-  String boundedBy = {};
 };
 void to_json(json& j, const TypeVariableConstraint& p);
 void from_json(const json& j, TypeVariableConstraint& p);
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct Signature {
@@ -768,34 +673,6 @@ struct TableWriteInfo {
 void to_json(json& j, const TableWriteInfo& p);
 void from_json(const json& j, TableWriteInfo& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-
-struct Lifespan {
-  bool isgroup = false;
-  long groupid = 0;
-
-  bool operator<(const Lifespan& o) const {
-    return groupid < o.groupid;
-  }
-};
-
-void to_json(json& j, const Lifespan& p);
-void from_json(const json& j, Lifespan& p);
-
-} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct SplitContext {
   bool cacheable = {};
@@ -814,34 +691,14 @@ struct Split {
 void to_json(json& j, const Split& p);
 void from_json(const json& j, Split& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
-
 struct ScheduledSplit {
-  long sequenceId = {};
-  PlanNodeId planNodeId = {}; // dependency
+  int64_t sequenceId = {};
+  PlanNodeId planNodeId = {};
   Split split = {};
-
-  bool operator<(const ScheduledSplit& o) const {
-    return sequenceId < o.sequenceId;
-  }
 };
-
 void to_json(json& j, const ScheduledSplit& p);
 void from_json(const json& j, ScheduledSplit& p);
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct TaskSource {
@@ -918,59 +775,13 @@ struct CacheQuotaRequirement {
 void to_json(json& j, const CacheQuotaRequirement& p);
 void from_json(const json& j, CacheQuotaRequirement& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
-
 struct Column {
-  String name;
-  String type;
-
-  Column() = default;
-  explicit Column(const String& str) {
-    name = str;
-  }
+  String name = {};
+  String type = {};
 };
-
 void to_json(json& j, const Column& p);
 void from_json(const json& j, Column& p);
-
-} // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-
-struct Block {
-  std::string data;
-};
-
-void to_json(json& j, const Block& p);
-
-void from_json(const json& j, Block& p);
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ConstantExpression : public RowExpression {
@@ -1074,24 +885,6 @@ struct DynamicFilterStats {
 void to_json(json& j, const DynamicFilterStats& p);
 void from_json(const json& j, DynamicFilterStats& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-struct OperatorInfo {};
-void to_json(json& j, const OperatorInfo& p);
-void from_json(const json& j, OperatorInfo& p);
-} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct OperatorStats {
   int stageId = {};
@@ -1194,30 +987,13 @@ struct EnforceSingleRowNode : public PlanNode {
 void to_json(json& j, const EnforceSingleRowNode& p);
 void from_json(const json& j, EnforceSingleRowNode& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
-
-class ValueEntry {
- public:
-  Type type;
-  std::shared_ptr<Block> block;
+struct ValueEntry {
+  Type type = {};
+  Block block = {};
 };
-
 void to_json(json& j, const ValueEntry& p);
 void from_json(const json& j, ValueEntry& p);
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct EquatableValueSet : public ValueSet {
@@ -1338,25 +1114,6 @@ enum class ErrorCause {
 };
 extern void to_json(json& j, const ErrorCause& e);
 extern void from_json(const json& j, ErrorCause& e);
-} // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-namespace facebook::presto::protocol {
-
-using HostAddress = std::string;
-
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 struct ExecutionFailureInfo {
@@ -1601,23 +1358,8 @@ struct MemoryInfo {
 void to_json(json& j, const MemoryInfo& p);
 void from_json(const json& j, MemoryInfo& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 namespace facebook::presto::protocol {
 struct MergeJoinNode : public PlanNode {
-  MergeJoinNode() noexcept;
-  PlanNodeId id = {};
   JoinType type = {};
   std::shared_ptr<PlanNode> left = {};
   std::shared_ptr<PlanNode> right = {};
@@ -1626,6 +1368,8 @@ struct MergeJoinNode : public PlanNode {
   std::shared_ptr<std::shared_ptr<RowExpression>> filter = {};
   std::shared_ptr<VariableReferenceExpression> leftHashVariable = {};
   std::shared_ptr<VariableReferenceExpression> rightHashVariable = {};
+
+  MergeJoinNode() noexcept;
 };
 void to_json(json& j, const MergeJoinNode& p);
 void from_json(const json& j, MergeJoinNode& p);
@@ -1847,20 +1591,6 @@ struct StatsAndCosts {
 void to_json(json& j, const StatsAndCosts& p);
 void from_json(const json& j, StatsAndCosts& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 struct PlanFragment {
   PlanFragmentId id = {};
@@ -1871,6 +1601,7 @@ struct PlanFragment {
   PartitioningScheme partitioningScheme = {};
   StageExecutionDescriptor stageExecutionDescriptor = {};
   bool outputTableWriterFragment = {};
+  std::shared_ptr<StatsAndCosts> statsAndCosts = {};
   std::shared_ptr<String> jsonRepresentation = {};
 };
 void to_json(json& j, const PlanFragment& p);
@@ -2153,155 +1884,6 @@ struct SystemTableHandle : public ConnectorTableHandle {
 void to_json(json& j, const SystemTableHandle& p);
 void from_json(const json& j, SystemTableHandle& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-namespace facebook::presto::protocol {
-
-template <typename T>
-struct pointerDerefCompare {
-  bool operator()(const std::shared_ptr<T>& a, const std::shared_ptr<T>& b)
-      const {
-    return *a < *b;
-  }
-};
-
-template <typename T>
-struct TupleDomain {
-  std::shared_ptr<Map<T, Domain>> domains;
-};
-
-template <typename T>
-struct TupleDomain<std::shared_ptr<T>> {
-  std::shared_ptr<std::map<std::shared_ptr<T>, Domain, pointerDerefCompare<T>>>
-      domains;
-};
-
-template <class T>
-struct ColumnDomain {
-  T column;
-  Domain domain; // dependency
-};
-
-} // namespace facebook::presto::protocol
-
-namespace nlohmann {
-
-template <typename T>
-struct adl_serializer<facebook::presto::protocol::ColumnDomain<T>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::ColumnDomain<T>& p) {
-    facebook::presto::protocol::to_json_key(
-        j, "column", p.column, "ColumnDomain", "T", "column");
-    facebook::presto::protocol::to_json_key(
-        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::ColumnDomain<T>& p) {
-    facebook::presto::protocol::from_json_key(
-        j, "column", p.column, "ColumnDomain", "T", "column");
-    facebook::presto::protocol::from_json_key(
-        j, "domain", p.domain, "ColumnDomain", "Domain", "domain");
-  }
-};
-
-template <typename T>
-struct adl_serializer<facebook::presto::protocol::TupleDomain<T>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::TupleDomain<T>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<T>>
-        list;
-    if (tup.domains != nullptr) {
-      for (auto& el : *tup.domains) {
-        facebook::presto::protocol::ColumnDomain<T> domain;
-        domain.column = el.first;
-        domain.domain = el.second;
-        list.push_back(domain);
-      }
-    }
-
-    j["columnDomains"] = list;
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::TupleDomain<T>& tup) {
-    if (j.count("columnDomains") != 0U) {
-      std::shared_ptr<facebook::presto::protocol::
-                          Map<T, facebook::presto::protocol::Domain>>
-          map = std::make_shared<
-              std::map<T, facebook::presto::protocol::Domain>>();
-
-      facebook::presto::protocol::List<
-          facebook::presto::protocol::ColumnDomain<T>>
-          list = j.at("columnDomains");
-      for (const facebook::presto::protocol::ColumnDomain<T>& value : list) {
-        map->insert(std::make_pair(T(value.column), value.domain));
-      }
-      tup.domains = map;
-    }
-  }
-};
-
-template <typename T>
-struct adl_serializer<
-    facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>> {
-  static void to_json(
-      json& j,
-      const facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    facebook::presto::protocol::List<
-        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
-        list;
-    if (tup.domains != nullptr) {
-      for (auto& el : *tup.domains) {
-        facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>> domain;
-        domain.column = el.first;
-        domain.domain = el.second;
-        list.push_back(domain);
-      }
-    }
-
-    j["columnDomains"] = list;
-  }
-
-  static void from_json(
-      const json& j,
-      facebook::presto::protocol::TupleDomain<std::shared_ptr<T>>& tup) {
-    if (j.count("columnDomains") != 0U) {
-      auto map = std::make_shared<std::map<
-          std::shared_ptr<T>,
-          facebook::presto::protocol::Domain,
-          facebook::presto::protocol::pointerDerefCompare<T>>>();
-
-      facebook::presto::protocol::List<
-          facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>>
-          list = j.at("columnDomains");
-      for (const facebook::presto::protocol::ColumnDomain<std::shared_ptr<T>>&
-               value : list) {
-        map->insert(
-            std::make_pair(std::shared_ptr<T>(value.column), value.domain));
-      }
-      tup.domains = map;
-    }
-  }
-};
-
-} // namespace nlohmann
 namespace facebook::presto::protocol {
 struct SystemSplit : public ConnectorSplit {
   ConnectorId connectorId = {};
@@ -2361,24 +1943,10 @@ struct TableWriterMergeNode : public PlanNode {
 void to_json(json& j, const TableWriterMergeNode& p);
 void from_json(const json& j, TableWriterMergeNode& p);
 } // namespace facebook::presto::protocol
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 namespace facebook::presto::protocol {
 struct TableWriterNode : public PlanNode {
   std::shared_ptr<PlanNode> source = {};
-  // TODO Add target
+  std::shared_ptr<WriterTarget> target = {};
   VariableReferenceExpression rowCountVariable = {};
   VariableReferenceExpression fragmentVariable = {};
   VariableReferenceExpression tableCommitContextVariable = {};
@@ -2386,8 +1954,9 @@ struct TableWriterNode : public PlanNode {
   List<String> columnNames = {};
   List<VariableReferenceExpression> notNullColumnVariables = {};
   std::shared_ptr<PartitioningScheme> partitioningScheme = {};
-  std::shared_ptr<PartitioningScheme> preferredShufflePartitioningScheme = {};
   std::shared_ptr<StatisticAggregations> statisticsAggregation = {};
+  std::shared_ptr<Integer> taskCountIfScaledWriter = {};
+  std::shared_ptr<Boolean> isTemporaryTableWriter = {};
 
   TableWriterNode() noexcept;
 };
