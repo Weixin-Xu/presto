@@ -121,3 +121,5 @@ if(PRESTO_ENABLE_JEMALLOC)
   find_package(jemalloc CONFIG REQUIRED)
   target_link_libraries(presto_server jemalloc::jemalloc)
 endif()
+
+target_link_options(presto_server PRIVATE "-no-pie")

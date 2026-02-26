@@ -14,7 +14,7 @@ endif()
 
 # Known warnings that are benign can be disabled.
 set(DISABLED_WARNINGS
-    "-Wno-nullability-completeness -Wno-deprecated-declarations")
+    "-Wno-nullability-completeness -Wno-deprecated-declarations -Wno-stringop-overread")
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
   add_compile_options(-fdiagnostics-color=always)
