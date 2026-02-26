@@ -56,7 +56,7 @@ namespace facebook::presto {
 class JsonSignatureParser {
  public:
   struct FunctionSignatureItem {
-    bolt::exec::FunctionSignaturePtr signature;
+    bytedance::bolt::exec::FunctionSignaturePtr signature;
     std::string schema;
   };
 

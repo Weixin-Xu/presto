@@ -83,7 +83,7 @@ void HttpEndpointLatencyFilter::onRequest(
   BOLT_CHECK(!requestEndpoint_.empty());
 
   // Starts the timer.
-  timer_ = std::make_unique<bolt::MicrosecondTimer>(&timeUs_);
+  timer_ = std::make_unique<bytedance::bolt::MicrosecondTimer>(&timeUs_);
   proxygen::Filter::onRequest(std::move(msg));
 }
 

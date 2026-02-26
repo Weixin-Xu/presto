@@ -16,7 +16,7 @@
 
 namespace facebook::presto {
 protocol::ExecutionFailureInfo BoltToPrestoExceptionTranslator::translate(
-    const bolt::BoltException& e) {
+    const bytedance::bolt::BoltException& e) {
   protocol::ExecutionFailureInfo error;
   // Line number must be >= 1
   error.errorLocation.lineNumber = e.line() >= 1 ? e.line() : 1;

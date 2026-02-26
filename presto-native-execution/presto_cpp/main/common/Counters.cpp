@@ -19,74 +19,74 @@ namespace facebook::presto {
 
 void registerPrestoMetrics() {
   DEFINE_METRIC(
-      kCounterDriverCPUExecutorQueueSize, facebook::bolt::StatType::AVG);
+      kCounterDriverCPUExecutorQueueSize, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterDriverCPUExecutorLatencyMs, facebook::bolt::StatType::AVG);
+      kCounterDriverCPUExecutorLatencyMs, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterSpillerExecutorQueueSize, facebook::bolt::StatType::AVG);
+      kCounterSpillerExecutorQueueSize, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterSpillerExecutorLatencyMs, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterHTTPExecutorLatencyMs, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumHTTPRequest, facebook::bolt::StatType::COUNT);
-  DEFINE_METRIC(kCounterNumHTTPRequestError, facebook::bolt::StatType::COUNT);
-  DEFINE_METRIC(kCounterHTTPRequestLatencyMs, facebook::bolt::StatType::AVG);
+      kCounterSpillerExecutorLatencyMs, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterHTTPExecutorLatencyMs, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumHTTPRequest, bytedance::bolt::StatType::COUNT);
+  DEFINE_METRIC(kCounterNumHTTPRequestError, bytedance::bolt::StatType::COUNT);
+  DEFINE_METRIC(kCounterHTTPRequestLatencyMs, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterHttpClientNumConnectionsCreated, facebook::bolt::StatType::SUM);
-  DEFINE_METRIC(kCounterNumQueryContexts, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasks, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksBytesProcessed, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksRunning, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksFinished, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksCancelled, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksAborted, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumTasksFailed, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumZombieBoltTasks, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumZombiePrestoTasks, facebook::bolt::StatType::AVG);
+      kCounterHttpClientNumConnectionsCreated, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(kCounterNumQueryContexts, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasks, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksBytesProcessed, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksRunning, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksFinished, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksCancelled, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksAborted, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumTasksFailed, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumZombieBoltTasks, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumZombiePrestoTasks, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumTasksWithStuckOperator, facebook::bolt::StatType::AVG);
+      kCounterNumTasksWithStuckOperator, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumCancelledTasksByStuckDriver, facebook::bolt::StatType::COUNT);
-  DEFINE_METRIC(kCounterNumTasksDeadlock, facebook::bolt::StatType::AVG);
+      kCounterNumCancelledTasksByStuckDriver, bytedance::bolt::StatType::COUNT);
+  DEFINE_METRIC(kCounterNumTasksDeadlock, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumTaskManagerLockTimeOut, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumQueuedDrivers, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumOnThreadDrivers, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumSuspendedDrivers, facebook::bolt::StatType::AVG);
+      kCounterNumTaskManagerLockTimeOut, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumQueuedDrivers, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumOnThreadDrivers, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumSuspendedDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumBlockedWaitForConsumerDrivers, facebook::bolt::StatType::AVG);
+      kCounterNumBlockedWaitForConsumerDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumBlockedWaitForSplitDrivers, facebook::bolt::StatType::AVG);
+      kCounterNumBlockedWaitForSplitDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumBlockedWaitForProducerDrivers, facebook::bolt::StatType::AVG);
+      kCounterNumBlockedWaitForProducerDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumBlockedWaitForJoinBuildDrivers,
-      facebook::bolt::StatType::AVG);
+      bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumBlockedWaitForJoinProbeDrivers,
-      facebook::bolt::StatType::AVG);
+      bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumBlockedWaitForMergeJoinRightSideDrivers,
-      facebook::bolt::StatType::AVG);
+      bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterNumBlockedWaitForMemoryDrivers, facebook::bolt::StatType::AVG);
+      kCounterNumBlockedWaitForMemoryDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
       kCounterNumBlockedWaitForConnectorDrivers,
-      facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumBlockedYieldDrivers, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterNumStuckDrivers, facebook::bolt::StatType::AVG);
+      bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumBlockedYieldDrivers, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterNumStuckDrivers, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterTotalPartitionedOutputBuffer, facebook::bolt::StatType::AVG);
+      kCounterTotalPartitionedOutputBuffer, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
       kCounterPartitionedOutputBufferGetDataLatencyMs,
-      facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterOsUserCpuTimeMicros, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterOsSystemCpuTimeMicros, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterOsNumSoftPageFaults, facebook::bolt::StatType::AVG);
-  DEFINE_METRIC(kCounterOsNumHardPageFaults, facebook::bolt::StatType::AVG);
+      bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterOsUserCpuTimeMicros, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterOsSystemCpuTimeMicros, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterOsNumSoftPageFaults, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(kCounterOsNumHardPageFaults, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterOsNumVoluntaryContextSwitches, facebook::bolt::StatType::AVG);
+      kCounterOsNumVoluntaryContextSwitches, bytedance::bolt::StatType::AVG);
   DEFINE_METRIC(
-      kCounterOsNumForcedContextSwitches, facebook::bolt::StatType::AVG);
+      kCounterOsNumForcedContextSwitches, bytedance::bolt::StatType::AVG);
   DEFINE_HISTOGRAM_METRIC(
       kCounterExchangeSourcePeakQueuedBytes,
       1l * 1024 * 1024 * 1024,
@@ -97,7 +97,7 @@ void registerPrestoMetrics() {
       95,
       99,
       100);
-  DEFINE_METRIC(kCounterMemoryPushbackCount, facebook::bolt::StatType::COUNT);
+  DEFINE_METRIC(kCounterMemoryPushbackCount, bytedance::bolt::StatType::COUNT);
   DEFINE_HISTOGRAM_METRIC(
       kCounterMemoryPushbackLatencyMs, 10'000, 0, 100'000, 50, 90, 99, 100);
   DEFINE_HISTOGRAM_METRIC(
@@ -140,6 +140,23 @@ void registerPrestoMetrics() {
   //  kCounterHiveFileHandleCacheNumAccumulativeHitsFormat,
   //  kCounterHiveFileHandleCacheNumAccumulativeLookupsFormat
   // ]
+
+  /// ================== Memory Arbitrator Counters =================
+
+  DEFINE_METRIC(kCounterArbitratorNumRequests, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(kCounterArbitratorNumAborted, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(kCounterArbitratorNumFailures, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(kCounterArbitratorQueueTimeUs, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterArbitratorArbitrationTimeUs, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterArbitratorNumShrunkBytes, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterArbitratorNumReclaimedBytes, bytedance::bolt::StatType::SUM);
+  DEFINE_METRIC(
+      kCounterArbitratorFreeCapacityBytes, bytedance::bolt::StatType::AVG);
+  DEFINE_METRIC(
+      kCounterArbitratorNonReclaimableAttempts, bytedance::bolt::StatType::SUM);
 }
 
 } // namespace facebook::presto

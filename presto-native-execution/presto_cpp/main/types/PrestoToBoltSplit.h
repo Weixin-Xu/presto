@@ -20,7 +20,7 @@ namespace facebook::presto {
 
 // Creates and returns exec::Split (with connector::ConnectorSplit inside) based
 // on the given protocol split.
-bolt::exec::Split toBoltSplit(
+bytedance::bolt::exec::Split toBoltSplit(
     const presto::protocol::ScheduledSplit& scheduledSplit);
 
 } // namespace facebook::presto

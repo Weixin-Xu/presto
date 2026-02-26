@@ -42,29 +42,29 @@ class PrestoToBoltConnector {
     return connectorName_;
   }
 
-  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ConnectorSplit>
+  [[nodiscard]] virtual std::unique_ptr<bytedance::bolt::connector::ConnectorSplit>
   toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const = 0;
 
-  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ColumnHandle>
+  [[nodiscard]] virtual std::unique_ptr<bytedance::bolt::connector::ColumnHandle>
   toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const = 0;
 
-  [[nodiscard]] virtual std::unique_ptr<bolt::connector::ConnectorTableHandle>
+  [[nodiscard]] virtual std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle>
   toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
       const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments)
       const = 0;
 
   [[nodiscard]] virtual std::unique_ptr<
-      bolt::connector::ConnectorInsertTableHandle>
+      bytedance::bolt::connector::ConnectorInsertTableHandle>
   toBoltInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const {
@@ -72,30 +72,30 @@ class PrestoToBoltConnector {
   }
 
   [[nodiscard]] virtual std::unique_ptr<
-      bolt::connector::ConnectorInsertTableHandle>
+      bytedance::bolt::connector::ConnectorInsertTableHandle>
   toBoltInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const {
     return {};
   }
 
-  [[nodiscard]] std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  [[nodiscard]] std::unique_ptr<bytedance::bolt::core::PartitionFunctionSpec>
   createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<bolt::column_index_t>& channels,
-      const std::vector<bolt::VectorPtr>& constValues) const {
+      const std::vector<bytedance::bolt::column_index_t>& channels,
+      const std::vector<bytedance::bolt::VectorPtr>& constValues) const {
     bool ignored;
     return createBoltPartitionFunctionSpec(
         partitioningHandle, bucketToPartition, channels, constValues, ignored);
   }
 
-  [[nodiscard]] virtual std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  [[nodiscard]] virtual std::unique_ptr<bytedance::bolt::core::PartitionFunctionSpec>
   createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<bolt::column_index_t>& channels,
-      const std::vector<bolt::VectorPtr>& constValues,
+      const std::vector<bytedance::bolt::column_index_t>& channels,
+      const std::vector<bytedance::bolt::VectorPtr>& constValues,
       bool& effectivelyGather) const {
     return {};
   }
@@ -114,47 +114,47 @@ class HivePrestoToBoltConnector final : public PrestoToBoltConnector {
   explicit HivePrestoToBoltConnector(std::string connectorName)
       : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
+  std::unique_ptr<bytedance::bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
       const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments)
       const final;
 
-  std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+  std::unique_ptr<bytedance::bolt::connector::ConnectorInsertTableHandle>
   toBoltInsertTableHandle(
       const protocol::CreateHandle* createHandle,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+  std::unique_ptr<bytedance::bolt::connector::ConnectorInsertTableHandle>
   toBoltInsertTableHandle(
       const protocol::InsertHandle* insertHandle,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::core::PartitionFunctionSpec>
+  std::unique_ptr<bytedance::bolt::core::PartitionFunctionSpec>
   createBoltPartitionFunctionSpec(
       const protocol::ConnectorPartitioningHandle* partitioningHandle,
       const std::vector<int>& bucketToPartition,
-      const std::vector<bolt::column_index_t>& channels,
-      const std::vector<bolt::VectorPtr>& constValues,
+      const std::vector<bytedance::bolt::column_index_t>& channels,
+      const std::vector<bytedance::bolt::VectorPtr>& constValues,
       bool& effectivelyGather) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;
 
  private:
-  std::vector<std::shared_ptr<const bolt::connector::hive::HiveColumnHandle>>
+  std::vector<std::shared_ptr<const bytedance::bolt::connector::hive::HiveColumnHandle>>
   toHiveColumns(
       const protocol::List<protocol::hive::HiveColumnHandle>& inputColumns,
       const TypeParser& typeParser,
@@ -166,22 +166,22 @@ class IcebergPrestoToBoltConnector final : public PrestoToBoltConnector {
   explicit IcebergPrestoToBoltConnector(std::string connectorName)
       : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
+  std::unique_ptr<bytedance::bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
       const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
@@ -193,22 +193,22 @@ class TpchPrestoToBoltConnector final : public PrestoToBoltConnector {
   explicit TpchPrestoToBoltConnector(std::string connectorName)
       : PrestoToBoltConnector(std::move(connectorName)) {}
 
-  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
+  std::unique_ptr<bytedance::bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle> toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
       const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments)
       const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()

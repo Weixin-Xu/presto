@@ -16,9 +16,9 @@
 #include "presto_cpp/main/common/Configs.h"
 
 namespace facebook::presto {
-bool planHasNestedJoinLoop(const bolt::core::PlanNodePtr planNode) {
+bool planHasNestedJoinLoop(const bytedance::bolt::core::PlanNodePtr planNode) {
   if (auto joinNode =
-          std::dynamic_pointer_cast<const bolt::core::NestedLoopJoinNode>(
+          std::dynamic_pointer_cast<const bytedance::bolt::core::NestedLoopJoinNode>(
               planNode)) {
     return true;
   }
@@ -33,7 +33,7 @@ bool planHasNestedJoinLoop(const bolt::core::PlanNodePtr planNode) {
 }
 
 void BoltPlanValidator::validatePlanFragment(
-    const bolt::core::PlanFragment& fragment) {
+    const bytedance::bolt::core::PlanFragment& fragment) {
   const auto failOnNestedLoopJoin =
       SystemConfig::instance()
           ->optionalProperty<bool>(

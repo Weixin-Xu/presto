@@ -21,7 +21,7 @@
 
 using namespace facebook::presto;
 using namespace bytedance::bolt;
-using namespace facebook::bolt::core;
+using namespace bytedance::bolt::core;
 
 class RowExpressionTest : public ::testing::Test {
  public:

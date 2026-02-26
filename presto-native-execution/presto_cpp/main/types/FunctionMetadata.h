@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 
 namespace facebook::presto {
 

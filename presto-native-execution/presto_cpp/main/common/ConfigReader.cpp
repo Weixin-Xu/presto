@@ -84,7 +84,7 @@ std::string requiredProperty(
 }
 
 std::string requiredProperty(
-    const bolt::config::ConfigBase& properties,
+    const bytedance::bolt::config::ConfigBase& properties,
     const std::string& name) {
   auto value = properties.get<std::string>(name);
   if (!value.hasValue()) {
@@ -116,7 +116,7 @@ std::string getOptionalProperty(
 }
 
 std::string getOptionalProperty(
-    const bolt::config::ConfigBase& properties,
+    const bytedance::bolt::config::ConfigBase& properties,
     const std::string& name,
     const std::string& defaultValue) {
   auto value = properties.get<std::string>(name);

@@ -56,7 +56,7 @@ struct Result {
   int64_t nextSequence;
   std::unique_ptr<folly::IOBuf> data;
   bool complete;
-  std::vector<int64_t> remainingBytes;
+  //std::vector<int64_t> remainingBytes;
 };
 
 struct ResultRequest {
@@ -85,7 +85,7 @@ struct ResultRequest {
 struct PrestoTask {
   const PrestoTaskId id;
   const long startProcessCpuTime;
-  std::shared_ptr<bolt::exec::Task> task;
+  std::shared_ptr<bytedance::bolt::exec::Task> task;
   std::atomic_bool hasStuckOperator{false};
 
   /// Has the task been normally created and started.
@@ -180,23 +180,23 @@ struct PrestoTask {
   void recordProcessCpuTime();
 
   void updateOutputBufferInfoLocked(
-      const bolt::exec::TaskStats& boltTaskStats,
-      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
+      const bytedance::bolt::exec::TaskStats& boltTaskStats,
+      std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateTimeInfoLocked(
-      const bolt::exec::TaskStats& boltTaskStats,
+      const bytedance::bolt::exec::TaskStats& boltTaskStats,
       uint64_t currentTimeMs,
-      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateExecutionInfoLocked(
-      const bolt::exec::TaskStats& boltTaskStats,
+      const bytedance::bolt::exec::TaskStats& boltTaskStats,
       const protocol::TaskStatus& prestoTaskStatus,
-      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats);
 
   void updateMemoryInfoLocked(
-      const bolt::exec::TaskStats& boltTaskStats,
+      const bytedance::bolt::exec::TaskStats& boltTaskStats,
       uint64_t currentTimeMs,
-      std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats);
+      std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats);
 
   long processCpuTime_{0};
 };
@@ -206,7 +206,7 @@ using TaskMap =
 
 protocol::RuntimeMetric toRuntimeMetric(
     const std::string& name,
-    const facebook::bolt::RuntimeMetric& metric);
+    const bytedance::bolt::RuntimeMetric& metric);
 
 bool isFinalState(protocol::TaskState state);
 

@@ -25,9 +25,9 @@
 
 using namespace facebook::presto::operators;
 
-namespace facebook::bolt::exec::test {
+namespace bytedance::bolt::exec::test {
 class PlanNodeSerdeTest : public testing::Test,
-                          public bolt::test::VectorTestBase {
+                          public bytedance::bolt::test::VectorTestBase {
  protected:
   static void SetUpTestCase() {
     memory::MemoryManager::testingSetInstance({});
@@ -56,7 +56,7 @@ class PlanNodeSerdeTest : public testing::Test,
     auto serialized = plan->serialize();
 
     auto copy =
-        bolt::ISerializable::deserialize<core::PlanNode>(serialized, pool());
+        bytedance::bolt::ISerializable::deserialize<core::PlanNode>(serialized, pool());
     ASSERT_EQ(plan->toString(true, true), copy->toString(true, true));
   }
 
@@ -117,4 +117,4 @@ TEST_F(PlanNodeSerdeTest, broadcastWriteNode) {
                                 .planNode();
   testSerde(broadcastWritePlan);
 }
-} // namespace facebook::bolt::exec::test
+} // namespace bytedance::bolt::exec::test

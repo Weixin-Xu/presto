@@ -38,7 +38,7 @@ class ConfigBase {
       std::unordered_map<std::string, std::string>& values) const {}
 
   /// Uses a config object already materialized.
-  void initialize(std::unique_ptr<bolt::config::ConfigBase>&& config) {
+  void initialize(std::unique_ptr<bytedance::bolt::config::ConfigBase>&& config) {
     config_ = std::move(config);
   }
 
@@ -143,14 +143,14 @@ class ConfigBase {
 
  protected:
   ConfigBase()
-      : config_(std::make_unique<bolt::config::ConfigBase>(
+      : config_(std::make_unique<bytedance::bolt::config::ConfigBase>(
             std::unordered_map<std::string, std::string>())){};
 
   // Check if all properties are registered.
   void checkRegisteredProperties(
       const std::unordered_map<std::string, std::string>& values);
 
-  std::unique_ptr<bolt::config::ConfigBase> config_;
+  std::unique_ptr<bytedance::bolt::config::ConfigBase> config_;
   std::string filePath_;
   // Map of registered properties with their default values.
   std::unordered_map<std::string, folly::Optional<std::string>>
@@ -929,7 +929,7 @@ class NodeConfig : public ConfigBase {
 };
 
 /// Used only in the single instance as the source of the initial properties for
-/// bolt::QueryConfig. Not designed for actual property access during a query
+/// bytedance::bolt::QueryConfig. Not designed for actual property access during a query
 /// run.
 class BaseBoltQueryConfig : public ConfigBase {
  public:

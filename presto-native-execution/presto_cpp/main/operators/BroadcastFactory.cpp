@@ -15,12 +15,12 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <boost/uuid/uuid_io.hpp>
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "bolt/common/file/File.h"
 #include "bolt/serializers/PrestoSerializer.h"
 #include "bolt/vector/FlatVector.h"
 
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
@@ -35,7 +35,7 @@ std::string makeUuid() {
 BroadcastFactory::BroadcastFactory(const std::string& basePath)
     : basePath_(basePath) {
   BOLT_CHECK(!basePath.empty(), "Base path for broadcast files is empty!");
-  fileSystem_ = bolt::filesystems::getFileSystem(basePath, nullptr);
+  fileSystem_ = bytedance::bolt::filesystems::getFileSystem(basePath, nullptr);
 }
 
 std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
@@ -50,7 +50,7 @@ std::unique_ptr<BroadcastFileWriter> BroadcastFactory::createWriter(
 
 std::shared_ptr<BroadcastFileReader> BroadcastFactory::createReader(
     std::unique_ptr<BroadcastFileInfo> fileInfo,
-    bolt::memory::MemoryPool* pool) {
+    bytedance::bolt::memory::MemoryPool* pool) {
   auto broadcastFileReader =
       std::make_shared<BroadcastFileReader>(fileInfo, fileSystem_, pool);
   return broadcastFileReader;
@@ -68,8 +68,8 @@ std::unique_ptr<BroadcastFileInfo> BroadcastFileInfo::deserialize(
 BroadcastFileWriter::BroadcastFileWriter(
     std::string_view filename,
     const RowTypePtr& inputType,
-    std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
-    bolt::memory::MemoryPool* pool)
+    std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem,
+    bytedance::bolt::memory::MemoryPool* pool)
     : fileSystem_(std::move(fileSystem)),
       filename_(filename),
       numRows_(0),
@@ -131,7 +131,7 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
 
   auto arena = std::make_unique<StreamArena>(pool_);
   auto serializer =
-      serde_->createIterativeSerializer(inputType_, numRows, arena.get());
+      serde_->createSerializer(inputType_, numRows, arena.get());
 
   serializer->append(rowVector, folly::Range(&allRows, 1));
   maxSerializedSize_ += serializer->maxSerializedSize();
@@ -147,8 +147,8 @@ void BroadcastFileWriter::write(const RowVectorPtr& rowVector) {
 
 BroadcastFileReader::BroadcastFileReader(
     std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
-    std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
-    bolt::memory::MemoryPool* pool)
+    std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem,
+    bytedance::bolt::memory::MemoryPool* pool)
     : broadcastFileInfo_(std::move(broadcastFileInfo)),
       fileSystem_(fileSystem),
       hasData_(true),
@@ -159,7 +159,7 @@ bool BroadcastFileReader::hasNext() {
   return hasData_;
 }
 
-bolt::BufferPtr BroadcastFileReader::next() {
+bytedance::bolt::BufferPtr BroadcastFileReader::next() {
   if (!hasNext()) {
     return nullptr;
   }

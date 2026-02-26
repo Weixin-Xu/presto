@@ -93,7 +93,7 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   }
   EXPECT_THROW(
       ServerOperation::targetFromString("UNKNOWN_TARGET"),
-      bolt::BoltUserError);
+      bytedance::bolt::BoltUserError);
 
   for (auto lookupIt = ServerOperation::kActionLookup.begin();
        lookupIt != ServerOperation::kActionLookup.end();
@@ -104,7 +104,7 @@ TEST_F(ServerOperationTest, stringEnumConversion) {
   }
   EXPECT_THROW(
       ServerOperation::actionFromString("UNKNOWN_ACTION"),
-      bolt::BoltUserError);
+      bytedance::bolt::BoltUserError);
 }
 
 TEST_F(ServerOperationTest, buildServerOp) {
@@ -135,7 +135,7 @@ TEST_F(ServerOperationTest, buildServerOp) {
 
   EXPECT_THROW(
       op = buildServerOpFromHttpMsgPath("/v1/operation/whatzit/setProperty"),
-      bolt::BoltUserError);
+      bytedance::bolt::BoltUserError);
 }
 
 TEST_F(ServerOperationTest, taskEndpoint) {

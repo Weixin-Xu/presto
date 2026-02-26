@@ -14,12 +14,12 @@
 #include "presto_cpp/main/operators/ShuffleWrite.h"
 #include "bolt/exec/ExchangeClient.h"
 
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 namespace {
-bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bytedance::bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -155,7 +155,7 @@ folly::dynamic ShuffleWriteNode::serialize() const {
   return obj;
 }
 
-bolt::core::PlanNodePtr ShuffleWriteNode::create(
+bytedance::bolt::core::PlanNodePtr ShuffleWriteNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<ShuffleWriteNode>(
@@ -163,7 +163,7 @@ bolt::core::PlanNodePtr ShuffleWriteNode::create(
       obj["numPartitions"].asInt(),
       ISerializable::deserialize<std::string>(obj["shuffleName"], context),
       ISerializable::deserialize<std::string>(obj["shuffleWriteInfo"], context),
-      ISerializable::deserialize<std::vector<bolt::core::PlanNode>>(
+      ISerializable::deserialize<std::vector<bytedance::bolt::core::PlanNode>>(
           obj["sources"], context)[0]);
 }
 

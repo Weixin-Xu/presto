@@ -1,0 +1,1467 @@
+
+syntax = "proto3";
+
+package presto_protocol;
+
+
+message FunctionHandle {
+    oneof functionHandle {
+        BuiltInFunctionHandle builtInFunctionHandle = 1;
+        SqlFunctionHandle sqlFunctionHandle = 2;
+    }
+}
+
+message SourceLocation {
+    int line = 1;
+    int column = 2;
+}
+
+message RowExpression {
+    oneof rowExpression {
+        CallExpression callExpression = 1;
+        ConstantExpression constantExpression = 2;
+        SpecialFormExpression specialFormExpression = 3;
+        LambdaDefinitionExpression lambdaDefinitionExpression = 4;
+        VariableReferenceExpression variableReferenceExpression = 5;
+    }
+}
+
+message CallExpression {
+    SourceLocation sourceLocation = 1;
+    String displayName = 2;
+    FunctionHandle functionHandle = 3;
+    Type returnType = 4;
+    List<std::shared_ptr<RowExpression>> arguments = 5;
+}
+
+enum SortOrder {
+    ASC_NULLS_FIRST = 1;
+    ASC_NULLS_LAST = 2;
+    DESC_NULLS_FIRST = 3;
+    DESC_NULLS_LAST = 4;
+}
+
+message VariableReferenceExpression {
+    SourceLocation sourceLocation = 1;
+    String name = 2;
+    Type type = 3;
+}
+
+message Ordering {
+    VariableReferenceExpression variable = 1;
+    SortOrder sortOrder = 2;
+}
+
+message OrderingScheme {
+    List<Ordering> orderBy = 1;
+}
+
+message Aggregation {
+    CallExpression call = 1;
+    std::shared_ptr<RowExpression> filter = 2;
+    OrderingScheme orderBy = 3;
+    bool distinct = 4;
+    VariableReferenceExpression mask = 5;
+    FunctionHandle functionHandle = 6;
+    List<std::shared_ptr<RowExpression>> arguments = 7;
+}
+
+message AggregationFunctionMetadata {
+    TypeSignature intermediateType = 1;
+    bool isOrderSensitive = 2;
+}
+
+enum AggregationNodeStep {
+    PARTIAL = 1;
+    FINAL = 2;
+    INTERMEDIATE = 3;
+    SINGLE = 4;
+}
+
+message GroupingSetDescriptor {
+    List<VariableReferenceExpression> groupingKeys = 1;
+    int groupingSetCount = 2;
+    List<Integer> globalGroupingSets = 3;
+}
+
+message PlanNode {
+    oneof planNode {
+        AggregationNode aggregationNode = 1;
+        GroupIdNode groupIdNode = 2;
+        DistinctLimitNode distinctLimitNode = 3;
+        EnforceSingleRowNode enforceSingleRowNode = 4;
+        ExchangeNode exchangeNode = 5;
+        FilterNode filterNode = 6;
+        JoinNode joinNode = 7;
+        LimitNode limitNode = 8;
+        MarkDistinctNode markDistinctNode = 9;
+        SortNode sortNode = 10;
+        OutputNode outputNode = 11;
+        ProjectNode projectNode = 12;
+        RowNumberNode rowNumberNode = 13;
+        RemoteSourceNode remoteSourceNode = 14;
+        SampleNode sampleNode = 15;
+        SemiJoinNode semiJoinNode = 16;
+        TableScanNode tableScanNode = 17;
+        TableWriterNode tableWriterNode = 18;
+        TableWriterMergeNode tableWriterMergeNode = 19;
+        TopNNode topNNode = 20;
+        TopNRowNumberNode topNRowNumberNode = 21;
+        UnnestNode unnestNode = 22;
+        ValuesNode valuesNode = 23;
+        AssignUniqueId assignUniqueId = 24;
+        MergeJoinNode mergeJoinNode = 25;
+        WindowNode windowNode = 26;
+    }
+}
+
+message AggregationNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    Map<VariableReferenceExpression, Aggregation> aggregations = 3;
+    GroupingSetDescriptor groupingSets = 4;
+    List<VariableReferenceExpression> preGroupedVariables = 5;
+    AggregationNodeStep step = 6;
+    VariableReferenceExpression hashVariable = 7;
+    VariableReferenceExpression groupIdVariable = 8;
+    Integer aggregationId = 9;
+}
+
+message AllOrNoneValueSet {
+    Type type = 1;
+    bool all = 2;
+}
+
+message ConnectorTableHandle {
+    oneof connectorTableHandle {
+        HiveTableHandle hiveTableHandle = 1;
+        IcebergTableHandle icebergTableHandle = 2;
+        TpchTableHandle tpchTableHandle = 3;
+        SystemTableHandle systemTableHandle = 4;
+    }
+}
+
+message ConnectorTransactionHandle {
+    oneof connectorTransactionHandle {
+        HiveTransactionHandle hiveTransactionHandle = 1;
+        RemoteTransactionHandle remoteTransactionHandle = 2;
+        SystemTransactionHandle systemTransactionHandle = 3;
+    }
+}
+
+message AnalyzeTableHandle {
+    ConnectorId connectorId = 1;
+    ConnectorTransactionHandle transactionHandle = 2;
+    ConnectorTableHandle connectorHandle = 3;
+}
+
+message AssignUniqueId {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    VariableReferenceExpression idVariable = 3;
+}
+
+message Assignments {
+    Map<VariableReferenceExpression, std::shared_ptr<RowExpression>> assignments = 1;
+}
+
+enum BufferType {
+    PARTITIONED = 1;
+    BROADCAST = 2;
+    ARBITRARY = 3;
+    DISCARDING = 4;
+    SPOOLING = 5;
+}
+
+message OutputBuffers {
+    BufferType type = 1;
+    int64_t version = 2;
+    bool noMoreBufferIds = 3;
+    Map<OutputBufferId, Integer> buffers = 4;
+}
+
+
+
+message ResourceEstimates {
+    Duration executionTime = 1;
+    Duration cpuTime = 2;
+    DataSize peakMemory = 3;
+    DataSize peakTaskMemory = 4;
+}
+
+enum SelectedRoleType {
+    ROLE = 1;
+    ALL = 2;
+    NONE = 3;
+}
+
+message SelectedRole {
+    SelectedRoleType type = 1;
+    String role = 2;
+}
+
+message Parameter {
+    String name = 1;
+    TypeSignature type = 2;
+}
+
+enum Determinism {
+    DETERMINISTIC = 1;
+    NOT_DETERMINISTIC = 2;
+}
+
+message Language {
+    String language = 1;
+}
+
+enum NullCallClause {
+    RETURNS_NULL_ON_NULL_INPUT = 1;
+    CALLED_ON_NULL_INPUT = 2;
+}
+
+message RoutineCharacteristics {
+    Language language = 1;
+    Determinism determinism = 2;
+    NullCallClause nullCallClause = 3;
+}
+
+enum FunctionKind {
+    SCALAR = 1;
+    AGGREGATE = 2;
+    WINDOW = 3;
+}
+
+message LongVariableConstraint {
+    String name = 1;
+    String expression = 2;
+}
+
+message TypeVariableConstraint {
+    String name = 1;
+    bool comparableRequired = 2;
+    bool orderableRequired = 3;
+    String variadicBound = 4;
+    bool nonDecimalNumericRequired = 5;
+}
+
+message Signature {
+    QualifiedObjectName name = 1;
+    FunctionKind kind = 2;
+    List<TypeVariableConstraint> typeVariableConstraints = 3;
+    List<LongVariableConstraint> longVariableConstraints = 4;
+    TypeSignature returnType = 5;
+    List<TypeSignature> argumentTypes = 6;
+    bool variableArity = 7;
+}
+
+message SqlInvokedFunction {
+    List<Parameter> parameters = 1;
+    String description = 2;
+    RoutineCharacteristics routineCharacteristics = 3;
+    String body = 4;
+    Signature signature = 5;
+    SqlFunctionId functionId = 6;
+}
+
+message SessionRepresentation {
+    String queryId = 1;
+    TransactionId transactionId = 2;
+    bool clientTransactionSupport = 3;
+    String user = 4;
+    String principal = 5;
+    String source = 6;
+    String catalog = 7;
+    String schema = 8;
+    String traceToken = 9;
+    TimeZoneKey timeZoneKey = 10;
+    Locale locale = 11;
+    String remoteUserAddress = 12;
+    String userAgent = 13;
+    String clientInfo = 14;
+    List<String> clientTags = 15;
+    ResourceEstimates resourceEstimates = 16;
+    int64_t startTime = 17;
+    Map<String, String> systemProperties = 18;
+    Map<ConnectorId, Map<String, String>> catalogProperties = 19;
+    Map<String, Map<String, String>> unprocessedCatalogProperties = 20;
+    Map<String, SelectedRole> roles = 21;
+    Map<String, String> preparedStatements = 22;
+    Map<SqlFunctionId, SqlInvokedFunction> sessionFunctions = 23;
+}
+
+message ConnectorTableLayoutHandle {
+    oneof connectorTableLayoutHandle {
+        HiveTableLayoutHandle hiveTableLayoutHandle = 1;
+        IcebergTableLayoutHandle icebergTableLayoutHandle = 2;
+        TpchTableLayoutHandle tpchTableLayoutHandle = 3;
+        SystemTableLayoutHandle systemTableLayoutHandle = 4;
+    }
+}
+
+message TableHandle {
+    ConnectorId connectorId = 1;
+    ConnectorTableHandle connectorHandle = 2;
+    ConnectorTransactionHandle transaction = 3;
+    ConnectorTableLayoutHandle connectorTableLayout = 4;
+}
+
+message DeleteScanInfo {
+    PlanNodeId id = 1;
+    TableHandle tableHandle = 2;
+}
+
+message ExecutionWriterTarget {
+    oneof executionWriterTarget {
+        CreateHandle createHandle = 1;
+        InsertHandle insertHandle = 2;
+        DeleteHandle deleteHandle = 3;
+    }
+}
+
+message TableWriteInfo {
+    ExecutionWriterTarget writerTarget = 1;
+    AnalyzeTableHandle analyzeTableHandle = 2;
+    DeleteScanInfo deleteScanInfo = 3;
+}
+
+
+message ConnectorSplit {
+    oneof connectorSplit {
+        HiveSplit hiveSplit = 1;
+        IcebergSplit icebergSplit = 2;
+        TpchSplit tpchSplit = 3;
+        RemoteSplit remoteSplit = 4;
+        EmptySplit emptySplit = 5;
+        SystemSplit systemSplit = 6;
+    }
+}
+
+message SplitContext {
+    bool cacheable = 1;
+}
+
+message Split {
+    ConnectorId connectorId = 1;
+    ConnectorTransactionHandle transactionHandle = 2;
+    ConnectorSplit connectorSplit = 3;
+    Lifespan lifespan = 4;
+    SplitContext splitContext = 5;
+}
+
+message ScheduledSplit {
+    int64_t sequenceId = 1;
+    PlanNodeId planNodeId = 2;
+    Split split = 3;
+}
+
+message TaskSource {
+    PlanNodeId planNodeId = 1;
+    List<ScheduledSplit> splits = 2;
+    List<Lifespan> noMoreSplitsForLifespan = 3;
+    bool noMoreSplits = 4;
+}
+
+message TaskUpdateRequest {
+    SessionRepresentation session = 1;
+    Map<String, String> extraCredentials = 2;
+    String fragment = 3;
+    List<TaskSource> sources = 4;
+    OutputBuffers outputIds = 5;
+    TableWriteInfo tableWriteInfo = 6;
+}
+
+message BatchTaskUpdateRequest {
+    TaskUpdateRequest taskUpdateRequest = 1;
+    String shuffleWriteInfo = 2;
+    String broadcastBasePath = 3;
+}
+
+message PageBufferInfo {
+    int partition = 1;
+    int64_t bufferedPages = 2;
+    int64_t bufferedBytes = 3;
+    int64_t rowsAdded = 4;
+    int64_t pagesAdded = 5;
+}
+
+message BufferInfo {
+    OutputBufferId bufferId = 1;
+    bool finished = 2;
+    int bufferedPages = 3;
+    int64_t pagesSent = 4;
+    PageBufferInfo pageBufferInfo = 5;
+}
+
+message BuiltInFunctionHandle {
+    Signature signature = 1;
+}
+
+enum CacheQuotaScope {
+    GLOBAL = 1;
+    SCHEMA = 2;
+    TABLE = 3;
+    PARTITION = 4;
+}
+
+message CacheQuotaRequirement {
+    CacheQuotaScope cacheQuotaScope = 1;
+    DataSize quota = 2;
+}
+
+message Column {
+    String name = 1;
+    String type = 2;
+}
+
+
+message ConstantExpression {
+    Block valueBlock = 1;
+    Type type = 2;
+}
+
+message ConnectorOutputTableHandle {
+    oneof connectorOutputTableHandle {
+        HiveOutputTableHandle hiveOutputTableHandle = 1;
+        IcebergOutputTableHandle icebergOutputTableHandle = 2;
+    }
+}
+
+message OutputTableHandle {
+    ConnectorId connectorId = 1;
+    ConnectorTransactionHandle transactionHandle = 2;
+    ConnectorOutputTableHandle connectorHandle = 3;
+}
+
+message SchemaTableName {
+    String schema = 1;
+    String table = 2;
+}
+
+message CreateHandle {
+    OutputTableHandle handle = 1;
+    SchemaTableName schemaTableName = 2;
+}
+
+message DeleteHandle {
+    TableHandle handle = 1;
+    SchemaTableName schemaTableName = 2;
+}
+
+message DistinctLimitNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    int64_t limit = 3;
+    bool partial = 4;
+    List<VariableReferenceExpression> distinctVariables = 5;
+    VariableReferenceExpression hashVariable = 6;
+    int timeoutMillis = 7;
+}
+
+message DistributionSnapshot {
+    double maxError = 1;
+    double count = 2;
+    double total = 3;
+    int64_t p01 = 4;
+    int64_t p05 = 5;
+    int64_t p10 = 6;
+    int64_t p25 = 7;
+    int64_t p50 = 8;
+    int64_t p75 = 9;
+    int64_t p90 = 10;
+    int64_t p95 = 11;
+    int64_t p99 = 12;
+    int64_t min = 13;
+    int64_t max = 14;
+    double avg = 15;
+}
+
+message ValueSet {
+    oneof valueSet {
+        EquatableValueSet equatableValueSet = 1;
+        SortedRangeSet sortedRangeSet = 2;
+        AllOrNoneValueSet allOrNoneValueSet = 3;
+    }
+}
+
+message Domain {
+    ValueSet values = 1;
+    bool nullAllowed = 2;
+}
+
+enum BlockedReason {
+    WAITING_FOR_MEMORY = 1;
+}
+
+message DynamicFilterStats {
+    List<PlanNodeId> producerNodeIds = 1;
+}
+
+
+message OperatorStats {
+    int stageId = 1;
+    int stageExecutionId = 2;
+    int pipelineId = 3;
+    int operatorId = 4;
+    PlanNodeId planNodeId = 5;
+    String operatorType = 6;
+    int64_t totalDrivers = 7;
+    int64_t isBlockedCalls = 8;
+    Duration isBlockedWall = 9;
+    Duration isBlockedCpu = 10;
+    DataSize isBlockedAllocation = 11;
+    int64_t addInputCalls = 12;
+    Duration addInputWall = 13;
+    Duration addInputCpu = 14;
+    DataSize addInputAllocation = 15;
+    DataSize rawInputDataSize = 16;
+    int64_t rawInputPositions = 17;
+    DataSize inputDataSize = 18;
+    int64_t inputPositions = 19;
+    double sumSquaredInputPositions = 20;
+    int64_t getOutputCalls = 21;
+    Duration getOutputWall = 22;
+    Duration getOutputCpu = 23;
+    DataSize getOutputAllocation = 24;
+    DataSize outputDataSize = 25;
+    int64_t outputPositions = 26;
+    DataSize physicalWrittenDataSize = 27;
+    Duration additionalCpu = 28;
+    Duration blockedWall = 29;
+    int64_t finishCalls = 30;
+    Duration finishWall = 31;
+    Duration finishCpu = 32;
+    DataSize finishAllocation = 33;
+    DataSize userMemoryReservation = 34;
+    DataSize revocableMemoryReservation = 35;
+    DataSize systemMemoryReservation = 36;
+    DataSize peakUserMemoryReservation = 37;
+    DataSize peakSystemMemoryReservation = 38;
+    DataSize peakTotalMemoryReservation = 39;
+    DataSize spilledDataSize = 40;
+    BlockedReason blockedReason = 41;
+    OperatorInfo info = 42;
+    RuntimeStats runtimeStats = 43;
+    DynamicFilterStats dynamicFilterStats = 44;
+    int64_t nullJoinBuildKeyCount = 45;
+    int64_t joinBuildKeyCount = 46;
+    int64_t nullJoinProbeKeyCount = 47;
+    int64_t joinProbeKeyCount = 48;
+}
+
+message DriverStats {
+    Lifespan lifespan = 1;
+    DateTime createTime = 2;
+    DateTime startTime = 3;
+    DateTime endTime = 4;
+    Duration queuedTime = 5;
+    Duration elapsedTime = 6;
+    DataSize userMemoryReservation = 7;
+    DataSize revocableMemoryReservation = 8;
+    DataSize systemMemoryReservation = 9;
+    Duration totalScheduledTime = 10;
+    Duration totalCpuTime = 11;
+    Duration totalBlockedTime = 12;
+    bool fullyBlocked = 13;
+    List<BlockedReason> blockedReasons = 14;
+    DataSize totalAllocation = 15;
+    DataSize rawInputDataSize = 16;
+    int64_t rawInputPositions = 17;
+    Duration rawInputReadTime = 18;
+    DataSize processedInputDataSize = 19;
+    int64_t processedInputPositions = 20;
+    DataSize outputDataSize = 21;
+    int64_t outputPositions = 22;
+    DataSize physicalWrittenDataSize = 23;
+    List<OperatorStats> operatorStats = 24;
+}
+
+message EmptySplit {
+    ConnectorId connectorId = 1;
+}
+
+message EnforceSingleRowNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+}
+
+message ValueEntry {
+    Type type = 1;
+    Block block = 2;
+}
+
+message EquatableValueSet {
+    Type type = 1;
+    bool whiteList = 2;
+    List<ValueEntry> entries = 3;
+}
+
+message EquiJoinClause {
+    VariableReferenceExpression left = 1;
+    VariableReferenceExpression right = 2;
+}
+
+enum ErrorType {
+    USER_ERROR = 1;
+    INTERNAL_ERROR = 2;
+    INSUFFICIENT_RESOURCES = 3;
+    EXTERNAL = 4;
+}
+
+message ErrorCode {
+    int code = 1;
+    String name = 2;
+    ErrorType type = 3;
+    bool retriable = 4;
+}
+
+message ErrorLocation {
+    int lineNumber = 1;
+    int columnNumber = 2;
+}
+
+enum ExchangeNodeScope {
+    LOCAL = 1;
+    REMOTE_STREAMING = 2;
+    REMOTE_MATERIALIZED = 3;
+}
+
+enum ExchangeNodeType {
+    GATHER = 1;
+    REPARTITION = 2;
+    REPLICATE = 3;
+}
+
+enum ExchangeEncoding {
+    COLUMNAR = 1;
+    ROW_WISE = 2;
+}
+
+message ConnectorPartitioningHandle {
+    oneof connectorPartitioningHandle {
+        SystemPartitioningHandle systemPartitioningHandle = 1;
+        HivePartitioningHandle hivePartitioningHandle = 2;
+        TpchPartitioningHandle tpchPartitioningHandle = 3;
+    }
+}
+
+message PartitioningHandle {
+    ConnectorId connectorId = 1;
+    ConnectorTransactionHandle transactionHandle = 2;
+    ConnectorPartitioningHandle connectorHandle = 3;
+}
+
+message Partitioning {
+    PartitioningHandle handle = 1;
+    List<std::shared_ptr<RowExpression>> arguments = 2;
+}
+
+message PartitioningScheme {
+    Partitioning partitioning = 1;
+    List<VariableReferenceExpression> outputLayout = 2;
+    VariableReferenceExpression hashColumn = 3;
+    bool replicateNullsAndAny = 4;
+    bool scaleWriters = 5;
+    ExchangeEncoding encoding = 6;
+    List<int> bucketToPartition = 7;
+}
+
+message ExchangeNode {
+    PlanNodeId id = 1;
+    ExchangeNodeType type = 2;
+    ExchangeNodeScope scope = 3;
+    PartitioningScheme partitioningScheme = 4;
+    List<std::shared_ptr<PlanNode>> sources = 5;
+    List<List<VariableReferenceExpression>> inputs = 6;
+    bool ensureSourceOrdering = 7;
+    OrderingScheme orderingScheme = 8;
+}
+
+enum ErrorCause {
+    UNKNOWN = 1;
+    LOW_PARTITION_COUNT = 2;
+    EXCEEDS_BROADCAST_MEMORY_LIMIT = 3;
+}
+
+
+message ExecutionFailureInfo {
+    String type = 1;
+    String message = 2;
+    ExecutionFailureInfo cause = 3;
+    List<ExecutionFailureInfo> suppressed = 4;
+    List<String> stack = 5;
+    ErrorLocation errorLocation = 6;
+    ErrorCode errorCode = 7;
+    HostAddress remoteHost = 8;
+    ErrorCause errorCause = 9;
+}
+
+message FilterNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    RowExpression predicate = 3;
+}
+
+enum BoundType {
+    UNBOUNDED_PRECEDING = 1;
+    PRECEDING = 2;
+    CURRENT_ROW = 3;
+    FOLLOWING = 4;
+    UNBOUNDED_FOLLOWING = 5;
+}
+
+enum WindowType {
+    RANGE = 1;
+    ROWS = 2;
+    GROUPS = 3;
+}
+
+message Frame {
+    WindowType type = 1;
+    BoundType startType = 2;
+    VariableReferenceExpression startValue = 3;
+    VariableReferenceExpression sortKeyCoercedForFrameStartComparison = 4;
+    BoundType endType = 5;
+    VariableReferenceExpression endValue = 6;
+    VariableReferenceExpression sortKeyCoercedForFrameEndComparison = 7;
+    String originalStartValue = 8;
+    String originalEndValue = 9;
+}
+
+message Function {
+    CallExpression functionCall = 1;
+    Frame frame = 2;
+    bool ignoreNulls = 3;
+}
+
+message GroupIdNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    List<List<VariableReferenceExpression>> groupingSets = 3;
+    Map<VariableReferenceExpression, VariableReferenceExpression> groupingColumns = 4;
+    List<VariableReferenceExpression> aggregationArguments = 5;
+    VariableReferenceExpression groupIdVariable = 6;
+}
+
+message ConnectorInsertTableHandle {
+    oneof connectorInsertTableHandle {
+        HiveInsertTableHandle hiveInsertTableHandle = 1;
+        IcebergInsertTableHandle icebergInsertTableHandle = 2;
+    }
+}
+
+message InsertTableHandle {
+    ConnectorId connectorId = 1;
+    ConnectorTransactionHandle transactionHandle = 2;
+    ConnectorInsertTableHandle connectorHandle = 3;
+}
+
+message InsertHandle {
+    InsertTableHandle handle = 1;
+    SchemaTableName schemaTableName = 2;
+}
+
+enum JoinDistributionType {
+    PARTITIONED = 1;
+    REPLICATED = 2;
+}
+
+enum JoinType {
+    INNER = 1;
+    LEFT = 2;
+    RIGHT = 3;
+    FULL = 4;
+}
+
+message JoinNode {
+    PlanNodeId id = 1;
+    JoinType type = 2;
+    PlanNode left = 3;
+    PlanNode right = 4;
+    List<EquiJoinClause> criteria = 5;
+    List<VariableReferenceExpression> outputVariables = 6;
+    std::shared_ptr<RowExpression> filter = 7;
+    VariableReferenceExpression leftHashVariable = 8;
+    VariableReferenceExpression rightHashVariable = 9;
+    JoinDistributionType distributionType = 10;
+    Map<String, VariableReferenceExpression> dynamicFilters = 11;
+}
+
+message JoinNodeStatsEstimate {
+    double nullJoinBuildKeyCount = 1;
+    double joinBuildKeyCount = 2;
+    double nullJoinProbeKeyCount = 3;
+    double joinProbeKeyCount = 4;
+}
+
+message JsonBasedUdfFunctionMetadata {
+    String docString = 1;
+    FunctionKind functionKind = 2;
+    TypeSignature outputType = 3;
+    List<TypeSignature> paramTypes = 4;
+    String schema = 5;
+    RoutineCharacteristics routineCharacteristics = 6;
+    AggregationFunctionMetadata aggregateMetadata = 7;
+}
+
+
+message LambdaDefinitionExpression {
+    SourceLocation sourceLocation = 1;
+    List<Type> argumentTypes = 2;
+    List<String> arguments = 3;
+    RowExpression body = 4;
+}
+
+enum LimitNodeStep {
+    PARTIAL = 1;
+    FINAL = 2;
+}
+
+message LimitNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    int64_t count = 3;
+    LimitNodeStep step = 4;
+}
+
+message Location {
+    String location = 1;
+}
+
+message MarkDistinctNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    VariableReferenceExpression markerVariable = 3;
+    List<VariableReferenceExpression> distinctVariables = 4;
+    VariableReferenceExpression hashVariable = 5;
+}
+
+enum Bound {
+    BELOW = 1;
+    EXACTLY = 2;
+    ABOVE = 3;
+}
+
+message Marker {
+    Type type = 1;
+    Block valueBlock = 2;
+    Bound bound = 3;
+}
+
+message MemoryAllocation {
+    String tag = 1;
+    int64_t allocation = 2;
+}
+
+message MemoryPoolInfo {
+    int64_t maxBytes = 1;
+    int64_t reservedBytes = 2;
+    int64_t reservedRevocableBytes = 3;
+    Map<QueryId, Long> queryMemoryReservations = 4;
+    Map<QueryId, List<MemoryAllocation>> queryMemoryAllocations = 5;
+    Map<QueryId, Long> queryMemoryRevocableReservations = 6;
+}
+
+message MemoryInfo {
+    DataSize totalNodeMemory = 1;
+    Map<MemoryPoolId, MemoryPoolInfo> pools = 2;
+}
+
+message MergeJoinNode {
+    PlanNodeId id = 1;
+    JoinType type = 2;
+    PlanNode left = 3;
+    PlanNode right = 4;
+    List<EquiJoinClause> criteria = 5;
+    List<VariableReferenceExpression> outputVariables = 6;
+    std::shared_ptr<RowExpression> filter = 7;
+    VariableReferenceExpression leftHashVariable = 8;
+    VariableReferenceExpression rightHashVariable = 9;
+}
+
+message ConnectorMetadataUpdateHandle {
+    oneof connectorMetadataUpdateHandle {
+        HiveMetadataUpdateHandle hiveMetadataUpdateHandle = 1;
+    }
+}
+
+message MetadataUpdates {
+    ConnectorId connectorId = 1;
+    List<std::shared_ptr<ConnectorMetadataUpdateHandle>> metadataUpdates = 2;
+}
+
+message NodeVersion {
+    String version = 1;
+}
+
+message NodeStatus {
+    String nodeId = 1;
+    NodeVersion nodeVersion = 2;
+    String environment = 3;
+    bool coordinator = 4;
+    Duration uptime = 5;
+    String externalAddress = 6;
+    String internalAddress = 7;
+    MemoryInfo memoryInfo = 8;
+    int processors = 9;
+    double processCpuLoad = 10;
+    double systemCpuLoad = 11;
+    int64_t heapUsed = 12;
+    int64_t heapAvailable = 13;
+    int64_t nonHeapUsed = 14;
+}
+
+enum BufferState {
+    OPEN = 1;
+    NO_MORE_BUFFERS = 2;
+    NO_MORE_PAGES = 3;
+    FLUSHING = 4;
+    FINISHED = 5;
+    FAILED = 6;
+}
+
+message OutputBufferInfo {
+    String type = 1;
+    BufferState state = 2;
+    bool canAddBuffers = 3;
+    bool canAddPages = 4;
+    int64_t totalBufferedBytes = 5;
+    int64_t totalBufferedPages = 6;
+    int64_t totalRowsSent = 7;
+    int64_t totalPagesSent = 8;
+    List<BufferInfo> buffers = 9;
+}
+
+message OutputNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    List<String> columnNames = 3;
+    List<VariableReferenceExpression> outputVariables = 4;
+}
+
+message PartialAggregationStatsEstimate {
+    double inputBytes = 1;
+    double outputBytes = 2;
+    double inputRowCount = 3;
+    double outputRowCount = 4;
+}
+
+message PipelineStats {
+    int pipelineId = 1;
+    DateTime firstStartTime = 2;
+    DateTime lastStartTime = 3;
+    DateTime lastEndTime = 4;
+    bool inputPipeline = 5;
+    bool outputPipeline = 6;
+    int totalDrivers = 7;
+    int queuedDrivers = 8;
+    int queuedPartitionedDrivers = 9;
+    int64_t queuedPartitionedSplitsWeight = 10;
+    int runningDrivers = 11;
+    int runningPartitionedDrivers = 12;
+    int64_t runningPartitionedSplitsWeight = 13;
+    int blockedDrivers = 14;
+    int completedDrivers = 15;
+    int64_t userMemoryReservationInBytes = 16;
+    int64_t revocableMemoryReservationInBytes = 17;
+    int64_t systemMemoryReservationInBytes = 18;
+    DistributionSnapshot queuedTime = 19;
+    DistributionSnapshot elapsedTime = 20;
+    int64_t totalScheduledTimeInNanos = 21;
+    int64_t totalCpuTimeInNanos = 22;
+    int64_t totalBlockedTimeInNanos = 23;
+    bool fullyBlocked = 24;
+    List<BlockedReason> blockedReasons = 25;
+    int64_t totalAllocationInBytes = 26;
+    int64_t rawInputDataSizeInBytes = 27;
+    int64_t rawInputPositions = 28;
+    int64_t processedInputDataSizeInBytes = 29;
+    int64_t processedInputPositions = 30;
+    int64_t outputDataSizeInBytes = 31;
+    int64_t outputPositions = 32;
+    int64_t physicalWrittenDataSizeInBytes = 33;
+    List<OperatorStats> operatorSummaries = 34;
+    List<DriverStats> drivers = 35;
+}
+
+message PlanConversionFailureInfo {
+    String type = 1;
+    String message = 2;
+    PlanConversionFailureInfo cause = 3;
+    List<PlanConversionFailureInfo> suppressed = 4;
+    List<String> stack = 5;
+    ErrorCode errorCode = 6;
+}
+
+message PlanConversionResponse {
+    List<PlanConversionFailureInfo> failures = 1;
+}
+
+message PlanCostEstimate {
+    double cpuCost = 1;
+    double maxMemory = 2;
+    double maxMemoryWhenOutputting = 3;
+    double networkCost = 4;
+}
+
+enum StageExecutionStrategy {
+    UNGROUPED_EXECUTION = 1;
+    FIXED_LIFESPAN_SCHEDULE_GROUPED_EXECUTION = 2;
+    DYNAMIC_LIFESPAN_SCHEDULE_GROUPED_EXECUTION = 3;
+    RECOVERABLE_GROUPED_EXECUTION = 4;
+}
+
+message StageExecutionDescriptor {
+    StageExecutionStrategy stageExecutionStrategy = 1;
+    List<PlanNodeId> groupedExecutionScanNodes = 2;
+    int totalLifespans = 3;
+}
+
+enum ConfidenceLevel {
+    LOW = 1;
+    HIGH = 2;
+    FACT = 3;
+}
+
+message TableWriterNodeStatsEstimate {
+    double taskCountIfScaledWriter = 1;
+}
+
+message VariableStatsEstimate {
+    double lowValue = 1;
+    double highValue = 2;
+    double nullsFraction = 3;
+    double averageRowSize = 4;
+    double distinctValuesCount = 5;
+}
+
+message PlanNodeStatsEstimate {
+    double outputRowCount = 1;
+    double totalSize = 2;
+    ConfidenceLevel confident = 3;
+    Map<VariableReferenceExpression, VariableStatsEstimate> variableStatistics = 4;
+    JoinNodeStatsEstimate joinNodeStatsEstimate = 5;
+    TableWriterNodeStatsEstimate tableWriterNodeStatsEstimate = 6;
+    PartialAggregationStatsEstimate partialAggregationStatsEstimate = 7;
+}
+
+message StatsAndCosts {
+    Map<PlanNodeId, PlanNodeStatsEstimate> stats = 1;
+    Map<PlanNodeId, PlanCostEstimate> costs = 2;
+}
+
+message PlanFragment {
+    PlanFragmentId id = 1;
+    PlanNode root = 2;
+    List<VariableReferenceExpression> variables = 3;
+    PartitioningHandle partitioning = 4;
+    List<PlanNodeId> tableScanSchedulingOrder = 5;
+    PartitioningScheme partitioningScheme = 6;
+    StageExecutionDescriptor stageExecutionDescriptor = 7;
+    bool outputTableWriterFragment = 8;
+    StatsAndCosts statsAndCosts = 9;
+    String jsonRepresentation = 10;
+}
+
+enum Locality {
+    UNKNOWN = 1;
+    LOCAL = 2;
+    REMOTE = 3;
+}
+
+message ProjectNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    Assignments assignments = 3;
+    Locality locality = 4;
+}
+
+message Range {
+    Marker low = 1;
+    Marker high = 2;
+}
+
+message RefreshMaterializedViewHandle {
+    InsertTableHandle handle = 1;
+    SchemaTableName schemaTableName = 2;
+}
+
+message RemoteSourceNode {
+    PlanNodeId id = 1;
+    List<PlanFragmentId> sourceFragmentIds = 2;
+    List<VariableReferenceExpression> outputVariables = 3;
+    bool ensureSourceOrdering = 4;
+    OrderingScheme orderingScheme = 5;
+    ExchangeNodeType exchangeType = 6;
+    ExchangeEncoding encoding = 7;
+}
+
+message RemoteSplit {
+    Location location = 1;
+    TaskId remoteSourceTaskId = 2;
+}
+
+message RemoteTransactionHandle {
+    String dummy = 1;
+}
+
+message RowNumberNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    List<VariableReferenceExpression> partitionBy = 3;
+    VariableReferenceExpression rowNumberVariable = 4;
+    Integer maxRowCountPerPartition = 5;
+    bool partial = 6;
+    VariableReferenceExpression hashVariable = 7;
+}
+
+enum RuntimeUnit {
+    NONE = 1;
+    NANO = 2;
+    BYTE = 3;
+}
+
+message RuntimeMetric {
+    String name = 1;
+    RuntimeUnit unit = 2;
+    int64_t sum = 3;
+    int64_t count = 4;
+    int64_t max = 5;
+    int64_t min = 6;
+}
+
+enum SampleNodeType {
+    BERNOULLI = 1;
+    SYSTEM = 2;
+}
+
+message SampleNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    double sampleRatio = 3;
+    SampleNodeType sampleType = 4;
+}
+
+enum DistributionType {
+    PARTITIONED = 1;
+    REPLICATED = 2;
+}
+
+message SemiJoinNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    PlanNode filteringSource = 3;
+    VariableReferenceExpression sourceJoinVariable = 4;
+    VariableReferenceExpression filteringSourceJoinVariable = 5;
+    VariableReferenceExpression semiJoinOutput = 6;
+    VariableReferenceExpression sourceHashVariable = 7;
+    VariableReferenceExpression filteringSourceHashVariable = 8;
+    DistributionType distributionType = 9;
+    Map<String, VariableReferenceExpression> dynamicFilters = 10;
+}
+
+message ServerInfo {
+    NodeVersion nodeVersion = 1;
+    String environment = 2;
+    bool coordinator = 3;
+    bool starting = 4;
+    Duration uptime = 5;
+}
+
+message SortNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    OrderingScheme orderingScheme = 3;
+    bool isPartial = 4;
+    List<VariableReferenceExpression> partitionBy = 5;
+}
+
+message SortedRangeSet {
+    Type type = 1;
+    List<Range> ranges = 2;
+}
+
+enum Form {
+    IF = 1;
+    NULL_IF = 2;
+    SWITCH = 3;
+    WHEN = 4;
+    IS_NULL = 5;
+    COALESCE = 6;
+    IN = 7;
+    AND = 8;
+    OR = 9;
+    DEREFERENCE = 10;
+    ROW_CONSTRUCTOR = 11;
+    BIND = 12;
+}
+
+message SpecialFormExpression {
+    SourceLocation sourceLocation = 1;
+    Form form = 2;
+    Type returnType = 3;
+    List<std::shared_ptr<RowExpression>> arguments = 4;
+}
+
+message Specification {
+    List<VariableReferenceExpression> partitionBy = 1;
+    OrderingScheme orderingScheme = 2;
+}
+
+message SqlFunctionHandle {
+    SqlFunctionId functionId = 1;
+    String version = 2;
+}
+
+message StatisticAggregations {
+    List<VariableReferenceExpression> outputVariables = 1;
+    Map<VariableReferenceExpression, Aggregation> aggregations = 2;
+    List<VariableReferenceExpression> groupingVariables = 3;
+}
+
+message SystemColumnHandle {
+    ConnectorId connectorId = 1;
+    String columnName = 2;
+}
+
+enum SystemPartitionFunction {
+    SINGLE = 1;
+    HASH = 2;
+    ROUND_ROBIN = 3;
+    BROADCAST = 4;
+    UNKNOWN = 5;
+}
+
+enum SystemPartitioning {
+    SINGLE = 1;
+    FIXED = 2;
+    SOURCE = 3;
+    SCALED = 4;
+    COORDINATOR_ONLY = 5;
+    ARBITRARY = 6;
+}
+
+message SystemPartitioningHandle {
+    SystemPartitioning partitioning = 1;
+    SystemPartitionFunction function = 2;
+}
+
+message ColumnHandle {
+    oneof columnHandle {
+        HiveColumnHandle hiveColumnHandle = 1;
+        IcebergColumnHandle icebergColumnHandle = 2;
+        TpchColumnHandle tpchColumnHandle = 3;
+        SystemColumnHandle systemColumnHandle = 4;
+    }
+}
+
+message SystemTableHandle {
+    ConnectorId connectorId = 1;
+    String schemaName = 2;
+    String tableName = 3;
+}
+
+
+message SystemSplit {
+    ConnectorId connectorId = 1;
+    SystemTableHandle tableHandle = 2;
+    List<HostAddress> addresses = 3;
+    TupleDomain<std::shared_ptr<ColumnHandle>> constraint = 4;
+}
+
+message SystemTableLayoutHandle {
+    ConnectorId connectorId = 1;
+    SystemTableHandle table = 2;
+    TupleDomain<std::shared_ptr<ColumnHandle>> constraint = 3;
+}
+
+message SystemTransactionHandle {
+    ConnectorId connectorId = 1;
+    TransactionId transactionId = 2;
+    ConnectorTransactionHandle connectorTransactionHandle = 3;
+}
+
+message TableScanNode {
+    PlanNodeId id = 1;
+    TableHandle table = 2;
+    List<VariableReferenceExpression> outputVariables = 3;
+    Map<VariableReferenceExpression, std::shared_ptr<ColumnHandle>> assignments = 4;
+}
+
+message TableWriterMergeNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    VariableReferenceExpression rowCountVariable = 3;
+    VariableReferenceExpression fragmentVariable = 4;
+    VariableReferenceExpression tableCommitContextVariable = 5;
+    StatisticAggregations statisticsAggregation = 6;
+}
+
+message TableWriterNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    WriterTarget target = 3;
+    VariableReferenceExpression rowCountVariable = 4;
+    VariableReferenceExpression fragmentVariable = 5;
+    VariableReferenceExpression tableCommitContextVariable = 6;
+    List<VariableReferenceExpression> columns = 7;
+    List<String> columnNames = 8;
+    List<VariableReferenceExpression> notNullColumnVariables = 9;
+    PartitioningScheme partitioningScheme = 10;
+    StatisticAggregations statisticsAggregation = 11;
+    Integer taskCountIfScaledWriter = 12;
+    Boolean isTemporaryTableWriter = 13;
+}
+
+message TaskStats {
+    DateTime createTime = 1;
+    DateTime firstStartTime = 2;
+    DateTime lastStartTime = 3;
+    DateTime lastEndTime = 4;
+    DateTime endTime = 5;
+    int64_t elapsedTimeInNanos = 6;
+    int64_t queuedTimeInNanos = 7;
+    int totalDrivers = 8;
+    int queuedDrivers = 9;
+    int queuedPartitionedDrivers = 10;
+    int64_t queuedPartitionedSplitsWeight = 11;
+    int runningDrivers = 12;
+    int runningPartitionedDrivers = 13;
+    int64_t runningPartitionedSplitsWeight = 14;
+    int blockedDrivers = 15;
+    int completedDrivers = 16;
+    double cumulativeUserMemory = 17;
+    double cumulativeTotalMemory = 18;
+    int64_t userMemoryReservationInBytes = 19;
+    int64_t revocableMemoryReservationInBytes = 20;
+    int64_t systemMemoryReservationInBytes = 21;
+    int64_t peakTotalMemoryInBytes = 22;
+    int64_t peakUserMemoryInBytes = 23;
+    int64_t peakNodeTotalMemoryInBytes = 24;
+    int64_t totalScheduledTimeInNanos = 25;
+    int64_t totalCpuTimeInNanos = 26;
+    int64_t totalBlockedTimeInNanos = 27;
+    bool fullyBlocked = 28;
+    List<BlockedReason> blockedReasons = 29;
+    int64_t totalAllocationInBytes = 30;
+    int64_t rawInputDataSizeInBytes = 31;
+    int64_t rawInputPositions = 32;
+    int64_t processedInputDataSizeInBytes = 33;
+    int64_t processedInputPositions = 34;
+    int64_t outputDataSizeInBytes = 35;
+    int64_t outputPositions = 36;
+    int64_t physicalWrittenDataSizeInBytes = 37;
+    int fullGcCount = 38;
+    int64_t fullGcTimeInMillis = 39;
+    List<PipelineStats> pipelines = 40;
+    RuntimeStats runtimeStats = 41;
+}
+
+enum TaskState {
+    PLANNED = 1;
+    RUNNING = 2;
+    FINISHED = 3;
+    CANCELED = 4;
+    ABORTED = 5;
+    FAILED = 6;
+}
+
+message TaskStatus {
+    int64_t taskInstanceIdLeastSignificantBits = 1;
+    int64_t taskInstanceIdMostSignificantBits = 2;
+    int64_t version = 3;
+    TaskState state = 4;
+    URI self = 5;
+    List<Lifespan> completedDriverGroups = 6;
+    List<ExecutionFailureInfo> failures = 7;
+    int queuedPartitionedDrivers = 8;
+    int runningPartitionedDrivers = 9;
+    double outputBufferUtilization = 10;
+    bool outputBufferOverutilized = 11;
+    int64_t physicalWrittenDataSizeInBytes = 12;
+    int64_t memoryReservationInBytes = 13;
+    int64_t systemMemoryReservationInBytes = 14;
+    int64_t peakNodeTotalMemoryReservationInBytes = 15;
+    int64_t fullGcCount = 16;
+    int64_t fullGcTimeInMillis = 17;
+    int64_t totalCpuTimeInNanos = 18;
+    int64_t taskAgeInMillis = 19;
+    int64_t queuedPartitionedSplitsWeight = 20;
+    int64_t runningPartitionedSplitsWeight = 21;
+}
+
+message TaskInfo {
+    TaskId taskId = 1;
+    TaskStatus taskStatus = 2;
+    DateTime lastHeartbeat = 3;
+    OutputBufferInfo outputBuffers = 4;
+    List<PlanNodeId> noMoreSplits = 5;
+    TaskStats stats = 6;
+    bool needsPlan = 7;
+    MetadataUpdates metadataUpdates = 8;
+    String nodeId = 9;
+}
+
+enum Step {
+    SINGLE = 1;
+    PARTIAL = 2;
+    FINAL = 3;
+}
+
+message TopNNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    int64_t count = 3;
+    OrderingScheme orderingScheme = 4;
+    Step step = 5;
+}
+
+message TopNRowNumberNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    Specification specification = 3;
+    VariableReferenceExpression rowNumberVariable = 4;
+    int maxRowCountPerPartition = 5;
+    bool partial = 6;
+    VariableReferenceExpression hashVariable = 7;
+}
+
+message UnnestNode {
+    PlanNodeId id = 1;
+    PlanNode source = 2;
+    List<VariableReferenceExpression> replicateVariables = 3;
+    Map<VariableReferenceExpression, List<VariableReferenceExpression>> unnestVariables = 4;
+    VariableReferenceExpression ordinalityVariable = 5;
+}
+
+message UpdateHandle {
+    TableHandle handle = 1;
+    SchemaTableName schemaTableName = 2;
+}
+
+message ValuesNode {
+    SourceLocation location = 1;
+    PlanNodeId id = 2;
+    List<VariableReferenceExpression> outputVariables = 3;
+    List<List<std::shared_ptr<RowExpression>>> rows = 4;
+    String valuesNodeLabel = 5;
+}
+
+message WindowNode {
+    SourceLocation sourceLocation = 1;
+    PlanNodeId id = 2;
+    PlanNode source = 3;
+    Specification specification = 4;
+    Map<VariableReferenceExpression, Function> windowFunctions = 5;
+    VariableReferenceExpression hashVariable = 6;
+    List<VariableReferenceExpression> prePartitionedInputs = 7;
+    int preSortedOrderPrefix = 8;
+}
+
+enum NodeState {
+    ACTIVE = 1;
+    INACTIVE = 2;
+    SHUTTING_DOWN = 3;
+}
+
+    
+

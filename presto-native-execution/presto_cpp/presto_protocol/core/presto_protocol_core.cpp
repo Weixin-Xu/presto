@@ -1021,31 +1021,26 @@ void from_json(const json& j, AllOrNoneValueSet& p) {
   from_json_key(j, "all", p.all, "AllOrNoneValueSet", "bool", "all");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveTableHandle>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergTableHandle>(p);
-    return;
-  }
-  if (type == "tpch") {
-    j = *std::static_pointer_cast<TpchTableHandle>(p);
-    return;
-  }
-  if (type == "$system@system") {
-    j = *std::static_pointer_cast<SystemTableHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
@@ -1056,37 +1051,25 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableHandle>& p) {
     throw ParseError(
         std::string(e.what()) + " ConnectorTableHandle  ConnectorTableHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveTableHandle> k = std::make_shared<HiveTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableHandle>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergTableHandle> k =
-        std::make_shared<IcebergTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableHandle>(k);
-    return;
-  }
-  if (type == "tpch") {
-    std::shared_ptr<TpchTableHandle> k = std::make_shared<TpchTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableHandle>(k);
-    return;
-  }
-  if (type == "$system@system") {
-    std::shared_ptr<SystemTableHandle> k =
-        std::make_shared<SystemTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// dependency TpchTransactionHandle
+
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
   if (p == nullptr) {
@@ -1094,20 +1077,11 @@ void to_json(json& j, const std::shared_ptr<ConnectorTransactionHandle>& p) {
   }
   String type = p->_type;
 
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveTransactionHandle>(p);
-    return;
-  }
   if (type == "$remote") {
     j = *std::static_pointer_cast<RemoteTransactionHandle>(p);
     return;
   }
-  if (type == "$system@system") {
-    j = *std::static_pointer_cast<SystemTransactionHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTransactionHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
@@ -1120,29 +1094,13 @@ void from_json(const json& j, std::shared_ptr<ConnectorTransactionHandle>& p) {
         " ConnectorTransactionHandle  ConnectorTransactionHandle");
   }
 
-  if (type == "hive") {
-    std::shared_ptr<HiveTransactionHandle> k =
-        std::make_shared<HiveTransactionHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTransactionHandle>(k);
-    return;
-  }
   if (type == "$remote") {
-    std::shared_ptr<RemoteTransactionHandle> k =
-        std::make_shared<RemoteTransactionHandle>();
+    auto k = std::make_shared<RemoteTransactionHandle>();
     j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTransactionHandle>(k);
+    p = k;
     return;
   }
-  if (type == "$system@system") {
-    std::shared_ptr<SystemTransactionHandle> k =
-        std::make_shared<SystemTransactionHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTransactionHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTransactionHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -1330,6 +1288,64 @@ void from_json(const json& j, OutputBuffers& p) {
       "buffers");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace facebook::presto::protocol {
+
+void to_json(nlohmann::json& j, const DataSize& p) {
+  j = p.toString();
+}
+
+void from_json(const nlohmann::json& j, DataSize& p) {
+  p = DataSize(std::string(j));
+}
+
+std::ostream& operator<<(std::ostream& os, const DataSize& d) {
+  return os << d.toString();
+}
+
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const Duration& p) {
+  j = p.toString();
+}
+
+void from_json(const json& j, Duration& p) {
+  p = Duration(std::string(j));
+}
+
+std::ostream& operator<<(std::ostream& os, const Duration& d) {
+  return os << d.toString();
+}
+
+} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const ResourceEstimates& p) {
@@ -1489,16 +1505,32 @@ void from_json(const json& j, Determinism& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const Language& p) {
-  j = json::object();
-  to_json_key(j, "language", p.language, "Language", "String", "language");
+  json tj = json::object();
+  to_json_key(tj, "language", p.language, "Language", "String", "language");
+  j = tj["language"];
 }
 
 void from_json(const json& j, Language& p) {
   from_json_key(j, "language", p.language, "Language", "String", "language");
 }
+
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
@@ -2152,31 +2184,26 @@ void from_json(const json& j, SessionRepresentation& p) {
       "sessionFunctions");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorTableLayoutHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveTableLayoutHandle>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergTableLayoutHandle>(p);
-    return;
-  }
-  if (type == "tpch") {
-    j = *std::static_pointer_cast<TpchTableLayoutHandle>(p);
-    return;
-  }
-  if (type == "$system@system") {
-    j = *std::static_pointer_cast<SystemTableLayoutHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableLayoutHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
@@ -2188,37 +2215,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorTableLayoutHandle>& p) {
         std::string(e.what()) +
         " ConnectorTableLayoutHandle  ConnectorTableLayoutHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveTableLayoutHandle> k =
-        std::make_shared<HiveTableLayoutHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableLayoutHandle>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergTableLayoutHandle> k =
-        std::make_shared<IcebergTableLayoutHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableLayoutHandle>(k);
-    return;
-  }
-  if (type == "tpch") {
-    std::shared_ptr<TpchTableLayoutHandle> k =
-        std::make_shared<TpchTableLayoutHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableLayoutHandle>(k);
-    return;
-  }
-  if (type == "$system@system") {
-    std::shared_ptr<SystemTableLayoutHandle> k =
-        std::make_shared<SystemTableLayoutHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorTableLayoutHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorTableLayoutHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -2417,6 +2414,58 @@ void from_json(const json& j, TableWriteInfo& p) {
       "deleteScanInfo");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const Lifespan& p) {
+  if (p.isgroup) {
+    j = "Group" + std::to_string(p.groupid);
+  } else {
+    j = "TaskWide";
+  }
+}
+
+void from_json(const json& j, Lifespan& p) {
+  String lifespan = j;
+
+  if (lifespan == "TaskWide") {
+    p.isgroup = false;
+    p.groupid = 0;
+  } else {
+    if (lifespan != "Group") {
+      // fail...
+    }
+    p.isgroup = true;
+    p.groupid = std::stoi(lifespan.substr(strlen("Group")));
+  }
+}
+
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
   if (p == nullptr) {
@@ -2424,18 +2473,6 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
   }
   String type = p->_type;
 
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveSplit>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergSplit>(p);
-    return;
-  }
-  if (type == "tpch") {
-    j = *std::static_pointer_cast<TpchSplit>(p);
-    return;
-  }
   if (type == "$remote") {
     j = *std::static_pointer_cast<RemoteSplit>(p);
     return;
@@ -2444,12 +2481,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorSplit>& p) {
     j = *std::static_pointer_cast<EmptySplit>(p);
     return;
   }
-  if (type == "$system@system") {
-    j = *std::static_pointer_cast<SystemSplit>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorSplit ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
@@ -2457,47 +2489,22 @@ void from_json(const json& j, std::shared_ptr<ConnectorSplit>& p) {
   try {
     type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
-    throw ParseError(std::string(e.what()) + " ConnectorSplit  ConnectorSplit");
+    throw ParseError(std::string(e.what()) + " ConnectorSplit");
   }
 
-  if (type == "hive") {
-    std::shared_ptr<HiveSplit> k = std::make_shared<HiveSplit>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergSplit> k = std::make_shared<IcebergSplit>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
-    return;
-  }
-  if (type == "tpch") {
-    std::shared_ptr<TpchSplit> k = std::make_shared<TpchSplit>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
-    return;
-  }
   if (type == "$remote") {
-    std::shared_ptr<RemoteSplit> k = std::make_shared<RemoteSplit>();
+    auto k = std::make_shared<RemoteSplit>();
     j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
+    p = k;
     return;
   }
   if (type == "$empty") {
-    std::shared_ptr<EmptySplit> k = std::make_shared<EmptySplit>();
+    auto k = std::make_shared<EmptySplit>();
     j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
+    p = k;
     return;
   }
-  if (type == "$system@system") {
-    std::shared_ptr<SystemSplit> k = std::make_shared<SystemSplit>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorSplit>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorSplit ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -2970,6 +2977,29 @@ void from_json(const json& j, Column& p) {
   from_json_key(j, "type", p.type, "Column", "String", "type");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+
+void to_json(json& j, const Block& p) {
+  j = p.data;
+}
+
+void from_json(const json& j, Block& p) {
+  p.data = std::string(j);
+}
+} // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 ConstantExpression::ConstantExpression() noexcept {
   _type = "constant";
@@ -3000,23 +3030,26 @@ void from_json(const json& j, ConstantExpression& p) {
   from_json_key(j, "type", p.type, "ConstantExpression", "Type", "type");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorOutputTableHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveOutputTableHandle>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergOutputTableHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorOutputTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p) {
@@ -3028,23 +3061,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorOutputTableHandle>& p) {
         std::string(e.what()) +
         " ConnectorOutputTableHandle  ConnectorOutputTableHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveOutputTableHandle> k =
-        std::make_shared<HiveOutputTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorOutputTableHandle>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergOutputTableHandle> k =
-        std::make_shared<IcebergOutputTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorOutputTableHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorOutputTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -3407,6 +3424,23 @@ void from_json(const json& j, DynamicFilterStats& p) {
       "List<PlanNodeId>",
       "producerNodeIds");
 }
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol {
+void to_json(json& j, const OperatorInfo& p) {}
+void from_json(const json& j, OperatorInfo& p) {}
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 
@@ -4640,6 +4674,19 @@ void from_json(const json& j, ExchangeEncoding& e) {
           ->first;
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
   if (p == nullptr) {
@@ -4651,16 +4698,7 @@ void to_json(json& j, const std::shared_ptr<ConnectorPartitioningHandle>& p) {
     j = *std::static_pointer_cast<SystemPartitioningHandle>(p);
     return;
   }
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HivePartitioningHandle>(p);
-    return;
-  }
-  if (type == "tpch") {
-    j = *std::static_pointer_cast<TpchPartitioningHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorPartitioningHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
@@ -4668,34 +4706,16 @@ void from_json(const json& j, std::shared_ptr<ConnectorPartitioningHandle>& p) {
   try {
     type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
-    throw ParseError(
-        std::string(e.what()) +
-        " ConnectorPartitioningHandle  ConnectorPartitioningHandle");
+    throw ParseError(std::string(e.what()) + " ConnectorPartitioningHandle");
   }
 
   if (type == "$remote") {
-    std::shared_ptr<SystemPartitioningHandle> k =
-        std::make_shared<SystemPartitioningHandle>();
+    auto k = std::make_shared<SystemPartitioningHandle>();
     j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorPartitioningHandle>(k);
+    p = k;
     return;
   }
-  if (type == "hive") {
-    std::shared_ptr<HivePartitioningHandle> k =
-        std::make_shared<HivePartitioningHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorPartitioningHandle>(k);
-    return;
-  }
-  if (type == "tpch") {
-    std::shared_ptr<TpchPartitioningHandle> k =
-        std::make_shared<TpchPartitioningHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorPartitioningHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorPartitioningHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5414,23 +5434,26 @@ void from_json(const json& j, GroupIdNode& p) {
       "groupIdVariable");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorInsertTableHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveInsertTableHandle>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergInsertTableHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorInsertTableHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p) {
@@ -5442,23 +5465,7 @@ void from_json(const json& j, std::shared_ptr<ConnectorInsertTableHandle>& p) {
         std::string(e.what()) +
         " ConnectorInsertTableHandle  ConnectorInsertTableHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveInsertTableHandle> k =
-        std::make_shared<HiveInsertTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorInsertTableHandle>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergInsertTableHandle> k =
-        std::make_shared<IcebergInsertTableHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorInsertTableHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorInsertTableHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -5909,6 +5916,34 @@ void from_json(const json& j, JsonBasedUdfFunctionMetadata& p) {
       "AggregationFunctionMetadata",
       "aggregateMetadata");
 }
+} // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// dependency KeyedSubclass
+
+namespace facebook::presto::protocol {
+
+std::string JsonEncodedSubclass::getSubclassKey(const nlohmann::json& j) {
+  if (j.is_array()) {
+    // enum is serialized as an array: ["type","instance"]
+    return j[0];
+  } else {
+    return j["@type"];
+  }
+}
+
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
 LambdaDefinitionExpression::LambdaDefinitionExpression() noexcept {
@@ -6385,19 +6420,26 @@ void from_json(const json& j, MergeJoinNode& p) {
       "rightHashVariable");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ConnectorMetadataUpdateHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveMetadataUpdateHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorMetadataUpdateHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(
@@ -6407,20 +6449,9 @@ void from_json(
   try {
     type = p->getSubclassKey(j);
   } catch (json::parse_error& e) {
-    throw ParseError(
-        std::string(e.what()) +
-        " ConnectorMetadataUpdateHandle  ConnectorMetadataUpdateHandle");
+    throw ParseError(std::string(e.what()) + " ConnectorMetadataUpdateHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveMetadataUpdateHandle> k =
-        std::make_shared<HiveMetadataUpdateHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ConnectorMetadataUpdateHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ConnectorMetadataUpdateHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -7850,6 +7881,20 @@ void from_json(const json& j, StatsAndCosts& p) {
       "costs");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 namespace facebook::presto::protocol {
 
 void to_json(json& j, const PlanFragment& p) {
@@ -7898,13 +7943,6 @@ void to_json(json& j, const PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
-  to_json_key(
-      j,
-      "statsAndCosts",
-      p.statsAndCosts,
-      "PlanFragment",
-      "StatsAndCosts",
-      "statsAndCosts");
   to_json_key(
       j,
       "jsonRepresentation",
@@ -7959,13 +7997,6 @@ void from_json(const json& j, PlanFragment& p) {
       "PlanFragment",
       "bool",
       "outputTableWriterFragment");
-  from_json_key(
-      j,
-      "statsAndCosts",
-      p.statsAndCosts,
-      "PlanFragment",
-      "StatsAndCosts",
-      "statsAndCosts");
   from_json_key(
       j,
       "jsonRepresentation",
@@ -9110,31 +9141,26 @@ void from_json(const json& j, SystemPartitioningHandle& p) {
       "function");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 void to_json(json& j, const std::shared_ptr<ColumnHandle>& p) {
   if (p == nullptr) {
     return;
   }
   String type = p->_type;
-
-  if (type == "hive") {
-    j = *std::static_pointer_cast<HiveColumnHandle>(p);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    j = *std::static_pointer_cast<IcebergColumnHandle>(p);
-    return;
-  }
-  if (type == "tpch") {
-    j = *std::static_pointer_cast<TpchColumnHandle>(p);
-    return;
-  }
-  if (type == "$system@system") {
-    j = *std::static_pointer_cast<SystemColumnHandle>(p);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
+  getConnectorProtocol(type).to_json(j, p);
 }
 
 void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
@@ -9144,35 +9170,7 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
   } catch (json::parse_error& e) {
     throw ParseError(std::string(e.what()) + " ColumnHandle  ColumnHandle");
   }
-
-  if (type == "hive") {
-    std::shared_ptr<HiveColumnHandle> k = std::make_shared<HiveColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-  if (type == "hive-iceberg") {
-    std::shared_ptr<IcebergColumnHandle> k =
-        std::make_shared<IcebergColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-  if (type == "tpch") {
-    std::shared_ptr<TpchColumnHandle> k = std::make_shared<TpchColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-  if (type == "$system@system") {
-    std::shared_ptr<SystemColumnHandle> k =
-        std::make_shared<SystemColumnHandle>();
-    j.get_to(*k);
-    p = std::static_pointer_cast<ColumnHandle>(k);
-    return;
-  }
-
-  throw TypeError(type + " no abstract type ColumnHandle ");
+  getConnectorProtocol(type).from_json(j, p);
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {
@@ -9525,18 +9523,29 @@ void from_json(const json& j, TableWriterMergeNode& p) {
       "statisticsAggregation");
 }
 } // namespace facebook::presto::protocol
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 namespace facebook::presto::protocol {
 TableWriterNode::TableWriterNode() noexcept {
-  _type = ".TableWriterNode";
+  _type = "com.facebook.presto.sql.planner.plan.TableWriterNode";
 }
 
 void to_json(json& j, const TableWriterNode& p) {
   j = json::object();
-  j["@type"] = ".TableWriterNode";
+  j["@type"] = "com.facebook.presto.sql.planner.plan.TableWriterNode";
   to_json_key(j, "id", p.id, "TableWriterNode", "PlanNodeId", "id");
   to_json_key(j, "source", p.source, "TableWriterNode", "PlanNode", "source");
-  to_json_key(
-      j, "target", p.target, "TableWriterNode", "WriterTarget", "target");
   to_json_key(
       j,
       "rowCountVariable",
@@ -9588,25 +9597,18 @@ void to_json(json& j, const TableWriterNode& p) {
       "partitioningScheme");
   to_json_key(
       j,
+      "preferredShufflePartitioningScheme",
+      p.preferredShufflePartitioningScheme,
+      "TableWriterNode",
+      "PartitioningScheme",
+      "preferredShufflePartitioningScheme");
+  to_json_key(
+      j,
       "statisticsAggregation",
       p.statisticsAggregation,
       "TableWriterNode",
       "StatisticAggregations",
       "statisticsAggregation");
-  to_json_key(
-      j,
-      "taskCountIfScaledWriter",
-      p.taskCountIfScaledWriter,
-      "TableWriterNode",
-      "Integer",
-      "taskCountIfScaledWriter");
-  to_json_key(
-      j,
-      "isTemporaryTableWriter",
-      p.isTemporaryTableWriter,
-      "TableWriterNode",
-      "Boolean",
-      "isTemporaryTableWriter");
 }
 
 void from_json(const json& j, TableWriterNode& p) {
@@ -9614,8 +9616,6 @@ void from_json(const json& j, TableWriterNode& p) {
   from_json_key(j, "id", p.id, "TableWriterNode", "PlanNodeId", "id");
   from_json_key(j, "source", p.source, "TableWriterNode", "PlanNode", "source");
   from_json_key(
-      j, "target", p.target, "TableWriterNode", "WriterTarget", "target");
-  from_json_key(
       j,
       "rowCountVariable",
       p.rowCountVariable,
@@ -9666,25 +9666,18 @@ void from_json(const json& j, TableWriterNode& p) {
       "partitioningScheme");
   from_json_key(
       j,
+      "preferredShufflePartitioningScheme",
+      p.preferredShufflePartitioningScheme,
+      "TableWriterNode",
+      "PartitioningScheme",
+      "preferredShufflePartitioningScheme");
+  from_json_key(
+      j,
       "statisticsAggregation",
       p.statisticsAggregation,
       "TableWriterNode",
       "StatisticAggregations",
       "statisticsAggregation");
-  from_json_key(
-      j,
-      "taskCountIfScaledWriter",
-      p.taskCountIfScaledWriter,
-      "TableWriterNode",
-      "Integer",
-      "taskCountIfScaledWriter");
-  from_json_key(
-      j,
-      "isTemporaryTableWriter",
-      p.isTemporaryTableWriter,
-      "TableWriterNode",
-      "Boolean",
-      "isTemporaryTableWriter");
 }
 } // namespace facebook::presto::protocol
 namespace facebook::presto::protocol {

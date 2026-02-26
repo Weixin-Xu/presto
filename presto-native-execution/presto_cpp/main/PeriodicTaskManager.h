@@ -16,6 +16,7 @@
 #include <folly/experimental/FunctionScheduler.h>
 #include <folly/experimental/ThreadedRepeatingFunctionRunner.h>
 #include "bolt/common/memory/Memory.h"
+#include "bolt/common/memory/MemoryArbitrator.h"
 #include "bolt/exec/Task.h"
 
 namespace folly {
@@ -23,11 +24,11 @@ class CPUThreadPoolExecutor;
 class IOThreadPoolExecutor;
 } // namespace folly
 
-namespace facebook::bolt::connector {
+namespace bytedance::bolt::connector {
 class Connector;
 }
 
-namespace facebook::bolt::cache {
+namespace bytedance::bolt::cache {
 class AsyncDataCache;
 }
 
@@ -49,12 +50,16 @@ class PeriodicTaskManager {
       folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
       folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
       TaskManager* taskManager,
-      const bolt::memory::MemoryAllocator* memoryAllocator,
-      const bolt::cache::AsyncDataCache* asyncDataCache,
+      const bytedance::bolt::memory::MemoryAllocator* memoryAllocator,
+      const bytedance::bolt::cache::AsyncDataCache* asyncDataCache,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::Connector>>& connectors,
+          std::shared_ptr<bytedance::bolt::connector::Connector>>& connectors,
       PrestoServer* server);
+
+  ~PeriodicTaskManager() {
+    stop();
+  }
 
   /// Invoked to start all registered, and fundamental periodic tasks running at
   /// the background.
@@ -117,6 +122,9 @@ class PeriodicTaskManager {
   void addHttpServerStatsTask();
   void printHttpServerStats();
 
+  void addArbitratorStatsTask();
+  void updateArbitratorStatsTask();
+
   void addHttpClientStatsTask();
   void updateHttpClientStats();
 
@@ -135,12 +143,12 @@ class PeriodicTaskManager {
   folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor_{nullptr};
 
   TaskManager* taskManager_;
-  const bolt::memory::MemoryAllocator* memoryAllocator_;
-  const bolt::cache::AsyncDataCache* asyncDataCache_;
-  const bolt::memory::MemoryArbitrator* arbitrator_;
+  const bytedance::bolt::memory::MemoryAllocator* memoryAllocator_;
+  const bytedance::bolt::cache::AsyncDataCache* asyncDataCache_;
+  const bytedance::bolt::memory::MemoryArbitrator* arbitrator_;
   const std::unordered_map<
       std::string,
-      std::shared_ptr<bolt::connector::Connector>>& connectors_;
+      std::shared_ptr<bytedance::bolt::connector::Connector>>& connectors_;
   PrestoServer* server_;
 
   // Operating system related stats.
@@ -152,6 +160,8 @@ class PeriodicTaskManager {
   int64_t lastForcedContextSwitches_{0};
 
   int64_t lastHttpClientNumConnectionsCreated_{0};
+
+  bytedance::bolt::memory::MemoryArbitrator::Stats lastArbitratorStats_;
 
   // NOTE: declare last since the threads access other members of `this`.
   folly::FunctionScheduler oneTimeRunner_;

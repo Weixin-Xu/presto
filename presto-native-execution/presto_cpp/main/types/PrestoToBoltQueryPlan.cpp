@@ -15,7 +15,7 @@
 // clang-format off
 #include "presto_cpp/main/types/PrestoToBoltConnector.h"
 #include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
-#include "bolt/type/Filter.h>
+#include "bolt/type/Filter.h"
 #include "bolt/core/QueryCtx.h"
 #include "bolt/exec/HashPartitionFunction.h"
 #include "bolt/exec/RoundRobinPartitionFunction.h"
@@ -34,7 +34,7 @@
 #include "presto_cpp/main/types/TypeParser.h"
 
 using namespace bytedance::bolt;
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 
 namespace facebook::presto {
 
@@ -62,7 +62,7 @@ RowTypePtr toRowType(
     const TypeParser& typeParser,
     const std::unordered_set<std::string>& excludeNames = {}) {
   std::vector<std::string> names;
-  std::vector<bolt::TypePtr> types;
+  std::vector<bytedance::bolt::TypePtr> types;
   names.reserve(variables.size());
   types.reserve(variables.size());
 
@@ -117,7 +117,7 @@ template <TypeKind KIND>
 void setCellFromVariantByKind(
     const VectorPtr& column,
     vector_size_t row,
-    const bolt::variant& value) {
+    const bytedance::bolt::variant& value) {
   using T = typename TypeTraits<KIND>::NativeType;
 
   auto flatVector = column->as<FlatVector<T>>();
@@ -128,7 +128,7 @@ template <>
 void setCellFromVariantByKind<TypeKind::VARBINARY>(
     const VectorPtr& column,
     vector_size_t row,
-    const bolt::variant& value) {
+    const bytedance::bolt::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
   values->set(row, StringView(value.value<TypeKind::VARBINARY>()));
 }
@@ -137,7 +137,7 @@ template <>
 void setCellFromVariantByKind<TypeKind::VARCHAR>(
     const VectorPtr& column,
     vector_size_t row,
-    const bolt::variant& value) {
+    const bytedance::bolt::variant& value) {
   auto values = column->as<FlatVector<StringView>>();
   values->set(row, StringView(value.value<TypeKind::VARCHAR>()));
 }
@@ -146,7 +146,7 @@ void setCellFromVariant(
     const RowVectorPtr& data,
     vector_size_t row,
     vector_size_t column,
-    const bolt::variant& value) {
+    const bytedance::bolt::variant& value) {
   auto columnVector = data->childAt(column);
   if (value.isNull()) {
     columnVector->setNull(row, true);
@@ -167,7 +167,7 @@ void setCellFromVariant(
 void setCellFromVariant(
     const VectorPtr& data,
     vector_size_t row,
-    const bolt::variant& value) {
+    const bytedance::bolt::variant& value) {
   if (value.isNull()) {
     data->setNull(row, true);
     return;
@@ -332,7 +332,7 @@ core::LocalPartitionNode::Type toLocalExchangeType(
   }
 }
 
-VectorSerde::Kind toBoltSerdeKind(protocol::ExchangeEncoding encoding) {
+/* VectorSerde::Kind toBoltSerdeKind(protocol::ExchangeEncoding encoding) {
   switch (encoding) {
     case protocol::ExchangeEncoding::COLUMNAR:
       return VectorSerde::Kind::kPresto;
@@ -340,7 +340,7 @@ VectorSerde::Kind toBoltSerdeKind(protocol::ExchangeEncoding encoding) {
       return VectorSerde::Kind::kCompactRow;
   }
   BOLT_UNSUPPORTED("Unsupported encoding: {}.", fmt::underlying(encoding));
-}
+}*/
 
 std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     const std::shared_ptr<const protocol::ExchangeNode>& node,
@@ -356,7 +356,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
-        scaleWriters,
+        //scaleWriters,
         std::make_shared<HashPartitionFunctionSpec>(outputType, keyChannels),
         std::move(sourceNodes));
   }
@@ -365,7 +365,7 @@ std::shared_ptr<core::LocalPartitionNode> buildLocalSystemPartitionNode(
     return std::make_shared<core::LocalPartitionNode>(
         node->id,
         type,
-        scaleWriters,
+        //scaleWriters,
         std::make_shared<RoundRobinPartitionFunctionSpec>(),
         std::move(sourceNodes));
   }
@@ -467,7 +467,7 @@ core::PlanNodePtr BoltQueryPlanConverterBase::toBoltQueryPlan(
   return std::make_shared<core::LocalPartitionNode>(
       node->id,
       type,
-      scaleWriters,
+      //scaleWriters,
       std::shared_ptr(std::move(spec)),
       std::move(sourceNodes));
 }
@@ -748,8 +748,8 @@ BoltQueryPlanConverterBase::toBoltQueryPlan(
       toBoltQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
-bolt::VectorPtr BoltQueryPlanConverterBase::evaluateConstantExpression(
-    const bolt::core::TypedExprPtr& expression) {
+bytedance::bolt::VectorPtr BoltQueryPlanConverterBase::evaluateConstantExpression(
+    const bytedance::bolt::core::TypedExprPtr& expression) {
   auto emptyRowVector = BaseVector::create<RowVector>(ROW({}), 1, pool_);
   core::ExecCtx execCtx{pool_, queryCtx_};
   exec::ExprSet exprSet{{expression}, &execCtx};
@@ -830,7 +830,7 @@ void BoltQueryPlanConverterBase::toAggregations(
     const std::map<
         protocol::VariableReferenceExpression,
         protocol::Aggregation>& aggregationMap,
-    std::vector<bolt::core::AggregationNode::Aggregate>& aggregates,
+    std::vector<bytedance::bolt::core::AggregationNode::Aggregate>& aggregates,
     std::vector<std::string>& aggregateNames) {
   aggregateNames.reserve(aggregates.size());
   aggregates.reserve(aggregates.size());
@@ -890,11 +890,11 @@ BoltQueryPlanConverterBase::toBoltQueryPlan(
   auto rowType = toRowType(node->outputVariables, typeParser_);
   vector_size_t numRows = node->rows.size();
   auto numColumns = rowType->size();
-  std::vector<bolt::VectorPtr> vectors;
+  std::vector<bytedance::bolt::VectorPtr> vectors;
   vectors.reserve(numColumns);
 
   for (int i = 0; i < numColumns; ++i) {
-    auto base = bolt::BaseVector::create(rowType->childAt(i), numRows, pool_);
+    auto base = bytedance::bolt::BaseVector::create(rowType->childAt(i), numRows, pool_);
     vectors.emplace_back(base);
   }
 
@@ -1162,7 +1162,7 @@ core::PlanNodePtr BoltQueryPlanConverterBase::toBoltQueryPlan(
       toRowType(node->outputVariables, typeParser_));
 }
 
-bolt::core::PlanNodePtr BoltQueryPlanConverterBase::toBoltQueryPlan(
+bytedance::bolt::core::PlanNodePtr BoltQueryPlanConverterBase::toBoltQueryPlan(
     const std::shared_ptr<const protocol::SemiJoinNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -1483,7 +1483,7 @@ toSortFieldsAndOrders(
 }
 } // namespace
 
-std::shared_ptr<const bolt::core::WindowNode>
+std::shared_ptr<const bytedance::bolt::core::WindowNode>
 BoltQueryPlanConverterBase::toBoltQueryPlan(
     const std::shared_ptr<const protocol::WindowNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1512,7 +1512,7 @@ BoltQueryPlanConverterBase::toBoltQueryPlan(
 
   // TODO(spershin): Supply proper 'inputsSorted' argument to WindowNode
   // constructor instead of 'false'.
-  return std::make_shared<bolt::core::WindowNode>(
+  return std::make_shared<bytedance::bolt::core::WindowNode>(
       node->id,
       partitionFields,
       sortFields,
@@ -1520,6 +1520,7 @@ BoltQueryPlanConverterBase::toBoltQueryPlan(
       windowNames,
       windowFunctions,
       false,
+      0, // bolt window with limit order by 
       toBoltQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
@@ -1542,7 +1543,7 @@ core::WindowNode::Function makeRowNumberFunction(
 }
 } // namespace
 
-std::shared_ptr<const bolt::core::RowNumberNode>
+std::shared_ptr<const bytedance::bolt::core::RowNumberNode>
 BoltQueryPlanConverterBase::toBoltQueryPlan(
     const std::shared_ptr<const protocol::RowNumberNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1571,7 +1572,7 @@ BoltQueryPlanConverterBase::toBoltQueryPlan(
       toBoltQueryPlan(node->source, tableWriteInfo, taskId));
 }
 
-std::shared_ptr<const bolt::core::PlanNode>
+std::shared_ptr<const bytedance::bolt::core::PlanNode>
 BoltQueryPlanConverterBase::toBoltQueryPlan(
     const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
@@ -1812,7 +1813,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
         constValues.emplace_back(constExpr->valueVector());
       } else {
         constValues.emplace_back(
-            bolt::BaseVector::create(expr->type(), 1, pool_));
+            bytedance::bolt::BaseVector::create(expr->type(), 1, pool_));
         setCellFromVariant(constValues.back(), 0, constExpr->value());
       }
     }
@@ -1834,7 +1835,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::single(
             partitionedOutputNodeId,
             outputType,
-            toBoltSerdeKind((partitioningScheme.encoding)),
+            //toBoltSerdeKind((partitioningScheme.encoding)),
             sourceNode);
         return planFragment;
       case protocol::SystemPartitioning::FIXED: {
@@ -1848,7 +1849,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  toBoltSerdeKind((partitioningScheme.encoding)),
+                  //toBoltSerdeKind((partitioningScheme.encoding)),
                   sourceNode);
               return planFragment;
             }
@@ -1861,7 +1862,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
                     partitioningScheme.replicateNullsAndAny,
                     std::make_shared<RoundRobinPartitionFunctionSpec>(),
                     outputType,
-                    toBoltSerdeKind((partitioningScheme.encoding)),
+                    //toBoltSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
@@ -1874,7 +1875,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
               planFragment.planNode = core::PartitionedOutputNode::single(
                   partitionedOutputNodeId,
                   outputType,
-                  toBoltSerdeKind((partitioningScheme.encoding)),
+                  //toBoltSerdeKind((partitioningScheme.encoding)),
                   sourceNode);
               return planFragment;
             }
@@ -1888,7 +1889,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
                     std::make_shared<HashPartitionFunctionSpec>(
                         inputType, keyChannels, constValues),
                     outputType,
-                    toBoltSerdeKind((partitioningScheme.encoding)),
+                    //toBoltSerdeKind((partitioningScheme.encoding)),
                     sourceNode);
             return planFragment;
           }
@@ -1897,7 +1898,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
                 partitionedOutputNodeId,
                 1,
                 outputType,
-                toBoltSerdeKind((partitioningScheme.encoding)),
+                //toBoltSerdeKind((partitioningScheme.encoding)),
                 sourceNode);
             return planFragment;
           }
@@ -1916,7 +1917,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
         planFragment.planNode = core::PartitionedOutputNode::arbitrary(
             partitionedOutputNodeId,
             std::move(outputType),
-            toBoltSerdeKind((partitioningScheme.encoding)),
+            //toBoltSerdeKind((partitioningScheme.encoding)),
             std::move(sourceNode));
         return planFragment;
       }
@@ -1935,7 +1936,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
     planFragment.planNode = core::PartitionedOutputNode::single(
         partitionedOutputNodeId,
         outputType,
-        toBoltSerdeKind((partitioningScheme.encoding)),
+        //toBoltSerdeKind((partitioningScheme.encoding)),
         sourceNode);
     return planFragment;
   }
@@ -1951,7 +1952,7 @@ core::PlanFragment BoltQueryPlanConverterBase::toBoltQueryPlan(
       partitioningScheme.replicateNullsAndAny,
       std::shared_ptr(std::move(spec)),
       toRowType(partitioningScheme.outputLayout, typeParser_),
-      toBoltSerdeKind((partitioningScheme.encoding)),
+      //toBoltSerdeKind((partitioningScheme.encoding)),
       sourceNode);
   return planFragment;
 }
@@ -1963,12 +1964,12 @@ core::PlanNodePtr BoltQueryPlanConverterBase::toBoltQueryPlan(
   return core::PartitionedOutputNode::single(
       node->id,
       toRowType(node->outputVariables, typeParser_),
-      bolt::VectorSerde::Kind::kPresto,
+      //bytedance::bolt::VectorSerde::Kind::kPresto,
       BoltQueryPlanConverterBase::toBoltQueryPlan(
           node->source, tableWriteInfo, taskId));
 }
 
-bolt::core::PlanNodePtr BoltInteractiveQueryPlanConverter::toBoltQueryPlan(
+bytedance::bolt::core::PlanNodePtr BoltInteractiveQueryPlanConverter::toBoltQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
@@ -1987,19 +1988,19 @@ bolt::core::PlanNodePtr BoltInteractiveQueryPlanConverter::toBoltQueryPlan(
         node->id,
         rowType,
         sortingKeys,
-        sortingOrders,
-        toBoltSerdeKind(node->encoding));
+        sortingOrders/*,
+        toBoltSerdeKind(node->encoding)*/);
   }
   return std::make_shared<core::ExchangeNode>(
-      node->id, rowType, toBoltSerdeKind(node->encoding));
+      node->id, rowType/*, toBoltSerdeKind(node->encoding)*/);
 }
 
-bolt::connector::CommitStrategy
+bytedance::bolt::connector::CommitStrategy
 BoltInteractiveQueryPlanConverter::getCommitStrategy() const {
-  return bolt::connector::CommitStrategy::kNoCommit;
+  return bytedance::bolt::connector::CommitStrategy::kNoCommit;
 }
 
-bolt::core::PlanFragment BoltBatchQueryPlanConverter::toBoltQueryPlan(
+bytedance::bolt::core::PlanFragment BoltBatchQueryPlanConverter::toBoltQueryPlan(
     const protocol::PlanFragment& fragment,
     const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
     const protocol::TaskId& taskId) {
@@ -2030,7 +2031,7 @@ bolt::core::PlanFragment BoltBatchQueryPlanConverter::toBoltQueryPlan(
         partitionedOutputNode->id(),
         1,
         broadcastWriteNode->outputType(),
-        bolt::VectorSerde::Kind::kPresto,
+        //bytedance::bolt::VectorSerde::Kind::kPresto,
         {broadcastWriteNode});
     return planFragment;
   }
@@ -2072,7 +2073,7 @@ bolt::core::PlanFragment BoltBatchQueryPlanConverter::toBoltQueryPlan(
   return planFragment;
 }
 
-bolt::core::PlanNodePtr BoltBatchQueryPlanConverter::toBoltQueryPlan(
+bytedance::bolt::core::PlanNodePtr BoltBatchQueryPlanConverter::toBoltQueryPlan(
     const std::shared_ptr<const protocol::RemoteSourceNode>& node,
     const std::shared_ptr<protocol::TableWriteInfo>& /* tableWriteInfo */,
     const protocol::TaskId& taskId) {
@@ -2080,15 +2081,15 @@ bolt::core::PlanNodePtr BoltBatchQueryPlanConverter::toBoltQueryPlan(
   // Broadcast exchange source.
   if (node->exchangeType == protocol::ExchangeNodeType::REPLICATE) {
     return std::make_shared<core::ExchangeNode>(
-        node->id, rowType, bolt::VectorSerde::Kind::kPresto);
+        node->id, rowType/*, bytedance::bolt::VectorSerde::Kind::kPresto*/);
   }
   // Partitioned shuffle exchange source.
   return std::make_shared<operators::ShuffleReadNode>(node->id, rowType);
 }
 
-bolt::connector::CommitStrategy
+bytedance::bolt::connector::CommitStrategy
 BoltBatchQueryPlanConverter::getCommitStrategy() const {
-  return bolt::connector::CommitStrategy::kTaskCommit;
+  return bytedance::bolt::connector::CommitStrategy::kTaskCommit;
 }
 
 void registerPrestoPlanNodeSerDe() {
@@ -2107,7 +2108,7 @@ void registerPrestoPlanNodeSerDe() {
 
 void parseSqlFunctionHandle(
     const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
-    std::vector<bolt::TypePtr>& rawInputTypes,
+    std::vector<bytedance::bolt::TypePtr>& rawInputTypes,
     TypeParser& typeParser) {
   const auto& functionId = sqlFunction->functionId;
   // functionId format is function-name;arg-type1;arg-type2;...

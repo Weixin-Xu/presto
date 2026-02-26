@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
 
 #ifndef PRESTO_STATS_REPORTER_TYPE
 // Initialize singleton for the reporter.
-folly::Singleton<facebook::bolt::BaseStatsReporter> reporter([]() {
-  return new facebook::bolt::DummyStatsReporter();
+folly::Singleton<bytedance::bolt::BaseStatsReporter> reporter([]() {
+  return new bytedance::bolt::DummyStatsReporter();
 });
 #endif

@@ -189,7 +189,7 @@ proxygen::RequestHandler* TaskResource::acknowledgeResults(
               }
             })
             .thenError(
-                folly::tag_t<bolt::BoltException>{},
+                folly::tag_t<bytedance::bolt::BoltException>{},
                 [downstream](auto&& e) {
                   http::sendErrorResponse(downstream, e.what());
                 })
@@ -227,14 +227,14 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               try {
                 taskInfo = createOrUpdateFunc(
                     taskId, updateJson, startProcessCpuTimeNs);
-              } catch (const bolt::BoltException& e) {
+              } catch (const bytedance::bolt::BoltException& e) {
                 // Creating an empty task, putting errors inside so that next
                 // status fetch from coordinator will catch the error and well
                 // categorize it.
                 try {
                   taskInfo = taskManager_.createOrUpdateErrorTask(
                       taskId, std::current_exception(), startProcessCpuTimeNs);
-                } catch (const bolt::BoltUserError& e) {
+                } catch (const bytedance::bolt::BoltUserError& e) {
                   throw;
                 }
               }
@@ -247,7 +247,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTaskImpl(
               }
             })
             .thenError(
-                folly::tag_t<bolt::BoltException>{},
+                folly::tag_t<bytedance::bolt::BoltException>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
@@ -278,7 +278,7 @@ proxygen::RequestHandler* TaskResource::createOrUpdateBatchTask(
         BOLT_USER_CHECK_NOT_NULL(updateRequest.fragment);
 
         auto fragment =
-            bolt::encoding::Base64::decode(*updateRequest.fragment);
+            bytedance::bolt::encoding::Base64::decode(*updateRequest.fragment);
         protocol::PlanFragment prestoPlan = json::parse(fragment);
 
         auto serializedShuffleWriteInfo = batchUpdateRequest.shuffleWriteInfo;
@@ -323,11 +323,11 @@ proxygen::RequestHandler* TaskResource::createOrUpdateTask(
           const std::string& updateJson,
           long startProcessCpuTime) {
         protocol::TaskUpdateRequest updateRequest = json::parse(updateJson);
-        bolt::core::PlanFragment planFragment;
-        std::shared_ptr<bolt::core::QueryCtx> queryCtx;
+        bytedance::bolt::core::PlanFragment planFragment;
+        std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx;
         if (updateRequest.fragment) {
           auto fragment =
-              bolt::encoding::Base64::decode(*updateRequest.fragment);
+              bytedance::bolt::encoding::Base64::decode(*updateRequest.fragment);
           protocol::PlanFragment prestoPlan = json::parse(fragment);
 
           queryCtx =
@@ -382,7 +382,7 @@ proxygen::RequestHandler* TaskResource::deleteTask(
               }
             })
             .thenError(
-                folly::tag_t<bolt::BoltException>{},
+                folly::tag_t<bytedance::bolt::BoltException>{},
                 [downstream, handlerState](auto&& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
@@ -466,17 +466,17 @@ proxygen::RequestHandler* TaskResource::getResults(
                         .header(
                             protocol::PRESTO_BUFFER_COMPLETE_HEADER,
                             result->complete ? "true" : "false");
-                    if (!result->remainingBytes.empty()) {
+                    /*if (!result->remainingBytes.empty()) {
                       builder.header(
                           protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER,
                           folly::join(',', result->remainingBytes));
-                    }
+                    }*/
                     builder.body(std::move(result->data)).sendWithEOM();
                   })
                   .thenError(
-                      folly::tag_t<bolt::BoltException>{},
+                      folly::tag_t<bytedance::bolt::BoltException>{},
                       [downstream,
-                       handlerState](const bolt::BoltException& e) {
+                       handlerState](const bytedance::bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -540,9 +540,9 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                         }
                       })
                   .thenError(
-                      folly::tag_t<bolt::BoltException>{},
+                      folly::tag_t<bytedance::bolt::BoltException>{},
                       [downstream,
-                       handlerState](const bolt::BoltException& e) {
+                       handlerState](const bytedance::bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -598,9 +598,9 @@ proxygen::RequestHandler* TaskResource::getTaskInfo(
                     }
                   })
                   .thenError(
-                      folly::tag_t<bolt::BoltException>{},
+                      folly::tag_t<bytedance::bolt::BoltException>{},
                       [downstream,
-                       handlerState](const bolt::BoltException& e) {
+                       handlerState](const bytedance::bolt::BoltException& e) {
                         if (!handlerState->requestExpired()) {
                           http::sendErrorResponse(downstream, e.what());
                         }
@@ -643,8 +643,8 @@ proxygen::RequestHandler* TaskResource::removeRemoteSource(
               }
             })
             .thenError(
-                folly::tag_t<bolt::BoltException>{},
-                [downstream, handlerState](const bolt::BoltException& e) {
+                folly::tag_t<bytedance::bolt::BoltException>{},
+                [downstream, handlerState](const bytedance::bolt::BoltException& e) {
                   if (!handlerState->requestExpired()) {
                     http::sendErrorResponse(downstream, e.what());
                   }

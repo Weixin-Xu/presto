@@ -23,14 +23,14 @@ namespace facebook::presto::operators {
 /// Used for files based broadcast.
 /// Reads split location uri in format :
 /// batch://<taskid>?broadcastInfo={fileInfos:[<fileInfo>]}.
-class BroadcastExchangeSource : public bolt::exec::ExchangeSource {
+class BroadcastExchangeSource : public bytedance::bolt::exec::ExchangeSource {
  public:
   BroadcastExchangeSource(
       const std::string& taskId,
       int destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
       const std::shared_ptr<BroadcastFileReader>& reader,
-      bolt::memory::MemoryPool* pool)
+      bytedance::bolt::memory::MemoryPool* pool)
       : ExchangeSource(taskId, destination, queue, pool), reader_(reader) {}
 
   bool shouldRequestLocked() override {
@@ -39,10 +39,10 @@ class BroadcastExchangeSource : public bolt::exec::ExchangeSource {
 
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait) override;
+      uint32_t maxWait) override;
 
-  folly::SemiFuture<Response> requestDataSizes(
-      std::chrono::microseconds maxWait) override;
+  /*folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWait) override;*/
 
   void close() override {}
 
@@ -53,8 +53,8 @@ class BroadcastExchangeSource : public bolt::exec::ExchangeSource {
   static std::shared_ptr<ExchangeSource> createExchangeSource(
       const std::string& url,
       int destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-      bolt::memory::MemoryPool* pool);
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+      bytedance::bolt::memory::MemoryPool* pool);
 
  private:
   const std::shared_ptr<BroadcastFileReader> reader_;

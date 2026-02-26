@@ -24,15 +24,15 @@ target_link_libraries(
   http_filters
   presto_common
   bolt::bolt
-  ${PROXYGEN_LIBRARIES}
-  ${LIBSODIUM_LIBRARY}
+  proxygen::proxygenhttpserver
+  libsodium::libsodium 
   ${OPENSSL_SSL_LIBRARY}
   ${OPENSSL_CRYPTO_LIBRARY}
-  ${FOLLY_WITH_DEPENDENCIES}
+  Folly::folly
   ${GLOG}
   ${GFLAGS_LIBRARIES}
   ${FMT}
-  ${RE2})
+  re2::re2)
 
 set_property(TARGET presto_http PROPERTY JOB_POOL_LINK presto_link_job_pool)
 

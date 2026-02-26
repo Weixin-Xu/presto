@@ -18,7 +18,7 @@ namespace fs = boost::filesystem;
 
 using namespace facebook::presto;
 using namespace bytedance::bolt;
-using namespace facebook::bolt::memory;
+using namespace bytedance::bolt::memory;
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);

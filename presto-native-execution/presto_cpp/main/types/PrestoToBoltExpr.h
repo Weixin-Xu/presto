@@ -22,47 +22,47 @@ namespace facebook::presto {
 
 class BoltExprConverter {
  public:
-  BoltExprConverter(bolt::memory::MemoryPool* pool, TypeParser* typeParser)
+  BoltExprConverter(bytedance::bolt::memory::MemoryPool* pool, TypeParser* typeParser)
       : pool_(pool), typeParser_(typeParser) {}
 
-  std::shared_ptr<const bolt::core::ConstantTypedExpr> toBoltExpr(
+  std::shared_ptr<const bytedance::bolt::core::ConstantTypedExpr> toBoltExpr(
       std::shared_ptr<protocol::ConstantExpression> pexpr) const;
 
-  bolt::core::TypedExprPtr toBoltExpr(
+  bytedance::bolt::core::TypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::SpecialFormExpression> pexpr) const;
 
-  bolt::core::FieldAccessTypedExprPtr toBoltExpr(
+  bytedance::bolt::core::FieldAccessTypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::VariableReferenceExpression> pexpr) const;
 
-  std::shared_ptr<const bolt::core::LambdaTypedExpr> toBoltExpr(
+  std::shared_ptr<const bytedance::bolt::core::LambdaTypedExpr> toBoltExpr(
       std::shared_ptr<protocol::LambdaDefinitionExpression> pexpr) const;
 
   // TODO Remove when protocols are updated to use shared_ptr
-  std::shared_ptr<const bolt::core::FieldAccessTypedExpr> toBoltExpr(
+  std::shared_ptr<const bytedance::bolt::core::FieldAccessTypedExpr> toBoltExpr(
       const protocol::VariableReferenceExpression& pexpr) const;
 
-  bolt::core::TypedExprPtr toBoltExpr(
+  bytedance::bolt::core::TypedExprPtr toBoltExpr(
       const protocol::CallExpression& pexpr) const;
 
-  bolt::core::TypedExprPtr toBoltExpr(
+  bytedance::bolt::core::TypedExprPtr toBoltExpr(
       std::shared_ptr<protocol::RowExpression> pexpr) const;
 
   // Deserializes Presto Block of a scalar type into a variant.
-  bolt::variant getConstantValue(
-      const bolt::TypePtr& type,
+  bytedance::bolt::variant getConstantValue(
+      const bytedance::bolt::TypePtr& type,
       const protocol::Block& block) const;
 
  private:
-  std::vector<bolt::core::TypedExprPtr> toBoltExpr(
+  std::vector<bytedance::bolt::core::TypedExprPtr> toBoltExpr(
       std::vector<std::shared_ptr<protocol::RowExpression>> pexpr) const;
 
-  std::optional<bolt::core::TypedExprPtr> tryConvertLike(
+  std::optional<bytedance::bolt::core::TypedExprPtr> tryConvertLike(
       const protocol::CallExpression& pexpr) const;
 
-  std::optional<bolt::core::TypedExprPtr> tryConvertDate(
+  std::optional<bytedance::bolt::core::TypedExprPtr> tryConvertDate(
       const protocol::CallExpression& pexpr) const;
 
-  bolt::memory::MemoryPool* const pool_;
+  bytedance::bolt::memory::MemoryPool* const pool_;
   TypeParser* const typeParser_;
 };
 

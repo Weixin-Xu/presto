@@ -19,7 +19,7 @@
 #include "bolt/exec/HashPartitionFunction.h"
 
 using namespace bytedance::bolt;
-using namespace facebook::bolt::core;
+using namespace bytedance::bolt::core;
 
 namespace facebook::presto::operators {
 
@@ -58,7 +58,7 @@ addPartitionAndSerializeNode(
 }
 
 std::function<PlanNodePtr(std::string nodeId, PlanNodePtr)> addShuffleReadNode(
-    const bolt::RowTypePtr& outputType) {
+    const bytedance::bolt::RowTypePtr& outputType) {
   return [&outputType](
              PlanNodeId nodeId, PlanNodePtr /* source */) -> PlanNodePtr {
     return std::make_shared<ShuffleReadNode>(nodeId, outputType);

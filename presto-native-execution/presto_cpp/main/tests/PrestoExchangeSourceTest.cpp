@@ -34,8 +34,8 @@ DECLARE_bool(bolt_memory_leak_check_enabled);
 namespace fs = boost::filesystem;
 using namespace facebook::presto;
 using namespace bytedance::bolt;
-using namespace facebook::bolt::memory;
-using namespace facebook::bolt::common::testutil;
+using namespace bytedance::bolt::memory;
+using namespace bytedance::bolt::common::testutil;
 using namespace testing;
 
 namespace facebook::presto::test {
@@ -423,7 +423,7 @@ std::string toString(exec::SerializedPage* page) {
 std::unique_ptr<exec::SerializedPage> waitForNextPage(
     const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  facebook::bolt::ContinueFuture future;
+  bytedance::bolt::ContinueFuture future;
   auto pages = queue->dequeueLocked(1, &atEnd, &future);
   EXPECT_LE(pages.size(), 1);
   EXPECT_FALSE(atEnd);
@@ -437,7 +437,7 @@ std::unique_ptr<exec::SerializedPage> waitForNextPage(
 
 void waitForEndMarker(const std::shared_ptr<exec::ExchangeQueue>& queue) {
   bool atEnd;
-  facebook::bolt::ContinueFuture future;
+  bytedance::bolt::ContinueFuture future;
   auto pages = queue->dequeueLocked(1, &atEnd, &future);
   ASSERT_TRUE(pages.empty());
   if (!atEnd) {
@@ -1026,7 +1026,7 @@ DEBUG_ONLY_TEST_P(
     const std::string injectedErrorMessage{"Inject allocation error"};
     std::atomic<int> numAllocations{0};
     SCOPED_TESTVALUE_SET(
-        "facebook::bolt::memory::MemoryPoolImpl::reserveThreadSafe",
+        "bytedance::bolt::memory::MemoryPoolImpl::reserveThreadSafe",
         std::function<void(MemoryPool*)>(([&](MemoryPool* pool) {
           if (pool->name().compare(leafPoolName) != 0) {
             return;

@@ -20,13 +20,13 @@
 
 namespace facebook::presto::test {
 
-using namespace bolt;
-using namespace bolt::core;
+using namespace bytedance::bolt;
+using namespace bytedance::bolt::core;
 
 class BaseBoltQueryConfigTest : public testing::Test {
  protected:
   void setUpConfigFile(bool isMutable, bool setupSystemConfig = false) {
-    bolt::filesystems::registerLocalFileSystem();
+    bytedance::bolt::filesystems::registerLocalFileSystem();
 
     char path[] = "/tmp/base_bolt_query_config_test_XXXXXX";
     const char* tempDirectoryPath = mkdtemp(path);

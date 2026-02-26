@@ -12,11 +12,11 @@
  * limitations under the License.
  */
 #include "presto_cpp/main/PrestoServerOperations.h"
-#include "bolt/common/base/Exceptions.h>
-#include "bolt/common/base/BoltException.h>
-#include "bolt/common/caching/AsyncDataCache.h>
-#include "bolt/common/caching/SsdCache.h>
-#include "bolt/common/process/TraceContext.h>
+#include "bolt/common/base/Exceptions.h"
+#include "bolt/common/base/BoltException.h"
+#include "bolt/common/caching/AsyncDataCache.h"
+#include "bolt/common/caching/SsdCache.h"
+#include "bolt/common/process/TraceContext.h"
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/ServerOperation.h"
 #include "bolt/connectors/hive/HiveConnector.h"
@@ -38,8 +38,8 @@ std::string clearConnectorCache(proxygen::HTTPMessage* message) {
   if (name == "hive") {
     // ======== HiveConnector Operations ========
     auto hiveConnector =
-        std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
-            bolt::connector::getConnector(id));
+        std::dynamic_pointer_cast<bytedance::bolt::connector::hive::HiveConnector>(
+            bytedance::bolt::connector::getConnector(id));
     BOLT_USER_CHECK_NOT_NULL(
         hiveConnector,
         "No '{}' connector found for connector id '{}'",
@@ -56,8 +56,8 @@ std::string getConnectorCacheStats(proxygen::HTTPMessage* message) {
   if (name == "hive") {
     // ======== HiveConnector Operations ========
     auto hiveConnector =
-        std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
-            bolt::connector::getConnector(id));
+        std::dynamic_pointer_cast<bytedance::bolt::connector::hive::HiveConnector>(
+            bytedance::bolt::connector::getConnector(id));
     BOLT_USER_CHECK_NOT_NULL(
         hiveConnector,
         "No '{}' connector found for connector id '{}'",
@@ -93,9 +93,9 @@ void PrestoServerOperations::runOperation(
         http::sendOkResponse(downstream, serverOperation(op, message));
         break;
     }
-  } catch (const bolt::BoltUserError& ex) {
+  } catch (const bytedance::bolt::BoltUserError& ex) {
     http::sendErrorResponse(downstream, ex.what());
-  } catch (const bolt::BoltException& ex) {
+  } catch (const bytedance::bolt::BoltException& ex) {
     http::sendErrorResponse(downstream, ex.what());
   }
 }
@@ -254,8 +254,8 @@ std::string PrestoServerOperations::serverOperation(
       return serverOperationAnnouncer(message);
     case ServerOperation::Action::kClearCache:
       return serverOperationClearCache(message);
-    case ServerOperation::Action::kWriteSSD:
-      return serverOperationWriteSsd(message);
+    /*case ServerOperation::Action::kWriteSSD:
+      return serverOperationWriteSsd(message);*/
     default:
       break;
   }
@@ -263,7 +263,7 @@ std::string PrestoServerOperations::serverOperation(
 }
 
 std::string PrestoServerOperations::serverOperationTrace() {
-  return bolt::process::TraceContext::statusLine();
+  return bytedance::bolt::process::TraceContext::statusLine();
 }
 
 std::string PrestoServerOperations::serverOperationSetState(
@@ -330,7 +330,7 @@ std::string PrestoServerOperations::serverOperationClearCache(
         "Unknown cache type '{}' for server cache clear operation", type);
   }
 
-  auto* cache = bolt::cache::AsyncDataCache::getInstance();
+  auto* cache = bytedance::bolt::cache::AsyncDataCache::getInstance();
   if (cache == nullptr) {
     return "No memory cache set on server";
   }
@@ -348,9 +348,9 @@ std::string PrestoServerOperations::serverOperationClearCache(
   return "Cleared ssd cache";
 }
 
-std::string PrestoServerOperations::serverOperationWriteSsd(
+/*std::string PrestoServerOperations::serverOperationWriteSsd(
     proxygen::HTTPMessage* message) {
-  auto* cache = bolt::cache::AsyncDataCache::getInstance();
+  auto* cache = bytedance::bolt::cache::AsyncDataCache::getInstance();
   if (cache == nullptr) {
     return "No memory cache set on server";
   }
@@ -371,5 +371,5 @@ std::string PrestoServerOperations::serverOperationWriteSsd(
   ssdCache->checkpoint();
   ssdCache->waitForWriteToFinish();
   return "Succeeded write ssd cache";
-}
+}*/
 } // namespace facebook::presto

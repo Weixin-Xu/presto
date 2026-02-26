@@ -19,7 +19,7 @@
 
 namespace facebook::presto {
 
-using namespace bolt;
+using namespace bytedance::bolt;
 
 namespace {
 
@@ -28,7 +28,7 @@ static const std::string kTasksTable = "tasks";
 
 } // namespace
 
-const bolt::RowTypePtr SystemTableHandle::taskSchema() {
+const bytedance::bolt::RowTypePtr SystemTableHandle::taskSchema() {
   static std::vector<std::string> kTaskColumnNames = {
       "node_id",
       "task_id",
@@ -55,15 +55,15 @@ const bolt::RowTypePtr SystemTableHandle::taskSchema() {
       "last_heartbeat",
       "end"};
 
-  static std::vector<bolt::TypePtr> kTaskColumnTypes = {
-      bolt::VARCHAR(),   bolt::VARCHAR(),   bolt::VARCHAR(),
-      bolt::VARCHAR(),   bolt::VARCHAR(),   bolt::VARCHAR(),
-      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
-      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
-      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
-      bolt::BIGINT(),    bolt::BIGINT(),    bolt::BIGINT(),
-      bolt::BIGINT(),    bolt::BIGINT(),    bolt::TIMESTAMP(),
-      bolt::TIMESTAMP(), bolt::TIMESTAMP(), bolt::TIMESTAMP()};
+  static std::vector<bytedance::bolt::TypePtr> kTaskColumnTypes = {
+      bytedance::bolt::VARCHAR(),   bytedance::bolt::VARCHAR(),   bytedance::bolt::VARCHAR(),
+      bytedance::bolt::VARCHAR(),   bytedance::bolt::VARCHAR(),   bytedance::bolt::VARCHAR(),
+      bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),
+      bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),
+      bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),
+      bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),
+      bytedance::bolt::BIGINT(),    bytedance::bolt::BIGINT(),    bytedance::bolt::TIMESTAMP(),
+      bytedance::bolt::TIMESTAMP(), bytedance::bolt::TIMESTAMP(), bytedance::bolt::TIMESTAMP()};
   static const RowTypePtr kTaskSchema =
       ROW(std::move(kTaskColumnNames), std::move(kTaskColumnTypes));
   return kTaskSchema;
@@ -95,7 +95,7 @@ SystemDataSource::SystemDataSource(
         std::string,
         std::shared_ptr<connector::ColumnHandle>>& columnHandles,
     const TaskManager* taskManager,
-    bolt::memory::MemoryPool* FOLLY_NONNULL pool)
+    bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool)
     : taskManager_(taskManager), pool_(pool) {
   auto systemTableHandle =
       std::dynamic_pointer_cast<SystemTableHandle>(tableHandle);
@@ -304,26 +304,26 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
       case TaskColumnEnum::kCreated: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->createTimeMs));
+        SET_TASK_COLUMN(bytedance::bolt::Timestamp::fromMillis(task->createTimeMs));
         break;
       }
 
       case TaskColumnEnum::kStart: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
         SET_TASK_COLUMN(
-            bolt::Timestamp::fromMillis(task->firstSplitStartTimeMs));
+            bytedance::bolt::Timestamp::fromMillis(task->firstSplitStartTimeMs));
         break;
       }
 
       case TaskColumnEnum::kLastHeartBeat: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->lastHeartbeatMs));
+        SET_TASK_COLUMN(bytedance::bolt::Timestamp::fromMillis(task->lastHeartbeatMs));
         break;
       }
 
       case TaskColumnEnum::kEnd: {
         auto flat = result->childAt(i)->as<FlatVector<Timestamp>>();
-        SET_TASK_COLUMN(bolt::Timestamp::fromMillis(task->lastEndTimeMs));
+        SET_TASK_COLUMN(bytedance::bolt::Timestamp::fromMillis(task->lastEndTimeMs));
         break;
       }
     }
@@ -333,7 +333,7 @@ RowVectorPtr SystemDataSource::getTaskResults() {
 
 std::optional<RowVectorPtr> SystemDataSource::next(
     uint64_t size,
-    bolt::ContinueFuture& /*future*/) {
+    bytedance::bolt::ContinueFuture& /*future*/) {
   if (!currentSplit_) {
     return nullptr;
   }
@@ -347,7 +347,7 @@ std::optional<RowVectorPtr> SystemDataSource::next(
   return result;
 }
 
-std::unique_ptr<bolt::connector::ConnectorSplit>
+std::unique_ptr<bytedance::bolt::connector::ConnectorSplit>
 SystemPrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* const connectorSplit,
@@ -362,7 +362,7 @@ SystemPrestoToBoltConnector::toBoltSplit(
       splitContext->cacheable);
 }
 
-std::unique_ptr<bolt::connector::ColumnHandle>
+std::unique_ptr<bytedance::bolt::connector::ColumnHandle>
 SystemPrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
@@ -372,14 +372,14 @@ SystemPrestoToBoltConnector::toBoltColumnHandle(
   return std::make_unique<SystemColumnHandle>(systemColumn->columnName);
 }
 
-std::unique_ptr<bolt::connector::ConnectorTableHandle>
+std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle>
 SystemPrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
     const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments) const {
   auto systemLayout =
       std::dynamic_pointer_cast<const protocol::SystemTableLayoutHandle>(
           tableHandle.connectorTableLayout);

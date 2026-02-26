@@ -20,7 +20,7 @@ namespace facebook::presto::operators {
 // Helper functions to use with PlanBuilder::addNode.
 
 std::function<
-    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
+    bytedance::bolt::core::PlanNodePtr(std::string nodeId, bytedance::bolt::core::PlanNodePtr)>
 
 addPartitionAndSerializeNode(
     uint32_t numPartitions,
@@ -28,17 +28,17 @@ addPartitionAndSerializeNode(
     const std::vector<std::string>& serializedColumns = {});
 
 std::function<
-    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
-addShuffleReadNode(const bolt::RowTypePtr& outputType);
+    bytedance::bolt::core::PlanNodePtr(std::string nodeId, bytedance::bolt::core::PlanNodePtr)>
+addShuffleReadNode(const bytedance::bolt::RowTypePtr& outputType);
 
 std::function<
-    bolt::core::PlanNodePtr(std::string nodeId, bolt::core::PlanNodePtr)>
+    bytedance::bolt::core::PlanNodePtr(std::string nodeId, bytedance::bolt::core::PlanNodePtr)>
 addShuffleWriteNode(
     uint32_t numPartitions,
     const std::string& shuffleName,
     const std::string& serializedWriteInfo);
 
-std::function<bolt::core::PlanNodePtr(std::string, bolt::core::PlanNodePtr)>
+std::function<bytedance::bolt::core::PlanNodePtr(std::string, bytedance::bolt::core::PlanNodePtr)>
 
 /// Add BroadcastWriteNode for writing broadcast data to files under
 /// specified basePath

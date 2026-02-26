@@ -23,17 +23,17 @@ namespace facebook::presto::operators {
 /// number (INTEGER) and serialized row (VARBINARY). If 'replicateNullsAndAny'
 /// is true, the output includes a third boolean column which indicates whether
 /// a row needs to be replicated to all partitions.
-class PartitionAndSerializeNode : public bolt::core::PlanNode {
+class PartitionAndSerializeNode : public bytedance::bolt::core::PlanNode {
  public:
   PartitionAndSerializeNode(
-      const bolt::core::PlanNodeId& id,
-      std::vector<bolt::core::TypedExprPtr> keys,
+      const bytedance::bolt::core::PlanNodeId& id,
+      std::vector<bytedance::bolt::core::TypedExprPtr> keys,
       uint32_t numPartitions,
-      bolt::RowTypePtr serializedRowType,
-      bolt::core::PlanNodePtr source,
+      bytedance::bolt::RowTypePtr serializedRowType,
+      bytedance::bolt::core::PlanNodePtr source,
       bool replicateNullsAndAny,
-      bolt::core::PartitionFunctionSpecPtr partitionFunctionFactory)
-      : bolt::core::PlanNode(id),
+      bytedance::bolt::core::PartitionFunctionSpecPtr partitionFunctionFactory)
+      : bytedance::bolt::core::PlanNode(id),
         keys_(std::move(keys)),
         numPartitions_(numPartitions),
         serializedRowType_{std::move(serializedRowType)},
@@ -46,27 +46,27 @@ class PartitionAndSerializeNode : public bolt::core::PlanNode {
 
   folly::dynamic serialize() const override;
 
-  static bolt::core::PlanNodePtr create(
+  static bytedance::bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const bolt::RowTypePtr& outputType() const override {
-    static const bolt::RowTypePtr kOutputType{bolt::ROW(
-        {"partition", "data"}, {bolt::INTEGER(), bolt::VARBINARY()})};
+  const bytedance::bolt::RowTypePtr& outputType() const override {
+    static const bytedance::bolt::RowTypePtr kOutputType{bytedance::bolt::ROW(
+        {"partition", "data"}, {bytedance::bolt::INTEGER(), bytedance::bolt::VARBINARY()})};
 
-    static const bolt::RowTypePtr kReplicateNullsAndAnyOutputType{bolt::ROW(
+    static const bytedance::bolt::RowTypePtr kReplicateNullsAndAnyOutputType{bytedance::bolt::ROW(
         {"partition", "data", "replicate"},
-        {bolt::INTEGER(), bolt::VARBINARY(), bolt::BOOLEAN()})};
+        {bytedance::bolt::INTEGER(), bytedance::bolt::VARBINARY(), bytedance::bolt::BOOLEAN()})};
 
     return replicateNullsAndAny_ ? kReplicateNullsAndAnyOutputType
                                  : kOutputType;
   }
 
-  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
+  const std::vector<bytedance::bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
-  const std::vector<bolt::core::TypedExprPtr>& keys() const {
+  const std::vector<bytedance::bolt::core::TypedExprPtr>& keys() const {
     return keys_;
   }
 
@@ -74,7 +74,7 @@ class PartitionAndSerializeNode : public bolt::core::PlanNode {
     return numPartitions_;
   }
 
-  const bolt::RowTypePtr& serializedRowType() const {
+  const bytedance::bolt::RowTypePtr& serializedRowType() const {
     return serializedRowType_;
   }
 
@@ -86,7 +86,7 @@ class PartitionAndSerializeNode : public bolt::core::PlanNode {
     return replicateNullsAndAny_;
   }
 
-  const bolt::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
+  const bytedance::bolt::core::PartitionFunctionSpecPtr& partitionFunctionFactory()
       const {
     return partitionFunctionSpec_;
   }
@@ -98,20 +98,20 @@ class PartitionAndSerializeNode : public bolt::core::PlanNode {
  private:
   void addDetails(std::stringstream& stream) const override;
 
-  const std::vector<bolt::core::TypedExprPtr> keys_;
+  const std::vector<bytedance::bolt::core::TypedExprPtr> keys_;
   const uint32_t numPartitions_;
-  const bolt::RowTypePtr serializedRowType_;
-  const std::vector<bolt::core::PlanNodePtr> sources_;
+  const bytedance::bolt::RowTypePtr serializedRowType_;
+  const std::vector<bytedance::bolt::core::PlanNodePtr> sources_;
   const bool replicateNullsAndAny_;
-  const bolt::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
+  const bytedance::bolt::core::PartitionFunctionSpecPtr partitionFunctionSpec_;
 };
 
 class PartitionAndSerializeTranslator
-    : public bolt::exec::Operator::PlanNodeTranslator {
+    : public bytedance::bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<bolt::exec::Operator> toOperator(
-      bolt::exec::DriverCtx* ctx,
+  std::unique_ptr<bytedance::bolt::exec::Operator> toOperator(
+      bytedance::bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const bolt::core::PlanNodePtr& node) override;
+      const bytedance::bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

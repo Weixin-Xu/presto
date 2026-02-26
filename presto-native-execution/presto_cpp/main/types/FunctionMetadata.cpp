@@ -20,7 +20,7 @@
 #include "bolt/functions/FunctionRegistry.h"
 
 using namespace bytedance::bolt;
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 
 namespace facebook::presto {
 
@@ -88,7 +88,8 @@ const protocol::AggregationFunctionMetadata getAggregationFunctionMetadata(
   protocol::AggregationFunctionMetadata metadata;
   metadata.intermediateType = signature.intermediateType().toString();
   metadata.isOrderSensitive =
-      getAggregateFunctionEntry(name)->metadata.orderSensitive;
+      true;
+  //    getAggregateFunctionEntry(name)->metadata.orderSensitive;
   return metadata;
 }
 

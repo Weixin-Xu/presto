@@ -16,7 +16,9 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
+
 #include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/compression/Compression.h"
 #include "bolt/connectors/hive/HiveConfig.h"
 #include "bolt/core/QueryConfig.h"
 #include "bolt/type/tz/TimeZoneMap.h"
@@ -98,7 +100,8 @@ void updateBoltConnectorConfigs(
     std::unordered_map<
         std::string,
         std::unordered_map<std::string, std::string>>& connectorConfigStrings) {
-  const auto& systemConfig = SystemConfig::instance();
+  // bolt do not support session config `node_selection_strategy`
+  /* const auto& systemConfig = SystemConfig::instance();
   for (auto& entry : connectorConfigStrings) {
     auto& connectorConfig = entry.second;
     // If queryDataCacheEnabledDefault is true, when `node_selection_strategy`
@@ -123,7 +126,7 @@ void updateBoltConnectorConfigs(
           ? "true"
           : "false";
     }
-  }
+  } */
 }
 } // namespace
 
@@ -134,7 +137,7 @@ QueryContextManager::QueryContextManager(
       spillerExecutor_(spillerExecutor),
       sessionProperties_(SessionProperties()) {}
 
-std::shared_ptr<bolt::core::QueryCtx>
+std::shared_ptr<bytedance::bolt::core::QueryCtx>
 QueryContextManager::findOrCreateQueryCtx(
     const protocol::TaskId& taskId,
     const protocol::SessionRepresentation& session) {
@@ -167,7 +170,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
          std::make_shared<config::ConfigBase>(std::move(entry.second))});
   }
 
-  bolt::core::QueryConfig queryConfig{std::move(configStrings)};
+  bytedance::bolt::core::QueryConfig queryConfig{std::move(configStrings)};
   // NOTE: the monotonically increasing 'poolId' is appended to 'queryId' to
   // ensure that the name of root memory pool instance is always unique. In some
   // edge case, we found some background activities such as the long-running
@@ -192,7 +195,7 @@ std::shared_ptr<core::QueryCtx> QueryContextManager::findOrCreateQueryCtx(
 }
 
 void QueryContextManager::visitAllContexts(
-    std::function<void(const protocol::QueryId&, const bolt::core::QueryCtx*)>
+    std::function<void(const protocol::QueryId&, const bytedance::bolt::core::QueryCtx*)>
         visitor) const {
   auto lockedCache = queryContextCache_.rlock();
   for (const auto& it : lockedCache->ctxs()) {
@@ -225,18 +228,19 @@ QueryContextManager::toBoltConfigs(
     } else if (it.first == SessionProperties::kQueryTraceShardId) {
       traceShardId = it.second;
     } else if (it.first == SessionProperties::kShuffleCompressionEnabled) {
-      if (it.second == "true") {
+      // bolt do not support session config `shuffle_compression_enabled`
+      /* if (it.second == "true") {
         // NOTE: Presto java only support lz4 compression so configure the same
         // compression kind on bolt.
         configs[core::QueryConfig::kShuffleCompressionKind] =
-            bolt::common::compressionKindToString(
-                bolt::common::CompressionKind_LZ4);
+            bytedance::bolt::common::compressionKindToString(
+                bytedance::bolt::common::CompressionKind_LZ4);
       } else {
         BOLT_USER_CHECK_EQ(it.second, "false");
         configs[core::QueryConfig::kShuffleCompressionKind] =
-            bolt::common::compressionKindToString(
-                bolt::common::CompressionKind_NONE);
-      }
+            bytedance::bolt::common::compressionKindToString(
+                bytedance::bolt::common::CompressionKind_NONE);
+      } */
     } else {
       configs[sessionProperties_.toBoltConfig(it.first)] = it.second;
       sessionProperties_.updateBoltConfig(it.first, it.second);
@@ -247,15 +251,15 @@ QueryContextManager::toBoltConfigs(
   // configs. Throws if timeZoneKey can't be resolved.
   if (session.timeZoneKey != 0) {
     configs.emplace(
-        bolt::core::QueryConfig::kSessionTimezone,
-        bolt::tz::getTimeZoneName(session.timeZoneKey));
+        bytedance::bolt::core::QueryConfig::kSessionTimezone,
+        bytedance::bolt::tz::getTimeZoneName(session.timeZoneKey));
   }
 
   // Construct query tracing regex and pass to Bolt config.
   // It replaces the given native_query_trace_task_reg_exp if also set.
   if (traceFragmentId.has_value() || traceShardId.has_value()) {
     configs.emplace(
-        bolt::core::QueryConfig::kQueryTraceTaskRegExp,
+        bytedance::bolt::core::QueryConfig::kQueryTraceTaskRegExp,
         ".*\\." + traceFragmentId.value_or(".*") + "\\..*\\." +
             traceShardId.value_or(".*") + "\\..*");
   }

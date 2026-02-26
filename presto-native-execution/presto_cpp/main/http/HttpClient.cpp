@@ -18,7 +18,7 @@
 #endif // PRESTO_ENABLE_JWT
 #include <folly/io/async/EventBaseManager.h>
 #include <folly/synchronization/Latch.h>
-#include "bolt/common/base/Exceptions.h>
+#include "bolt/common/base/Exceptions.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -32,7 +32,7 @@ HttpClient::HttpClient(
     const folly::SocketAddress& address,
     std::chrono::milliseconds transactionTimeout,
     std::chrono::milliseconds connectTimeout,
-    std::shared_ptr<bolt::memory::MemoryPool> pool,
+    std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool,
     folly::SSLContextPtr sslContext,
     std::function<void(int)>&& reportOnBodyStatsFunc)
     : eventBase_(eventBase),
@@ -56,7 +56,7 @@ HttpClient::~HttpClient() {
 
 HttpResponse::HttpResponse(
     std::unique_ptr<proxygen::HTTPMessage> headers,
-    std::shared_ptr<bolt::memory::MemoryPool> pool,
+    std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool,
     uint64_t minResponseAllocBytes,
     uint64_t maxResponseAllocBytes)
     : headers_(std::move(headers)),
@@ -93,7 +93,7 @@ void HttpResponse::appendWithCopy(std::unique_ptr<folly::IOBuf>&& iobuf) {
   void* newBuf{nullptr};
   try {
     newBuf = pool_->allocate(roundedSize);
-  } catch (const bolt::BoltException& ex) {
+  } catch (const bytedance::bolt::BoltException& ex) {
     // NOTE: we need to catch exception and process it later in driver execution
     // context when processing the data response. Otherwise, the presto server
     // process will die.
@@ -124,7 +124,7 @@ void HttpResponse::append(std::unique_ptr<folly::IOBuf>&& iobuf) {
 }
 
 std::unique_ptr<folly::IOBuf> HttpResponse::consumeBody(
-    bolt::memory::MemoryPool* pool) {
+    bytedance::bolt::memory::MemoryPool* pool) {
   BOLT_CHECK_NULL(pool_);
   BOLT_CHECK(!hasError());
   uint64_t totalBytes{0};
@@ -157,13 +157,13 @@ void HttpResponse::freeBuffers() {
 
 FOLLY_ALWAYS_INLINE size_t
 HttpResponse::nextAllocationSize(uint64_t dataLength) const {
-  const size_t minAllocSize = bolt::bits::nextPowerOfTwo(
-      bolt::bits::roundUp(dataLength, minResponseAllocBytes_));
+  const size_t minAllocSize = bytedance::bolt::bits::nextPowerOfTwo(
+      bytedance::bolt::bits::roundUp(dataLength, minResponseAllocBytes_));
   return std::max<size_t>(
       minAllocSize,
       std::min<size_t>(
           maxResponseAllocBytes_,
-          bolt::bits::nextPowerOfTwo(bolt::bits::roundUp(
+          bytedance::bolt::bits::nextPowerOfTwo(bytedance::bolt::bits::roundUp(
               dataLength + bodyChainBytes_, minResponseAllocBytes_))));
 }
 
@@ -185,7 +185,7 @@ class ResponseHandler : public proxygen::HTTPTransactionHandler {
         minResponseAllocBytes_(
             client->memoryPool() == nullptr
                 ? 0
-                : bolt::memory::AllocationTraits::pageBytes(
+                : bytedance::bolt::memory::AllocationTraits::pageBytes(
                       client->memoryPool()->sizeClasses().front())),
         maxResponseAllocBytes_(
             std::max(minResponseAllocBytes_, maxResponseAllocBytes)),
@@ -531,7 +531,7 @@ folly::SemiFuture<std::unique_ptr<HttpResponse>> HttpClient::sendRequest(
   if (eventBase_ != nullptr) {
     if (delayMs > 0) {
       // schedule() is expected to be run in the event base thread
-      eventBase_->runInEventBaseThread([=]() {
+      eventBase_->runInEventBaseThread([this, sendCb, delayMs]() {
         eventBase_->schedule(sendCb, std::chrono::milliseconds(delayMs));
       });
     } else {

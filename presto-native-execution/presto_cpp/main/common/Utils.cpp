@@ -60,7 +60,7 @@ void installSignalHandler() {
 #ifdef __APPLE__
   google::InstallFailureSignalHandler();
 #else
-  facebook::bolt::process::addDefaultFatalSignalHandler();
+  bytedance::bolt::process::addDefaultFatalSignalHandler();
 #endif // __APPLE__
 }
 

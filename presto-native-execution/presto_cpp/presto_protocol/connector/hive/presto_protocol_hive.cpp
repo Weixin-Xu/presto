@@ -639,6 +639,338 @@ namespace facebook::presto::protocol::hive {
 // Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
 
 // NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
+static const std::pair<PrestoTableType, json> PrestoTableType_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {PrestoTableType::MANAGED_TABLE, "MANAGED_TABLE"},
+        {PrestoTableType::EXTERNAL_TABLE, "EXTERNAL_TABLE"},
+        {PrestoTableType::VIRTUAL_VIEW, "VIRTUAL_VIEW"},
+        {PrestoTableType::MATERIALIZED_VIEW, "MATERIALIZED_VIEW"},
+        {PrestoTableType::TEMPORARY_TABLE, "TEMPORARY_TABLE"},
+        {PrestoTableType::OTHER, "OTHER"}};
+void to_json(json& j, const PrestoTableType& e) {
+  static_assert(
+      std::is_enum<PrestoTableType>::value, "PrestoTableType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PrestoTableType_enum_table),
+      std::end(PrestoTableType_enum_table),
+      [e](const std::pair<PrestoTableType, json>& ej_pair) -> bool {
+        return ej_pair.first == e;
+      });
+  j = ((it != std::end(PrestoTableType_enum_table))
+           ? it
+           : std::begin(PrestoTableType_enum_table))
+          ->second;
+}
+void from_json(const json& j, PrestoTableType& e) {
+  static_assert(
+      std::is_enum<PrestoTableType>::value, "PrestoTableType must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(PrestoTableType_enum_table),
+      std::end(PrestoTableType_enum_table),
+      [&j](const std::pair<PrestoTableType, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(PrestoTableType_enum_table))
+           ? it
+           : std::begin(PrestoTableType_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+
+void to_json(json& j, const StorageFormat& p) {
+  j = json::object();
+  to_json_key(j, "serDe", p.serDe, "StorageFormat", "String", "serDe");
+  to_json_key(
+      j,
+      "inputFormat",
+      p.inputFormat,
+      "StorageFormat",
+      "String",
+      "inputFormat");
+  to_json_key(
+      j,
+      "outputFormat",
+      p.outputFormat,
+      "StorageFormat",
+      "String",
+      "outputFormat");
+}
+
+void from_json(const json& j, StorageFormat& p) {
+  from_json_key(j, "serDe", p.serDe, "StorageFormat", "String", "serDe");
+  from_json_key(
+      j,
+      "inputFormat",
+      p.inputFormat,
+      "StorageFormat",
+      "String",
+      "inputFormat");
+  from_json_key(
+      j,
+      "outputFormat",
+      p.outputFormat,
+      "StorageFormat",
+      "String",
+      "outputFormat");
+}
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+
+void to_json(json& j, const Storage& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "storageFormat",
+      p.storageFormat,
+      "Storage",
+      "StorageFormat",
+      "storageFormat");
+  to_json_key(j, "location", p.location, "Storage", "String", "location");
+  to_json_key(
+      j,
+      "bucketProperty",
+      p.bucketProperty,
+      "Storage",
+      "HiveBucketProperty",
+      "bucketProperty");
+  to_json_key(j, "skewed", p.skewed, "Storage", "bool", "skewed");
+  to_json_key(
+      j,
+      "serdeParameters",
+      p.serdeParameters,
+      "Storage",
+      "Map<String, String>",
+      "serdeParameters");
+  to_json_key(
+      j,
+      "parameters",
+      p.parameters,
+      "Storage",
+      "Map<String, String>",
+      "parameters");
+}
+
+void from_json(const json& j, Storage& p) {
+  from_json_key(
+      j,
+      "storageFormat",
+      p.storageFormat,
+      "Storage",
+      "StorageFormat",
+      "storageFormat");
+  from_json_key(j, "location", p.location, "Storage", "String", "location");
+  from_json_key(
+      j,
+      "bucketProperty",
+      p.bucketProperty,
+      "Storage",
+      "HiveBucketProperty",
+      "bucketProperty");
+  from_json_key(j, "skewed", p.skewed, "Storage", "bool", "skewed");
+  from_json_key(
+      j,
+      "serdeParameters",
+      p.serdeParameters,
+      "Storage",
+      "Map<String, String>",
+      "serdeParameters");
+  from_json_key(
+      j,
+      "parameters",
+      p.parameters,
+      "Storage",
+      "Map<String, String>",
+      "parameters");
+}
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+
+void to_json(json& j, const Table& p) {
+  j = json::object();
+  to_json_key(
+      j, "databaseName", p.databaseName, "Table", "String", "databaseName");
+  to_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
+  to_json_key(j, "owner", p.owner, "Table", "String", "owner");
+  to_json_key(
+      j, "tableType", p.tableType, "Table", "PrestoTableType", "tableType");
+  to_json_key(j, "storage", p.storage, "Table", "Storage", "storage");
+  to_json_key(
+      j, "dataColumns", p.dataColumns, "Table", "List<Column>", "dataColumns");
+  to_json_key(
+      j,
+      "partitionColumns",
+      p.partitionColumns,
+      "Table",
+      "List<Column>",
+      "partitionColumns");
+  to_json_key(
+      j,
+      "parameters",
+      p.parameters,
+      "Table",
+      "Map<String, String>",
+      "parameters");
+  to_json_key(
+      j,
+      "viewOriginalText",
+      p.viewOriginalText,
+      "Table",
+      "String",
+      "viewOriginalText");
+  to_json_key(
+      j,
+      "viewExpandedText",
+      p.viewExpandedText,
+      "Table",
+      "String",
+      "viewExpandedText");
+}
+
+void from_json(const json& j, Table& p) {
+  from_json_key(
+      j, "databaseName", p.databaseName, "Table", "String", "databaseName");
+  from_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
+  from_json_key(j, "owner", p.owner, "Table", "String", "owner");
+  from_json_key(
+      j, "tableType", p.tableType, "Table", "PrestoTableType", "tableType");
+  from_json_key(j, "storage", p.storage, "Table", "Storage", "storage");
+  from_json_key(
+      j, "dataColumns", p.dataColumns, "Table", "List<Column>", "dataColumns");
+  from_json_key(
+      j,
+      "partitionColumns",
+      p.partitionColumns,
+      "Table",
+      "List<Column>",
+      "partitionColumns");
+  from_json_key(
+      j,
+      "parameters",
+      p.parameters,
+      "Table",
+      "Map<String, String>",
+      "parameters");
+  from_json_key(
+      j,
+      "viewOriginalText",
+      p.viewOriginalText,
+      "Table",
+      "String",
+      "viewOriginalText");
+  from_json_key(
+      j,
+      "viewExpandedText",
+      p.viewExpandedText,
+      "Table",
+      "String",
+      "viewExpandedText");
+}
+} // namespace facebook::presto::protocol::hive
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol::hive {
+
+void to_json(json& j, const HivePageSinkMetadata& p) {
+  j = json::object();
+  to_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "HivePageSinkMetadata",
+      "SchemaTableName",
+      "schemaTableName");
+  to_json_key(j, "table", p.table, "HivePageSinkMetadata", "Table", "table");
+}
+
+void from_json(const json& j, HivePageSinkMetadata& p) {
+  from_json_key(
+      j,
+      "schemaTableName",
+      p.schemaTableName,
+      "HivePageSinkMetadata",
+      "SchemaTableName",
+      "schemaTableName");
+  from_json_key(j, "table", p.table, "HivePageSinkMetadata", "Table", "table");
+}
+} // namespace facebook::presto::protocol::hive
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+namespace facebook::presto::protocol::hive {
+
+static const std::pair<HiveStorageFormat, json> HiveStorageFormat_enum_table[] =
+    { // NOLINT: cert-err58-cpp
+        {HiveStorageFormat::ORC, "ORC"},
+        {HiveStorageFormat::DWRF, "DWRF"},
+        {HiveStorageFormat::ALPHA, "ALPHA"},
+        {HiveStorageFormat::PARQUET, "PARQUET"},
+        {HiveStorageFormat::AVRO, "AVRO"},
+        {HiveStorageFormat::RCBINARY, "RCBINARY"},
+        {HiveStorageFormat::RCTEXT, "RCTEXT"},
+        {HiveStorageFormat::SEQUENCEFILE, "SEQUENCEFILE"},
+        {HiveStorageFormat::JSON, "JSON"},
+        {HiveStorageFormat::TEXTFILE, "TEXTFILE"},
+        {HiveStorageFormat::CSV, "CSV"},
+        {HiveStorageFormat::PAGEFILE, "PAGEFILE"}};
+
+void to_json(json& j, const HiveStorageFormat& p) {
+  static_assert(
+      std::is_enum<HiveStorageFormat>::value,
+      "HiveStorageFormat must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(HiveStorageFormat_enum_table),
+      std::end(HiveStorageFormat_enum_table),
+      [&p](const std::pair<HiveStorageFormat, json>& ej_pair) -> bool {
+        return ej_pair.first == p;
+      });
+  j = ((it != std::end(HiveStorageFormat_enum_table))
+           ? it
+           : std::begin(HiveStorageFormat_enum_table))
+          ->second;
+}
+
+void from_json(const json& j, HiveStorageFormat& e) {
+  static_assert(
+      std::is_enum<HiveStorageFormat>::value,
+      "HiveStorageFormat must be an enum!");
+  const auto* it = std::find_if(
+      std::begin(HiveStorageFormat_enum_table),
+      std::end(HiveStorageFormat_enum_table),
+      [&j](const std::pair<HiveStorageFormat, json>& ej_pair) -> bool {
+        return ej_pair.second == j;
+      });
+  e = ((it != std::end(HiveStorageFormat_enum_table))
+           ? it
+           : std::begin(HiveStorageFormat_enum_table))
+          ->first;
+}
+} // namespace facebook::presto::protocol::hive
+namespace facebook::presto::protocol::hive {
+// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
+
+// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
 static const std::pair<TableType, json> TableType_enum_table[] =
     { // NOLINT: cert-err58-cpp
         {TableType::NEW, "NEW"},
@@ -1337,114 +1669,6 @@ void from_json(const json& j, std::shared_ptr<ColumnHandle>& p) {
 } // namespace facebook::presto::protocol::hive
 namespace facebook::presto::protocol::hive {
 
-void to_json(json& j, const StorageFormat& p) {
-  j = json::object();
-  to_json_key(j, "serDe", p.serDe, "StorageFormat", "String", "serDe");
-  to_json_key(
-      j,
-      "inputFormat",
-      p.inputFormat,
-      "StorageFormat",
-      "String",
-      "inputFormat");
-  to_json_key(
-      j,
-      "outputFormat",
-      p.outputFormat,
-      "StorageFormat",
-      "String",
-      "outputFormat");
-}
-
-void from_json(const json& j, StorageFormat& p) {
-  from_json_key(j, "serDe", p.serDe, "StorageFormat", "String", "serDe");
-  from_json_key(
-      j,
-      "inputFormat",
-      p.inputFormat,
-      "StorageFormat",
-      "String",
-      "inputFormat");
-  from_json_key(
-      j,
-      "outputFormat",
-      p.outputFormat,
-      "StorageFormat",
-      "String",
-      "outputFormat");
-}
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-
-void to_json(json& j, const Storage& p) {
-  j = json::object();
-  to_json_key(
-      j,
-      "storageFormat",
-      p.storageFormat,
-      "Storage",
-      "StorageFormat",
-      "storageFormat");
-  to_json_key(j, "location", p.location, "Storage", "String", "location");
-  to_json_key(
-      j,
-      "bucketProperty",
-      p.bucketProperty,
-      "Storage",
-      "HiveBucketProperty",
-      "bucketProperty");
-  to_json_key(j, "skewed", p.skewed, "Storage", "bool", "skewed");
-  to_json_key(
-      j,
-      "serdeParameters",
-      p.serdeParameters,
-      "Storage",
-      "Map<String, String>",
-      "serdeParameters");
-  to_json_key(
-      j,
-      "parameters",
-      p.parameters,
-      "Storage",
-      "Map<String, String>",
-      "parameters");
-}
-
-void from_json(const json& j, Storage& p) {
-  from_json_key(
-      j,
-      "storageFormat",
-      p.storageFormat,
-      "Storage",
-      "StorageFormat",
-      "storageFormat");
-  from_json_key(j, "location", p.location, "Storage", "String", "location");
-  from_json_key(
-      j,
-      "bucketProperty",
-      p.bucketProperty,
-      "Storage",
-      "HiveBucketProperty",
-      "bucketProperty");
-  from_json_key(j, "skewed", p.skewed, "Storage", "bool", "skewed");
-  from_json_key(
-      j,
-      "serdeParameters",
-      p.serdeParameters,
-      "Storage",
-      "Map<String, String>",
-      "serdeParameters");
-  from_json_key(
-      j,
-      "parameters",
-      p.parameters,
-      "Storage",
-      "Map<String, String>",
-      "parameters");
-}
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-
 void to_json(json& j, const TableToPartitionMapping& p) {
   j = json::object();
   to_json_key(
@@ -2016,129 +2240,5 @@ void to_json(json& j, const HiveTransactionHandle& p) {
 void from_json(const json& j, HiveTransactionHandle& p) {
   p._type = j["@type"];
   from_json_key(j, "uuid", p.uuid, "HiveTransactionHandle", "UUID", "uuid");
-}
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-// Loosly copied this here from NLOHMANN_JSON_SERIALIZE_ENUM()
-
-// NOLINTNEXTLINE: cppcoreguidelines-avoid-c-arrays
-static const std::pair<PrestoTableType, json> PrestoTableType_enum_table[] =
-    { // NOLINT: cert-err58-cpp
-        {PrestoTableType::MANAGED_TABLE, "MANAGED_TABLE"},
-        {PrestoTableType::EXTERNAL_TABLE, "EXTERNAL_TABLE"},
-        {PrestoTableType::VIRTUAL_VIEW, "VIRTUAL_VIEW"},
-        {PrestoTableType::MATERIALIZED_VIEW, "MATERIALIZED_VIEW"},
-        {PrestoTableType::TEMPORARY_TABLE, "TEMPORARY_TABLE"},
-        {PrestoTableType::OTHER, "OTHER"}};
-void to_json(json& j, const PrestoTableType& e) {
-  static_assert(
-      std::is_enum<PrestoTableType>::value, "PrestoTableType must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(PrestoTableType_enum_table),
-      std::end(PrestoTableType_enum_table),
-      [e](const std::pair<PrestoTableType, json>& ej_pair) -> bool {
-        return ej_pair.first == e;
-      });
-  j = ((it != std::end(PrestoTableType_enum_table))
-           ? it
-           : std::begin(PrestoTableType_enum_table))
-          ->second;
-}
-void from_json(const json& j, PrestoTableType& e) {
-  static_assert(
-      std::is_enum<PrestoTableType>::value, "PrestoTableType must be an enum!");
-  const auto* it = std::find_if(
-      std::begin(PrestoTableType_enum_table),
-      std::end(PrestoTableType_enum_table),
-      [&j](const std::pair<PrestoTableType, json>& ej_pair) -> bool {
-        return ej_pair.second == j;
-      });
-  e = ((it != std::end(PrestoTableType_enum_table))
-           ? it
-           : std::begin(PrestoTableType_enum_table))
-          ->first;
-}
-} // namespace facebook::presto::protocol::hive
-namespace facebook::presto::protocol::hive {
-
-void to_json(json& j, const Table& p) {
-  j = json::object();
-  to_json_key(
-      j, "databaseName", p.databaseName, "Table", "String", "databaseName");
-  to_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
-  to_json_key(j, "owner", p.owner, "Table", "String", "owner");
-  to_json_key(
-      j, "tableType", p.tableType, "Table", "PrestoTableType", "tableType");
-  to_json_key(j, "storage", p.storage, "Table", "Storage", "storage");
-  to_json_key(
-      j, "dataColumns", p.dataColumns, "Table", "List<Column>", "dataColumns");
-  to_json_key(
-      j,
-      "partitionColumns",
-      p.partitionColumns,
-      "Table",
-      "List<Column>",
-      "partitionColumns");
-  to_json_key(
-      j,
-      "parameters",
-      p.parameters,
-      "Table",
-      "Map<String, String>",
-      "parameters");
-  to_json_key(
-      j,
-      "viewOriginalText",
-      p.viewOriginalText,
-      "Table",
-      "String",
-      "viewOriginalText");
-  to_json_key(
-      j,
-      "viewExpandedText",
-      p.viewExpandedText,
-      "Table",
-      "String",
-      "viewExpandedText");
-}
-
-void from_json(const json& j, Table& p) {
-  from_json_key(
-      j, "databaseName", p.databaseName, "Table", "String", "databaseName");
-  from_json_key(j, "tableName", p.tableName, "Table", "String", "tableName");
-  from_json_key(j, "owner", p.owner, "Table", "String", "owner");
-  from_json_key(
-      j, "tableType", p.tableType, "Table", "PrestoTableType", "tableType");
-  from_json_key(j, "storage", p.storage, "Table", "Storage", "storage");
-  from_json_key(
-      j, "dataColumns", p.dataColumns, "Table", "List<Column>", "dataColumns");
-  from_json_key(
-      j,
-      "partitionColumns",
-      p.partitionColumns,
-      "Table",
-      "List<Column>",
-      "partitionColumns");
-  from_json_key(
-      j,
-      "parameters",
-      p.parameters,
-      "Table",
-      "Map<String, String>",
-      "parameters");
-  from_json_key(
-      j,
-      "viewOriginalText",
-      p.viewOriginalText,
-      "Table",
-      "String",
-      "viewOriginalText");
-  from_json_key(
-      j,
-      "viewExpandedText",
-      p.viewExpandedText,
-      "Table",
-      "String",
-      "viewExpandedText");
 }
 } // namespace facebook::presto::protocol::hive

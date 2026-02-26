@@ -63,15 +63,15 @@ class TaskManager {
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTask(
       const protocol::TaskId& taskId,
       const protocol::TaskUpdateRequest& updateRequest,
-      const bolt::core::PlanFragment& planFragment,
-      std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+      const bytedance::bolt::core::PlanFragment& planFragment,
+      std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateBatchTask(
       const protocol::TaskId& taskId,
       const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-      const bolt::core::PlanFragment& planFragment,
-      std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+      const bytedance::bolt::core::PlanFragment& planFragment,
+      std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
   // Iterates through a map of resultRequests and fetches data from
@@ -138,7 +138,7 @@ class TaskManager {
   int64_t getBytesProcessed() const;
 
   /// Stores the number of drivers in various states of execution.
-  bolt::exec::Task::DriverCounts getDriverCounts() const;
+  bytedance::bolt::exec::Task::DriverCounts getDriverCounts() const;
 
   // Returns array with number of tasks for each of five TaskState (enum defined
   // in exec/Task.h).
@@ -151,7 +151,7 @@ class TaskManager {
   /// on the taskMap cannot be taken, otherwise returns true.
   bool getStuckOpCalls(
       std::vector<std::string>& deadlockTasks,
-      std::vector<bolt::exec::Task::OpCallInfo>& stuckOpCalls) const;
+      std::vector<bytedance::bolt::exec::Task::OpCallInfo>& stuckOpCalls) const;
 
   /// Always returns tuple of non-empty string containing the spill directory
   /// and the date string directory, which is parent directory of task spill
@@ -177,10 +177,10 @@ class TaskManager {
 
   std::unique_ptr<protocol::TaskInfo> createOrUpdateTaskImpl(
       const protocol::TaskId& taskId,
-      const bolt::core::PlanFragment& planFragment,
+      const bytedance::bolt::core::PlanFragment& planFragment,
       const std::vector<protocol::TaskSource>& sources,
       const protocol::OutputBuffers& outputBuffers,
-      std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+      std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
       long startProcessCpuTime);
 
   std::shared_ptr<PrestoTask> findOrCreateTask(
@@ -191,7 +191,7 @@ class TaskManager {
   std::string nodeId_;
   folly::Synchronized<std::string> baseSpillDir_;
   int32_t oldTaskCleanUpMs_;
-  std::shared_ptr<bolt::exec::OutputBufferManager> bufferManager_;
+  std::shared_ptr<bytedance::bolt::exec::OutputBufferManager> bufferManager_;
   folly::Synchronized<TaskMap> taskMap_;
   std::unique_ptr<QueryContextManager> queryContextManager_;
   folly::Executor* httpSrvCpuExecutor_;

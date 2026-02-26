@@ -136,7 +136,7 @@ bool PrestoExchangeSource::shouldRequestLocked() {
 
 folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
     uint32_t maxBytes,
-    std::chrono::microseconds maxWait) {
+    uint32_t maxWait) {
   // Before calling 'request', the caller should have called
   // 'shouldRequestLocked' and received 'true' response. Hence, we expect
   // requestPending_ == true, atEnd_ == false.
@@ -145,7 +145,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
   // calls that mutate promise_ can be called concurrently.
   auto promise = BoltPromise<Response>("PrestoExchangeSource::request");
   auto future = promise.getSemiFuture();
-  bolt::common::testutil::TestValue::adjust(
+  bytedance::bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::request", this);
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -170,7 +170,7 @@ folly::SemiFuture<PrestoExchangeSource::Response> PrestoExchangeSource::request(
 void PrestoExchangeSource::doRequest(
     int64_t delayMs,
     uint32_t maxBytes,
-    std::chrono::microseconds maxWait) {
+    uint32_t maxWait) {
   if (closed_.load()) {
     queue_->setError("PrestoExchangeSource closed");
     return;
@@ -186,7 +186,7 @@ void PrestoExchangeSource::doRequest(
   }
   auto requestBuilder = http::RequestBuilder().method(method).url(path);
 
-  bolt::common::testutil::TestValue::adjust(
+  bytedance::bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::doRequest", this);
   requestBuilder
       .header(
@@ -194,7 +194,7 @@ void PrestoExchangeSource::doRequest(
           protocol::DataSize(maxBytes, protocol::DataUnit::BYTE).toString())
       .header(
           protocol::PRESTO_MAX_WAIT_HTTP_HEADER,
-          protocol::Duration(maxWait.count(), protocol::TimeUnit::MICROSECONDS)
+          protocol::Duration(maxWait, protocol::TimeUnit::SECONDS)
               .toString())
       .send(httpClient_.get(), "", delayMs)
       .via(driverExecutor_)
@@ -209,10 +209,10 @@ void PrestoExchangeSource::doRequest(
 
 void PrestoExchangeSource::handleDataResponse(
     folly::Try<std::unique_ptr<http::HttpResponse>> responseTry,
-    std::chrono::microseconds maxWait,
+    uint32_t maxWait,
     uint32_t maxBytes,
     const std::string& httpRequestPath) {
-  bolt::common::testutil::TestValue::adjust(
+  bytedance::bolt::common::testutil::TestValue::adjust(
       "facebook::presto::PrestoExchangeSource::handleDataResponse", this);
   if (responseTry.hasException()) {
     processDataError(
@@ -280,7 +280,7 @@ void PrestoExchangeSource::processDataResponse(
             << sequence_;
   }
 
-  std::vector<int64_t> remainingBytes;
+  /*std::vector<int64_t> remainingBytes;
   auto remainingBytesString = headers->getHeaders().getSingleOrEmpty(
       protocol::PRESTO_BUFFER_REMAINING_BYTES_HEADER);
   if (!remainingBytesString.empty()) {
@@ -289,7 +289,7 @@ void PrestoExchangeSource::processDataResponse(
       BOLT_CHECK_EQ(remainingBytes.size(), 1);
       remainingBytes.clear();
     }
-  }
+  }*/
 
   std::optional<int64_t> ackSequenceOpt;
   const auto nextTokenStr = headers->getHeaders().getSingleOrEmpty(
@@ -378,7 +378,7 @@ void PrestoExchangeSource::processDataResponse(
 
   if (requestPromise.valid() && !requestPromise.isFulfilled()) {
     requestPromise.setValue(
-        Response{pageSize, complete, std::move(remainingBytes)});
+        Response{pageSize, complete});
   } else {
     // The source must have been closed.
     BOLT_CHECK(closed_.load());
@@ -392,7 +392,7 @@ void PrestoExchangeSource::processDataResponse(
 void PrestoExchangeSource::processDataError(
     const std::string& path,
     uint32_t maxBytes,
-    std::chrono::microseconds maxWait,
+    uint32_t maxWait,
     const std::string& error) {
   ++failedAttempts_;
   if (!dataRequestRetryState_.isExhausted()) {
@@ -421,14 +421,14 @@ void PrestoExchangeSource::processDataError(
   }
 }
 
-void PrestoExchangeSource::pause() {
+/*void PrestoExchangeSource::pause() {
   int64_t ackSequence;
   {
     std::lock_guard<std::mutex> l(queue_->mutex());
     ackSequence = sequence_;
   }
   acknowledgeResults(ackSequence);
-}
+}*/
 
 void PrestoExchangeSource::acknowledgeResults(int64_t ackSequence) {
   auto ackPath = fmt::format("{}/{}/acknowledge", basePath_, ackSequence);
@@ -533,8 +533,8 @@ std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::getSelfPtr() {
 std::shared_ptr<PrestoExchangeSource> PrestoExchangeSource::create(
     const std::string& url,
     int destination,
-    const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-    bolt::memory::MemoryPool* memoryPool,
+    const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+    bytedance::bolt::memory::MemoryPool* memoryPool,
     folly::CPUThreadPoolExecutor* cpuExecutor,
     folly::IOThreadPoolExecutor* ioExecutor,
     http::HttpClientConnectionPool* connPool,

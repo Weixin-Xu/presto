@@ -67,7 +67,7 @@ class PeriodicServiceInventoryManager {
   const std::string id_;
   folly::Synchronized<std::string> details_;
   const uint64_t frequencyMs_;
-  const std::shared_ptr<bolt::memory::MemoryPool> pool_;
+  const std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool_;
   /// jitter value for backoff delay time in case of failure
   const double backOffjitterParam_{0.1};
 

@@ -35,25 +35,25 @@ std::optional<std::string> getBroadcastInfo(folly::Uri& uri) {
 folly::SemiFuture<BroadcastExchangeSource::Response>
 BroadcastExchangeSource::request(
     uint32_t /*maxBytes*/,
-    std::chrono::microseconds /*maxWait*/) {
+    uint32_t /*maxWait*/) {
   if (atEnd_) {
     return folly::makeFuture(Response{0, true});
   }
 
   atEnd_ = !reader_->hasNext();
   int64_t totalBytes = 0;
-  std::unique_ptr<bolt::exec::SerializedPage> page;
+  std::unique_ptr<bytedance::bolt::exec::SerializedPage> page;
   if (!atEnd_) {
     // Read outside the lock to avoid a potential deadlock
     // ExchangeClient guarantees not to call ExchangeSource#request concurrently
     auto buffer = reader_->next();
     totalBytes = buffer->size();
     auto ioBuf = folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
-    page = std::make_unique<bolt::exec::SerializedPage>(
+    page = std::make_unique<bytedance::bolt::exec::SerializedPage>(
         std::move(ioBuf), [buffer](auto& /*unused*/) {});
   }
 
-  std::vector<bolt::ContinuePromise> promises;
+  std::vector<bytedance::bolt::ContinuePromise> promises;
   {
     // Limit locking scope to queue manipulation
     std::lock_guard<std::mutex> l(queue_->mutex());
@@ -70,18 +70,18 @@ folly::F14FastMap<std::string, int64_t> BroadcastExchangeSource::stats() const {
   return reader_->stats();
 }
 
-folly::SemiFuture<BroadcastExchangeSource::Response>
-BroadcastExchangeSource::requestDataSizes(
-    std::chrono::microseconds /*maxWait*/) {
-  std::vector<int64_t> remainingBytes;
-  if (!atEnd_) {
-    // Use default value of ExchangeClient::getAveragePageSize() for now.
-    //
-    // TODO: Change BroadcastFileReader to return the next batch size.
-    remainingBytes.push_back(1 << 20);
-  }
-  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
-}
+//folly::SemiFuture<BroadcastExchangeSource::Response>
+//BroadcastExchangeSource::requestDataSizes(
+//    uint32_t /*maxWait*/) {
+//  std::vector<int64_t> remainingBytes;
+//  if (!atEnd_) {
+//    // Use default value of ExchangeClient::getAveragePageSize() for now.
+//    //
+//    // TODO: Change BroadcastFileReader to return the next batch size.
+//    remainingBytes.push_back(1 << 20);
+//  }
+//  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+//}
 
 // static
 std::shared_ptr<exec::ExchangeSource>

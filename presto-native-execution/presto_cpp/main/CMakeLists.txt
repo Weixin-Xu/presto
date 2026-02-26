@@ -47,23 +47,22 @@ target_link_libraries(
   $<TARGET_OBJECTS:presto_protocol>
   presto_common
   presto_exception
-  presto_function_metadata
+  # presto_function_metadata
   presto_http
   presto_operators
   presto_bolt_conversion
   bolt::bolt
-  ${RE2}
-  ${FOLLY_WITH_DEPENDENCIES}
-  ${GLOG}
-  ${GFLAGS_LIBRARIES}
+  re2::re2
+  Folly::folly
+  gflags::gflags
+  nlohmann_json::nlohmann_json
   pthread)
 
 # Enabling Parquet causes build errors with missing symbols on MacOS. This is
 # likely due to a conflict between Arrow Thrift from bolt_hive_connector and
 # FBThrift libraries. The build issue is fixed by linking bolt_hive_connector
 # dependencies first followed by FBThrift.
-target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra
-                      ${THRIFT_LIBRARY})
+target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra)
 
 set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
                                                presto_link_job_pool)
@@ -80,7 +79,7 @@ if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
   add_library(presto_server_remote_function JsonSignatureParser.cpp
                                             RemoteFunctionRegisterer.cpp)
 
-  target_link_libraries(presto_server_remote_function bolt::bolt ${FOLLY_WITH_DEPENDENCIES})
+  target_link_libraries(presto_server_remote_function bolt::bolt folly::folly)
   target_link_libraries(presto_server_lib presto_server_remote_function)
 endif()
 

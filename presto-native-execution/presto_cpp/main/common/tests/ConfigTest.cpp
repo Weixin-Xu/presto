@@ -21,12 +21,12 @@
 
 namespace facebook::presto::test {
 
-using namespace bolt;
+using namespace bytedance::bolt;
 
 class ConfigTest : public testing::Test {
  protected:
   void SetUp() override {
-    bolt::filesystems::registerLocalFileSystem();
+    bytedance::bolt::filesystems::registerLocalFileSystem();
     setUpConfigFilePath();
   }
 

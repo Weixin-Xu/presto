@@ -65,15 +65,15 @@ void ConfigBase::initialize(const std::string& filePath, bool optionalConfig) {
     mutableConfig = folly::to<bool>(it->second);
   }
 
-  config_ = std::make_unique<bolt::config::ConfigBase>(
+  config_ = std::make_unique<bytedance::bolt::config::ConfigBase>(
       std::move(values), mutableConfig);
 }
 
 std::string ConfigBase::capacityPropertyAsBytesString(
     std::string_view propertyName) const {
-  return folly::to<std::string>(bolt::config::toCapacity(
+  return folly::to<std::string>(bytedance::bolt::config::toCapacity(
       optionalProperty(propertyName).value(),
-      bolt::config::CapacityUnit::BYTE));
+      bytedance::bolt::config::CapacityUnit::BYTE));
 }
 
 bool ConfigBase::registerProperty(
@@ -505,7 +505,7 @@ int32_t SystemConfig::asyncCacheMinSsdSavableBytes() const {
 
 std::chrono::duration<double> SystemConfig::asyncCachePersistenceInterval()
     const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kAsyncCachePersistenceInterval).value());
 }
 
@@ -645,9 +645,9 @@ uint64_t SystemConfig::httpMaxAllocateBytes() const {
 }
 
 uint64_t SystemConfig::queryMaxMemoryPerNode() const {
-  return bolt::config::toCapacity(
+  return bytedance::bolt::config::toCapacity(
       optionalProperty(kQueryMaxMemoryPerNode).value(),
-      bolt::config::CapacityUnit::BYTE);
+      bytedance::bolt::config::CapacityUnit::BYTE);
 }
 
 bool SystemConfig::enableMemoryLeakCheck() const {
@@ -680,17 +680,17 @@ uint64_t SystemConfig::heartbeatFrequencyMs() const {
 }
 
 std::chrono::duration<double> SystemConfig::exchangeMaxErrorDuration() const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kExchangeMaxErrorDuration).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeRequestTimeoutMs() const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kExchangeRequestTimeout).value());
 }
 
 std::chrono::duration<double> SystemConfig::exchangeConnectTimeoutMs() const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kExchangeConnectTimeout).value());
 }
 
@@ -746,12 +746,12 @@ bool SystemConfig::cacheBoltTtlEnabled() const {
 }
 
 std::chrono::duration<double> SystemConfig::cacheBoltTtlThreshold() const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kCacheBoltTtlThreshold).value());
 }
 
 std::chrono::duration<double> SystemConfig::cacheBoltTtlCheckInterval() const {
-  return bolt::config::toDuration(
+  return bytedance::bolt::config::toDuration(
       optionalProperty(kCacheBoltTtlCheckInterval).value());
 }
 
@@ -819,8 +819,8 @@ std::string NodeConfig::nodeInternalAddress(
 
 BaseBoltQueryConfig::BaseBoltQueryConfig() {
   // Use empty instance to get default property values.
-  bolt::core::QueryConfig c{{}};
-  using namespace bolt::core;
+  bytedance::bolt::core::QueryConfig c{{}};
+  using namespace bytedance::bolt::core;
   registeredProps_ =
       std::unordered_map<std::string, folly::Optional<std::string>>{
           BOOL_PROP(kMutableConfig, false),
@@ -882,9 +882,6 @@ BaseBoltQueryConfig::BaseBoltQueryConfig() {
           BOOL_PROP(
               QueryConfig::kPrestoArrayAggIgnoreNulls,
               c.prestoArrayAggIgnoreNulls()),
-          BOOL_PROP(
-              QueryConfig::kSelectiveNimbleReaderEnabled,
-              c.selectiveNimbleReaderEnabled()),
           NUM_PROP(QueryConfig::kMaxOutputBufferSize, c.maxOutputBufferSize()),
       };
 }
@@ -900,7 +897,7 @@ void BaseBoltQueryConfig::updateLoadedValues(
   // Update bolt config with values from presto system config.
   auto systemConfig = SystemConfig::instance();
 
-  using namespace bolt::core;
+  using namespace bytedance::bolt::core;
   std::unordered_map<std::string, std::string> updatedValues{
       {QueryConfig::kPrestoArrayAggIgnoreNulls,
        bool2String(systemConfig->useLegacyArrayAgg())},

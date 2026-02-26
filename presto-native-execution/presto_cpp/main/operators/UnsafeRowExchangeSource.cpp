@@ -16,14 +16,14 @@
 
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "bolt/serializers/RowSerializer.h"
+#include "bolt/exec/ExchangeQueue.h"
 
 namespace facebook::presto::operators {
 
 #define CALL_SHUFFLE(call, methodName)                                \
   try {                                                               \
     call;                                                             \
-  } catch (const bolt::BoltException& e) {                          \
+  } catch (const bytedance::bolt::BoltException& e) {                          \
     throw;                                                            \
   } catch (const std::exception& e) {                                 \
     BOLT_FAIL("ShuffleReader::{} failed: {}", methodName, e.what()); \
@@ -32,11 +32,11 @@ namespace facebook::presto::operators {
 folly::SemiFuture<UnsafeRowExchangeSource::Response>
 UnsafeRowExchangeSource::request(
     uint32_t /*maxBytes*/,
-    std::chrono::microseconds /*maxWait*/) {
+    uint32_t /*maxWait*/) {
   auto nextBatch = [this]() {
     return std::move(shuffle_->next())
-        .deferValue([this](bolt::BufferPtr buffer) {
-          std::vector<bolt::ContinuePromise> promises;
+        .deferValue([this](bytedance::bolt::BufferPtr buffer) {
+          std::vector<bytedance::bolt::ContinuePromise> promises;
           int64_t totalBytes{0};
 
           {
@@ -49,22 +49,12 @@ UnsafeRowExchangeSource::request(
               BOLT_CHECK_LE(totalBytes, std::numeric_limits<int32_t>::max());
 
               ++numBatches_;
-              bolt::serializer::detail::RowGroupHeader rowHeader{
-                  .uncompressedSize = static_cast<int32_t>(totalBytes),
-                  .compressedSize = static_cast<int32_t>(totalBytes),
-                  .compressed = false};
-              auto headBuffer = std::make_shared<std::string>(
-                  bolt::serializer::detail::RowGroupHeader::size(), '0');
-              rowHeader.write(const_cast<char*>(headBuffer->data()));
 
-              auto ioBuf = folly::IOBuf::wrapBuffer(
-                  headBuffer->data(), headBuffer->size());
-              ioBuf->appendToChain(
-                  folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size()));
+              auto ioBuf =
+                  folly::IOBuf::wrapBuffer(buffer->as<char>(), buffer->size());
               queue_->enqueueLocked(
-                  std::make_unique<bolt::exec::SerializedPage>(
-                      std::move(ioBuf),
-                      [buffer, headBuffer](auto& /*unused*/) {}),
+                  std::make_unique<bytedance::bolt::exec::SerializedPage>(
+                      std::move(ioBuf), [buffer](auto& /*unused*/) {}),
                   promises);
             }
           }
@@ -85,18 +75,18 @@ UnsafeRowExchangeSource::request(
   CALL_SHUFFLE(return nextBatch(), "next");
 }
 
-folly::SemiFuture<UnsafeRowExchangeSource::Response>
-UnsafeRowExchangeSource::requestDataSizes(
-    std::chrono::microseconds /*maxWait*/) {
-  std::vector<int64_t> remainingBytes;
-  if (!atEnd_) {
-    // Use default value of ExchangeClient::getAveragePageSize() for now.
-    //
-    // TODO: Change ShuffleReader to return the next batch size.
-    remainingBytes.push_back(1 << 20);
-  }
-  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
-}
+//folly::SemiFuture<UnsafeRowExchangeSource::Response>
+//UnsafeRowExchangeSource::requestDataSizes(
+//    uint32_t /*maxWait*/) {
+//  std::vector<int64_t> remainingBytes;
+//  if (!atEnd_) {
+//    // Use default value of ExchangeClient::getAveragePageSize() for now.
+//    //
+//    // TODO: Change ShuffleReader to return the next batch size.
+//    remainingBytes.push_back(1 << 20);
+//  }
+//  return folly::makeSemiFuture(Response{0, atEnd_, std::move(remainingBytes)});
+//}
 
 folly::F14FastMap<std::string, int64_t> UnsafeRowExchangeSource::stats() const {
   return shuffle_->stats();
@@ -116,12 +106,12 @@ std::optional<std::string> getSerializedShuffleInfo(folly::Uri& uri) {
 } // namespace
 
 // static
-std::shared_ptr<bolt::exec::ExchangeSource>
+std::shared_ptr<bytedance::bolt::exec::ExchangeSource>
 UnsafeRowExchangeSource::createExchangeSource(
     const std::string& url,
     int32_t destination,
-    const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-    bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
+    const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+    bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
   if (::strncmp(url.c_str(), "batch://", 8) != 0) {
     return nullptr;
   }

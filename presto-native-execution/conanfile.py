@@ -37,13 +37,15 @@ class PrestoServeroConan(ConanFile):
 
     def requirements(self):
         #if self.channel is not None:
-        #    self.requires(f"bolt/{self.version}@{self.user}/{self.channel}")
+        #    self.requires(f"bolt/{self.version}@{self.user}/{self.channel}", transitive_headers=True, transitive_libs=True)
         #else:
-        #    self.requires(f"bolt/{self.version}")
+        #    self.requires(f"bolt/{self.version}", transitive_headers=True, transitive_libs=True)
         self.requires('bolt/main', transitive_headers=True, transitive_libs=True)
 
         self.requires(f"folly/{self.FB_VERSION}", transitive_headers=True, transitive_libs=True)
         self.requires(f'proxygen/{self.FB_VERSION}', transitive_headers=True, transitive_libs=True, force=True)
+        self.requires(f'fbthrift/{self.FB_VERSION}', transitive_headers=True, transitive_libs=True)
+        self.requires('nlohmann_json/3.10.5', transitive_headers=True, transitive_libs=True)
         self.requires("libsodium/1.0.19", transitive_headers=True, transitive_libs=True)
 
         if self.options.enable_jemalloc:

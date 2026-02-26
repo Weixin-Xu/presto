@@ -20,10 +20,10 @@ namespace facebook::presto {
 
 class TypeParser {
  public:
-  bolt::TypePtr parse(const std::string& text) const;
+  bytedance::bolt::TypePtr parse(const std::string& text) const;
 
  private:
-  mutable std::unordered_map<std::string, bolt::TypePtr> cache_;
+  mutable std::unordered_map<std::string, bytedance::bolt::TypePtr> cache_;
 };
 
 } // namespace facebook::presto

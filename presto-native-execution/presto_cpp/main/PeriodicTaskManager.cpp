@@ -19,7 +19,6 @@
 #include "presto_cpp/main/PrestoServer.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
-#include "bolt/common/base/PeriodicStatsReporter.h"
 #include "bolt/common/base/StatsReporter.h"
 #include "bolt/common/base/SuccinctPrinter.h"
 #include "bolt/common/caching/AsyncDataCache.h"
@@ -44,27 +43,27 @@ namespace facebook::presto {
 
 namespace {
 folly::StringPiece getCounterForBlockingReason(
-    bolt::exec::BlockingReason reason) {
+    bytedance::bolt::exec::BlockingReason reason) {
   switch (reason) {
-    case bolt::exec::BlockingReason::kWaitForConsumer:
+    case bytedance::bolt::exec::BlockingReason::kWaitForConsumer:
       return kCounterNumBlockedWaitForConsumerDrivers;
-    case bolt::exec::BlockingReason::kWaitForSplit:
+    case bytedance::bolt::exec::BlockingReason::kWaitForSplit:
       return kCounterNumBlockedWaitForSplitDrivers;
-    case bolt::exec::BlockingReason::kWaitForProducer:
+    case bytedance::bolt::exec::BlockingReason::kWaitForProducer:
       return kCounterNumBlockedWaitForProducerDrivers;
-    case bolt::exec::BlockingReason::kWaitForJoinBuild:
+    case bytedance::bolt::exec::BlockingReason::kWaitForJoinBuild:
       return kCounterNumBlockedWaitForJoinBuildDrivers;
-    case bolt::exec::BlockingReason::kWaitForJoinProbe:
+    case bytedance::bolt::exec::BlockingReason::kWaitForJoinProbe:
       return kCounterNumBlockedWaitForJoinProbeDrivers;
-    case bolt::exec::BlockingReason::kWaitForMergeJoinRightSide:
+    case bytedance::bolt::exec::BlockingReason::kWaitForMergeJoinRightSide:
       return kCounterNumBlockedWaitForMergeJoinRightSideDrivers;
-    case bolt::exec::BlockingReason::kWaitForMemory:
+    case bytedance::bolt::exec::BlockingReason::kWaitForMemory:
       return kCounterNumBlockedWaitForMemoryDrivers;
-    case bolt::exec::BlockingReason::kWaitForConnector:
+    case bytedance::bolt::exec::BlockingReason::kWaitForConnector:
       return kCounterNumBlockedWaitForConnectorDrivers;
-    case bolt::exec::BlockingReason::kYield:
+    case bytedance::bolt::exec::BlockingReason::kYield:
       return kCounterNumBlockedYieldDrivers;
-    case bolt::exec::BlockingReason::kNotBlocked:
+    case bytedance::bolt::exec::BlockingReason::kNotBlocked:
       [[fallthrough]];
     default:
       return {};
@@ -91,7 +90,7 @@ class ThreadPoolExecutorStatsReporter {
     BOLT_CHECK_NOT_NULL(executor_);
     const auto numThreads = executor_->numThreads();
     const auto numHistogramBuckets = 100;
-    DEFINE_METRIC(numThreadsMetricName_, facebook::bolt::StatType::AVG);
+    DEFINE_METRIC(numThreadsMetricName_, bytedance::bolt::StatType::AVG);
     DEFINE_HISTOGRAM_METRIC(
         numActiveThreadsMetricName_, 1, 0, numThreads, 50, 90, 100);
     DEFINE_HISTOGRAM_METRIC(
@@ -146,7 +145,7 @@ class ThreadPoolExecutorStatsReporter {
 class HiveConnectorStatsReporter {
  public:
   explicit HiveConnectorStatsReporter(
-      std::shared_ptr<bolt::connector::hive::HiveConnector> connector)
+      std::shared_ptr<bytedance::bolt::connector::hive::HiveConnector> connector)
       : connector_(std::move(connector)),
         numElementsMetricName_(fmt::format(
             kCounterHiveFileHandleCacheNumElementsFormat,
@@ -169,13 +168,13 @@ class HiveConnectorStatsReporter {
         numLookupsMetricName_(fmt::format(
             kCounterHiveFileHandleCacheNumLookupsFormat,
             connector_->connectorId())) {
-    DEFINE_METRIC(numElementsMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(pinnedSizeMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(curSizeMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(numAccumulativeHitsMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(numAccumulativeLookupsMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(numHitsMetricName_, bolt::StatType::AVG);
-    DEFINE_METRIC(numLookupsMetricName_, bolt::StatType::AVG);
+    DEFINE_METRIC(numElementsMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(pinnedSizeMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(curSizeMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeHitsMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(numAccumulativeLookupsMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(numHitsMetricName_, bytedance::bolt::StatType::AVG);
+    DEFINE_METRIC(numLookupsMetricName_, bytedance::bolt::StatType::AVG);
   }
 
   void report() {
@@ -193,7 +192,7 @@ class HiveConnectorStatsReporter {
   }
 
  private:
-  const std::shared_ptr<bolt::connector::hive::HiveConnector> connector_;
+  const std::shared_ptr<bytedance::bolt::connector::hive::HiveConnector> connector_;
   const std::string numElementsMetricName_;
   const std::string pinnedSizeMetricName_;
   const std::string curSizeMetricName_;
@@ -220,6 +219,8 @@ static constexpr size_t kConnectorPeriodGlobalCounters{
 static constexpr size_t kOsPeriodGlobalCounters{2'000'000}; // 2 seconds
 static constexpr size_t kHttpServerPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
+static constexpr size_t kArbitratorStatsUpdateIntervalUs{
+    60'000'000}; // 60 seconds
 static constexpr size_t kHttpClientPeriodGlobalCounters{
     60'000'000}; // 60 seconds.
 
@@ -231,11 +232,11 @@ PeriodicTaskManager::PeriodicTaskManager(
     folly::IOThreadPoolExecutor* exchangeHttpIoExecutor,
     folly::CPUThreadPoolExecutor* exchangeHttpCpuExecutor,
     TaskManager* taskManager,
-    const bolt::memory::MemoryAllocator* memoryAllocator,
-    const bolt::cache::AsyncDataCache* asyncDataCache,
+    const bytedance::bolt::memory::MemoryAllocator* memoryAllocator,
+    const bytedance::bolt::cache::AsyncDataCache* asyncDataCache,
     const std::unordered_map<
         std::string,
-        std::shared_ptr<bolt::connector::Connector>>& connectors,
+        std::shared_ptr<bytedance::bolt::connector::Connector>>& connectors,
     PrestoServer* server)
     : driverCPUExecutor_(driverCPUExecutor),
       spillerExecutor_(spillerExecutor),
@@ -246,19 +247,11 @@ PeriodicTaskManager::PeriodicTaskManager(
       taskManager_(taskManager),
       memoryAllocator_(memoryAllocator),
       asyncDataCache_(asyncDataCache),
-      arbitrator_(bolt::memory::memoryManager()->arbitrator()),
+      arbitrator_(bytedance::bolt::memory::memoryManager()->arbitrator()),
       connectors_(connectors),
       server_(server) {}
 
 void PeriodicTaskManager::start() {
-  BOLT_CHECK_NOT_NULL(arbitrator_);
-  bolt::PeriodicStatsReporter::Options opts;
-  opts.arbitrator = arbitrator_->kind() == "NOOP" ? nullptr : arbitrator_;
-  opts.allocator = memoryAllocator_;
-  opts.cache = asyncDataCache_;
-  opts.spillMemoryPool = bolt::memory::spillMemoryPool();
-  bolt::startPeriodicStatsReporter(opts);
-
   // If executors are null, don't bother starting this task.
   if ((driverCPUExecutor_ != nullptr) || (httpSrvIoExecutor_ != nullptr)) {
     addExecutorStatsTask();
@@ -283,6 +276,11 @@ void PeriodicTaskManager::start() {
 
   addHttpClientStatsTask();
 
+  BOLT_CHECK_NOT_NULL(arbitrator_);
+  if (arbitrator_->kind() != "NOOP") {
+    addArbitratorStatsTask();
+  }
+
   if (server_ && server_->hasCoordinatorDiscoverer()) {
     numDriverThreads_ = server_->numDriverThreads();
     addWatchdogTask();
@@ -292,7 +290,6 @@ void PeriodicTaskManager::start() {
 }
 
 void PeriodicTaskManager::stop() {
-  bolt::stopPeriodicStatsReporter();
   oneTimeRunner_.cancelAllFunctionsAndWait();
   oneTimeRunner_.shutdown();
   repeatedRunner_.stop();
@@ -334,19 +331,19 @@ void PeriodicTaskManager::updateTaskStats() {
       kCounterNumTasksBytesProcessed, taskManager_->getBytesProcessed());
   RECORD_METRIC_VALUE(
       kCounterNumTasksRunning,
-      taskNumbers[static_cast<int>(bolt::exec::TaskState::kRunning)]);
+      taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kRunning)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFinished,
-      taskNumbers[static_cast<int>(bolt::exec::TaskState::kFinished)]);
+      taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kFinished)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksCancelled,
-      taskNumbers[static_cast<int>(bolt::exec::TaskState::kCanceled)]);
+      taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kCanceled)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksAborted,
-      taskNumbers[static_cast<int>(bolt::exec::TaskState::kAborted)]);
+      taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kAborted)]);
   RECORD_METRIC_VALUE(
       kCounterNumTasksFailed,
-      taskNumbers[static_cast<int>(bolt::exec::TaskState::kFailed)]);
+      taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kFailed)]);
 
   const auto driverCounts = taskManager_->getDriverCounts();
   RECORD_METRIC_VALUE(kCounterNumQueuedDrivers, driverCounts.numQueuedDrivers);
@@ -362,7 +359,7 @@ void PeriodicTaskManager::updateTaskStats() {
   }
   RECORD_METRIC_VALUE(
       kCounterTotalPartitionedOutputBuffer,
-      bolt::exec::OutputBufferManager::getInstance().lock()->numBuffers());
+      bytedance::bolt::exec::OutputBufferManager::getInstance().lock()->numBuffers());
 }
 
 void PeriodicTaskManager::addTaskStatsTask() {
@@ -407,7 +404,7 @@ void PeriodicTaskManager::addConnectorStatsTask() {
   std::vector<HiveConnectorStatsReporter> reporters;
   for (const auto& itr : connectors_) {
     if (auto hiveConnector =
-            std::dynamic_pointer_cast<bolt::connector::hive::HiveConnector>(
+            std::dynamic_pointer_cast<bytedance::bolt::connector::hive::HiveConnector>(
                 itr.second)) {
       reporters.emplace_back(std::move(hiveConnector));
     }
@@ -471,6 +468,50 @@ void PeriodicTaskManager::addOperatingSystemStatsUpdateTask() {
       "os_counters");
 }
 
+void PeriodicTaskManager::addArbitratorStatsTask() {
+  addTask(
+      [this]() { updateArbitratorStatsTask(); },
+      kArbitratorStatsUpdateIntervalUs,
+      "arbitrator_stats");
+}
+
+void PeriodicTaskManager::updateArbitratorStatsTask() {
+  const auto updatedArbitratorStats = arbitrator_->stats();
+  BOLT_CHECK_GE(updatedArbitratorStats, lastArbitratorStats_);
+  const auto deltaArbitratorStats =
+      updatedArbitratorStats - lastArbitratorStats_;
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumRequests, deltaArbitratorStats.numRequests);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumAborted, deltaArbitratorStats.numAborted);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumFailures, deltaArbitratorStats.numFailures);
+  /*REPORT_IF_NOT_ZERO(
+      kCounterArbitratorQueueTimeUs, deltaArbitratorStats.queueTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorArbitrationTimeUs,
+      deltaArbitratorStats.arbitrationTimeUs);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumShrunkBytes, deltaArbitratorStats.numShrunkBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNumReclaimedBytes,
+      deltaArbitratorStats.numReclaimedBytes);*/
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorFreeCapacityBytes,
+      deltaArbitratorStats.freeCapacityBytes);
+  REPORT_IF_NOT_ZERO(
+      kCounterArbitratorNonReclaimableAttempts,
+      deltaArbitratorStats.numNonReclaimableAttempts);
+
+  if (!deltaArbitratorStats.empty()) {
+    LOG(INFO) << "Updated memory arbitrator stats: "
+              << updatedArbitratorStats.toString();
+    LOG(INFO) << "Memory arbitrator stats change: "
+              << deltaArbitratorStats.toString();
+  }
+  lastArbitratorStats_ = updatedArbitratorStats;
+}
+
 void PeriodicTaskManager::printHttpServerStats() {
   const auto latencyMetrics =
       http::filters::HttpEndpointLatencyFilter::retrieveLatencies();
@@ -509,7 +550,7 @@ void PeriodicTaskManager::addWatchdogTask() {
   addTask(
       [this] {
         std::vector<std::string> deadlockTasks;
-        std::vector<bolt::exec::Task::OpCallInfo> stuckOpCalls;
+        std::vector<bytedance::bolt::exec::Task::OpCallInfo> stuckOpCalls;
         if (!taskManager_->getStuckOpCalls(deadlockTasks, stuckOpCalls)) {
           LOG(ERROR)
               << "Cannot take lock on task manager, likely starving or deadlocked";
@@ -524,8 +565,9 @@ void PeriodicTaskManager::addWatchdogTask() {
         RECORD_METRIC_VALUE(kCounterNumTasksDeadlock, deadlockTasks.size());
         for (const auto& call : stuckOpCalls) {
           LOG(ERROR) << "Stuck operator: tid=" << call.tid
-                     << " taskId=" << call.taskId << " opCall=" << call.opCall
-                     << " duration= " << bolt::succinctMillis(call.durationMs);
+                     //<< " taskId=" << call.taskId << " opCall=" << call.opCall
+                     << " taskId=" << call.taskId << " opId=" << call.opId
+                     << " duration= " << bytedance::bolt::succinctMillis(call.durationMs);
         }
         RECORD_METRIC_VALUE(kCounterNumStuckDrivers, stuckOpCalls.size());
 
@@ -549,7 +591,7 @@ void PeriodicTaskManager::addWatchdogTask() {
 
 void PeriodicTaskManager::detachWorker(const char* reason) {
   LOG(WARNING) << "TraceContext::status:\n"
-               << bolt::process::TraceContext::statusLine();
+               << bytedance::bolt::process::TraceContext::statusLine();
   if (server_ && server_->nodeState() == NodeState::kActive) {
     LOG(WARNING) << "Will detach worker due to " << reason;
     server_->detachWorker();

@@ -82,6 +82,7 @@ macro(thrift_object
     "${file_name}-${language}-obj"
     "${file_name}-${language}-target"
   )
+  target_link_libraries("${file_name}-${language}-obj"  Folly::folly)
   message("Thrift will create the Object file : ${file_name}-${language}-obj")
 endmacro()
 
@@ -119,6 +120,8 @@ endmacro()
 #   add_library(somelib ...)
 #   target_link_libraries(somelibe ${file_name}-${language} ...)
 #
+
+find_package(folly CONFIG REQUIRED)
 
 macro(thrift_library
   file_name

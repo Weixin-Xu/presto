@@ -20,7 +20,7 @@
 namespace facebook::presto::prometheus {
 
 struct StatsInfo {
-  bolt::StatType statType;
+  bytedance::bolt::StatType statType;
   void* metricPtr;
 };
 
@@ -34,17 +34,17 @@ struct StatsInfo {
 /// For metric http_latency_ms labels could be {method="GET"}, {method="PUT"},
 /// {method="POST"} etc. Prometheus treats {<metric_name>, [labels]} as unique
 /// metric object.
-class PrometheusStatsReporter : public facebook::bolt::BaseStatsReporter {
+class PrometheusStatsReporter : public bytedance::bolt::BaseStatsReporter {
   class PrometheusImpl;
 
  public:
   explicit PrometheusStatsReporter(
       const std::map<std::string, std::string>& labels);
 
-  void registerMetricExportType(const char* key, bolt::StatType)
+  void registerMetricExportType(const char* key, bytedance::bolt::StatType)
       const override;
 
-  void registerMetricExportType(folly::StringPiece key, bolt::StatType)
+  void registerMetricExportType(folly::StringPiece key, bytedance::bolt::StatType)
       const override;
 
   void registerHistogramMetricExportType(
@@ -77,7 +77,7 @@ class PrometheusStatsReporter : public facebook::bolt::BaseStatsReporter {
 
   std::string fetchMetrics() override;
 
-  static std::unique_ptr<bolt::BaseStatsReporter> createPrometheusReporter() {
+  static std::unique_ptr<bytedance::bolt::BaseStatsReporter> createPrometheusReporter() {
     auto nodeConfig = NodeConfig::instance();
     const std::string cluster = nodeConfig->nodeEnvironment();
     const char* hostName = std::getenv("HOSTNAME");

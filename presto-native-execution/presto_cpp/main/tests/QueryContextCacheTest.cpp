@@ -18,7 +18,7 @@ DECLARE_bool(bolt_memory_leak_check_enabled);
 
 namespace facebook::presto {
 
-using namespace bolt;
+using namespace bytedance::bolt;
 
 namespace {
 void verifyQueryCtxCache(

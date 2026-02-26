@@ -17,23 +17,23 @@
 #include "bolt/exec/Operator.h"
 
 namespace facebook::presto::operators {
-class ShuffleReadNode : public bolt::core::PlanNode {
+class ShuffleReadNode : public bytedance::bolt::core::PlanNode {
  public:
-  ShuffleReadNode(const bolt::core::PlanNodeId& id, bolt::RowTypePtr type)
+  ShuffleReadNode(const bytedance::bolt::core::PlanNodeId& id, bytedance::bolt::RowTypePtr type)
       : PlanNode(id), outputType_(type) {}
 
   folly::dynamic serialize() const override;
 
-  static bolt::core::PlanNodePtr create(
+  static bytedance::bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const bolt::RowTypePtr& outputType() const override {
+  const bytedance::bolt::RowTypePtr& outputType() const override {
     return outputType_;
   }
 
-  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
-    static const std::vector<bolt::core::PlanNodePtr> kEmptySources;
+  const std::vector<bytedance::bolt::core::PlanNodePtr>& sources() const override {
+    static const std::vector<bytedance::bolt::core::PlanNodePtr> kEmptySources;
     return kEmptySources;
   }
 
@@ -54,15 +54,15 @@ class ShuffleReadNode : public bolt::core::PlanNode {
     // Nothing to add
   }
 
-  const bolt::RowTypePtr outputType_;
+  const bytedance::bolt::RowTypePtr outputType_;
 };
 
-class ShuffleReadTranslator : public bolt::exec::Operator::PlanNodeTranslator {
+class ShuffleReadTranslator : public bytedance::bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<bolt::exec::Operator> toOperator(
-      bolt::exec::DriverCtx* ctx,
+  std::unique_ptr<bytedance::bolt::exec::Operator> toOperator(
+      bytedance::bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const bolt::core::PlanNodePtr& node,
-      std::shared_ptr<bolt::exec::ExchangeClient> exchangeClient) override;
+      const bytedance::bolt::core::PlanNodePtr& node,
+      std::shared_ptr<bytedance::bolt::exec::ExchangeClient> exchangeClient) override;
 };
 } // namespace facebook::presto::operators

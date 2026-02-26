@@ -22,7 +22,7 @@ namespace facebook::presto {
 
 class TaskManager;
 
-class SystemColumnHandle : public bolt::connector::ColumnHandle {
+class SystemColumnHandle : public bytedance::bolt::connector::ColumnHandle {
  public:
   explicit SystemColumnHandle(const std::string& name) : name_(name) {}
 
@@ -34,7 +34,8 @@ class SystemColumnHandle : public bolt::connector::ColumnHandle {
   const std::string name_;
 };
 
-class SystemTableHandle : public bolt::connector::ConnectorTableHandle {
+class SystemTableHandle
+    : public bytedance::bolt::connector::ConnectorTableHandle {
  public:
   explicit SystemTableHandle(
       std::string connectorId,
@@ -51,37 +52,39 @@ class SystemTableHandle : public bolt::connector::ConnectorTableHandle {
     return tableName_;
   }
 
-  const bolt::RowTypePtr taskSchema();
+  const bytedance::bolt::RowTypePtr taskSchema();
 
  private:
   const std::string schemaName_;
   const std::string tableName_;
 };
 
-class SystemDataSource : public bolt::connector::DataSource {
+class SystemDataSource : public bytedance::bolt::connector::DataSource {
  public:
   SystemDataSource(
-      const bolt::RowTypePtr& outputType,
-      const std::shared_ptr<bolt::connector::ConnectorTableHandle>&
+      const bytedance::bolt::RowTypePtr& outputType,
+      const std::shared_ptr<bytedance::bolt::connector::ConnectorTableHandle>&
           tableHandle,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& columnHandles,
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>&
+          columnHandles,
       const TaskManager* taskManager,
-      bolt::memory::MemoryPool* pool);
+      bytedance::bolt::memory::MemoryPool* pool);
 
-  void addSplit(
-      std::shared_ptr<bolt::connector::ConnectorSplit> split) override;
+  void addSplit(std::shared_ptr<bytedance::bolt::connector::ConnectorSplit>
+                    split) override;
 
   void addDynamicFilter(
-      bolt::column_index_t /*outputChannel*/,
-      const std::shared_ptr<bolt::common::Filter>& /*filter*/) override {
+      bytedance::bolt::column_index_t /*outputChannel*/,
+      const std::shared_ptr<bytedance::bolt::common::Filter>& /*filter*/)
+      override {
     BOLT_NYI("Dynamic filters not supported by SystemConnector.");
   }
 
-  std::optional<bolt::RowVectorPtr> next(
+  std::optional<bytedance::bolt::RowVectorPtr> next(
       uint64_t size,
-      bolt::ContinueFuture& future) override;
+      bytedance::bolt::ContinueFuture& future) override;
 
   uint64_t getCompletedRows() override {
     return completedRows_;
@@ -91,8 +94,8 @@ class SystemDataSource : public bolt::connector::DataSource {
     return completedBytes_;
   }
 
-  std::unordered_map<std::string, bolt::RuntimeCounter> runtimeStats()
-      override {
+  std::unordered_map<std::string, bytedance::bolt::RuntimeCounter>
+  runtimeStats() override {
     return {};
   }
 
@@ -125,15 +128,15 @@ class SystemDataSource : public bolt::connector::DataSource {
     kEnd,
   };
 
-  bolt::RowVectorPtr getTaskResults();
+  bytedance::bolt::RowVectorPtr getTaskResults();
 
   // Mapping between output columns and their indices (column_index_t)
   // corresponding to the taskInfo fields for them.
-  std::vector<bolt::column_index_t> outputColumnMappings_;
-  bolt::RowTypePtr outputType_;
+  std::vector<bytedance::bolt::column_index_t> outputColumnMappings_;
+  bytedance::bolt::RowTypePtr outputType_;
 
   const TaskManager* taskManager_;
-  bolt::memory::MemoryPool* pool_;
+  bytedance::bolt::memory::MemoryPool* pool_;
 
   std::shared_ptr<SystemSplit> currentSplit_;
 
@@ -141,19 +144,21 @@ class SystemDataSource : public bolt::connector::DataSource {
   size_t completedBytes_{0};
 };
 
-class SystemConnector : public bolt::connector::Connector {
+class SystemConnector : public bytedance::bolt::connector::Connector {
  public:
   SystemConnector(const std::string& id, const TaskManager* taskManager)
       : Connector(id), taskManager_(taskManager) {}
 
-  std::unique_ptr<bolt::connector::DataSource> createDataSource(
-      const bolt::RowTypePtr& outputType,
-      const std::shared_ptr<bolt::connector::ConnectorTableHandle>&
+  std::unique_ptr<bytedance::bolt::connector::DataSource> createDataSource(
+      const bytedance::bolt::RowTypePtr& outputType,
+      const std::shared_ptr<bytedance::bolt::connector::ConnectorTableHandle>&
           tableHandle,
       const std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& columnHandles,
-      bolt::connector::ConnectorQueryCtx* connectorQueryCtx) override final {
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>&
+          columnHandles,
+      std::shared_ptr<bytedance::bolt::connector::ConnectorQueryCtx> connectorQueryCtx,
+      const bytedance::bolt::core::QueryConfig& /* queryConfig */) override final {
     BOLT_CHECK(taskManager_);
     return std::make_unique<SystemDataSource>(
         outputType,
@@ -163,13 +168,15 @@ class SystemConnector : public bolt::connector::Connector {
         connectorQueryCtx->memoryPool());
   }
 
-  std::unique_ptr<bolt::connector::DataSink> createDataSink(
-      bolt::RowTypePtr /*inputType*/,
+  std::unique_ptr<bytedance::bolt::connector::DataSink> createDataSink(
+      bytedance::bolt::RowTypePtr /*inputType*/,
       std::shared_ptr<
-          bolt::connector::
+          bytedance::bolt::connector::
               ConnectorInsertTableHandle> /*connectorInsertTableHandle*/,
-      bolt::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
-      bolt::connector::CommitStrategy /*commitStrategy*/) override final {
+      bytedance::bolt::connector::ConnectorQueryCtx* /*connectorQueryCtx*/,
+      bytedance::bolt::connector::CommitStrategy /*commitStrategy*/,
+      const bytedance::bolt::core::QueryConfig& /*queryConfig*/)
+      override final {
     BOLT_NYI("SystemConnector does not support data sink.");
   }
 
@@ -182,23 +189,24 @@ class SystemPrestoToBoltConnector final : public PrestoToBoltConnector {
   explicit SystemPrestoToBoltConnector(std::string connectorId)
       : PrestoToBoltConnector(std::move(connectorId)) {}
 
-  std::unique_ptr<bolt::connector::ConnectorSplit> toBoltSplit(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorSplit> toBoltSplit(
       const protocol::ConnectorId& catalogId,
       const protocol::ConnectorSplit* connectorSplit,
       const protocol::SplitContext* splitContext) const final;
 
-  std::unique_ptr<bolt::connector::ColumnHandle> toBoltColumnHandle(
+  std::unique_ptr<bytedance::bolt::connector::ColumnHandle> toBoltColumnHandle(
       const protocol::ColumnHandle* column,
       const TypeParser& typeParser) const final;
 
-  std::unique_ptr<bolt::connector::ConnectorTableHandle> toBoltTableHandle(
+  std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle>
+  toBoltTableHandle(
       const protocol::TableHandle& tableHandle,
       const BoltExprConverter& exprConverter,
       const TypeParser& typeParser,
       std::unordered_map<
           std::string,
-          std::shared_ptr<bolt::connector::ColumnHandle>>& assignments)
-      const final;
+          std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>&
+          assignments) const final;
 
   std::unique_ptr<protocol::ConnectorProtocol> createConnectorProtocol()
       const final;

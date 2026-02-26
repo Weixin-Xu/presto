@@ -13,7 +13,7 @@
  */
 #pragma once
 
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "bolt/type/Type.h"
 
 using json = nlohmann::json;
@@ -313,7 +313,7 @@ class SessionProperties {
   void addSessionProperty(
       const std::string& name,
       const std::string& description,
-      const bolt::TypePtr& type,
+      const bytedance::bolt::TypePtr& type,
       bool isHidden,
       const std::string& boltConfigName,
       const std::string& boltDefault);

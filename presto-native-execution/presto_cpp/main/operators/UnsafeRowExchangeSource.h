@@ -20,14 +20,14 @@
 
 namespace facebook::presto::operators {
 
-class UnsafeRowExchangeSource : public bolt::exec::ExchangeSource {
+class UnsafeRowExchangeSource : public bytedance::bolt::exec::ExchangeSource {
  public:
   UnsafeRowExchangeSource(
       const std::string& taskId,
       int destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
       const std::shared_ptr<ShuffleReader>& shuffle,
-      bolt::memory::MemoryPool* FOLLY_NONNULL pool)
+      bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool)
       : ExchangeSource(taskId, destination, queue, pool), shuffle_(shuffle) {}
 
   bool shouldRequestLocked() override {
@@ -36,10 +36,10 @@ class UnsafeRowExchangeSource : public bolt::exec::ExchangeSource {
 
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait) override;
+      uint32_t maxWait) override;
 
-  folly::SemiFuture<Response> requestDataSizes(
-      std::chrono::microseconds maxWait) override;
+  /*folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWait) override;*/
 
   void close() override {
     shuffle_->noMoreData(true);
@@ -49,11 +49,11 @@ class UnsafeRowExchangeSource : public bolt::exec::ExchangeSource {
 
   /// url needs to follow below format:
   /// batch://<taskid>?shuffleInfo=<serialized-shuffle-info>
-  static std::shared_ptr<bolt::exec::ExchangeSource> createExchangeSource(
+  static std::shared_ptr<bytedance::bolt::exec::ExchangeSource> createExchangeSource(
       const std::string& url,
       int32_t destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-      bolt::memory::MemoryPool* FOLLY_NONNULL pool);
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+      bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool);
 
  private:
   const std::shared_ptr<ShuffleReader> shuffle_;

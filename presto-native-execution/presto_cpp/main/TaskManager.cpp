@@ -19,7 +19,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
-#include "bolt/core/PlanNode.h>
+#include "bolt/core/PlanNode.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -80,7 +80,7 @@ static void maybeSetupTaskSpillDirectory(
           includeNodeInSpillPath);
   execTask.setSpillDirectory(taskSpillDirPath, /*alreadyCreated=*/false);
 
-  execTask.setCreateSpillDirectoryCb(
+  /*execTask.setCreateSpillDirectoryCb(
       [spillDir = taskSpillDirPath, dateStrDir = dateSpillDirPath]() {
         auto fs = filesystems::getFileSystem(dateStrDir, nullptr);
         // First create the top level directory (date string of the query) with
@@ -101,7 +101,7 @@ static void maybeSetupTaskSpillDirectory(
         // then create the spill directory for the actual task.
         fs->mkdir(spillDir);
         return spillDir;
-      });
+      });*/
 }
 
 // Keep outstanding Promises in RequestHandler's state itself.
@@ -159,8 +159,8 @@ void getData(
       token,
       [taskId = taskId, bufferId = destination, promiseHolder, startMs](
           std::vector<std::unique_ptr<folly::IOBuf>> pages,
-          int64_t sequence,
-          std::vector<int64_t> remainingBytes) mutable {
+          int64_t sequence/*,
+          std::vector<int64_t> remainingBytes*/) mutable {
         bool complete = false;
         int64_t nextSequence = sequence;
         std::unique_ptr<folly::IOBuf> iobuf;
@@ -185,7 +185,7 @@ void getData(
         VLOG(1) << "Task " << taskId << ", buffer " << bufferId << ", sequence "
                 << sequence << " Results size: " << bytes
                 << ", page count: " << pages.size()
-                << ", remaining: " << folly::join(',', remainingBytes)
+                //<< ", remaining: " << folly::join(',', remainingBytes)
                 << ", complete: " << std::boolalpha << complete;
 
         auto result = std::make_unique<Result>();
@@ -193,7 +193,7 @@ void getData(
         result->nextSequence = nextSequence;
         result->complete = complete;
         result->data = std::move(iobuf);
-        result->remainingBytes = std::move(remainingBytes);
+        //result->remainingBytes = std::move(remainingBytes);
 
         promiseHolder->promise.setValue(std::move(result));
 
@@ -223,11 +223,11 @@ void getData(
 // prevent hard-to-debug query hangs caused by Bolt Task waiting for
 // splits that never arrive.
 void checkSplitsForBatchTask(
-    const bolt::core::PlanNodePtr& planNode,
+    const bytedance::bolt::core::PlanNodePtr& planNode,
     const std::vector<protocol::TaskSource>& sources) {
-  std::unordered_set<bolt::core::PlanNodeId> splitNodeIds;
-  bolt::core::PlanNode::findFirstNode(
-      planNode.get(), [&](const bolt::core::PlanNode* node) {
+  std::unordered_set<bytedance::bolt::core::PlanNodeId> splitNodeIds;
+  bytedance::bolt::core::PlanNode::findFirstNode(
+      planNode.get(), [&](const bytedance::bolt::core::PlanNode* node) {
         if (node->requiresSplits()) {
           splitNodeIds.insert(node->id());
         }
@@ -329,7 +329,7 @@ TaskManager::TaskManager(
     folly::Executor* driverExecutor,
     folly::Executor* httpSrvCpuExecutor,
     folly::Executor* spillerExecutor)
-    : bufferManager_(bolt::exec::OutputBufferManager::getInstance().lock()),
+    : bufferManager_(bytedance::bolt::exec::OutputBufferManager::getInstance().lock()),
       queryContextManager_(std::make_unique<QueryContextManager>(
           driverExecutor,
           spillerExecutor)),
@@ -461,8 +461,8 @@ void TaskManager::getDataForResultRequests(
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
     const protocol::TaskId& taskId,
     const protocol::TaskUpdateRequest& updateRequest,
-    const bolt::core::PlanFragment& planFragment,
-    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+    const bytedance::bolt::core::PlanFragment& planFragment,
+    std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   return createOrUpdateTaskImpl(
       taskId,
@@ -476,8 +476,8 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateTask(
 std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
     const protocol::TaskId& taskId,
     const protocol::BatchTaskUpdateRequest& batchUpdateRequest,
-    const bolt::core::PlanFragment& planFragment,
-    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+    const bytedance::bolt::core::PlanFragment& planFragment,
+    std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   auto updateRequest = batchUpdateRequest.taskUpdateRequest;
 
@@ -494,10 +494,10 @@ std::unique_ptr<protocol::TaskInfo> TaskManager::createOrUpdateBatchTask(
 
 std::unique_ptr<TaskInfo> TaskManager::createOrUpdateTaskImpl(
     const TaskId& taskId,
-    const bolt::core::PlanFragment& planFragment,
+    const bytedance::bolt::core::PlanFragment& planFragment,
     const std::vector<protocol::TaskSource>& sources,
     const protocol::OutputBuffers& outputBuffers,
-    std::shared_ptr<bolt::core::QueryCtx> queryCtx,
+    std::shared_ptr<bytedance::bolt::core::QueryCtx> queryCtx,
     long startProcessCpuTime) {
   std::shared_ptr<exec::Task> execTask;
   bool startTask = false;
@@ -667,7 +667,7 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
       execTask->requestAbort();
     }
     prestoTask->info.stats.endTime =
-        util::toISOTimestamp(bolt::getCurrentTimeMs());
+        util::toISOTimestamp(bytedance::bolt::getCurrentTimeMs());
     prestoTask->updateInfoLocked();
   } else {
     // If task is not found than we observe DELETE message coming before
@@ -958,7 +958,7 @@ folly::Future<std::unique_ptr<Result>> TaskManager::getResults(
           .via(httpSrvCpuExecutor_)
           .onTimeout(std::chrono::microseconds(maxWaitMicros), timeoutFn);
     }
-  } catch (const bolt::BoltException& e) {
+  } catch (const bytedance::bolt::BoltException& e) {
     return folly::makeSemiFuture<std::unique_ptr<Result>>(e).via(
         httpSrvCpuExecutor_);
   } catch (const std::exception& e) {
@@ -1061,7 +1061,7 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
   prestoTask->info.stats.createTime =
-      util::toISOTimestamp(bolt::getCurrentTimeMs());
+      util::toISOTimestamp(bytedance::bolt::getCurrentTimeMs());
   prestoTask->info.needsPlan = true;
   prestoTask->info.metadataUpdates.connectorId = "unused";
 
@@ -1112,13 +1112,13 @@ std::string TaskManager::toString() const {
   return out.str();
 }
 
-bolt::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
+bytedance::bolt::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
   const auto taskMap = *taskMap_.rlock();
-  bolt::exec::Task::DriverCounts ret;
+  bytedance::bolt::exec::Task::DriverCounts ret;
   for (const auto& pair : taskMap) {
     if (pair.second->task != nullptr) {
       auto counts = pair.second->task->driverCounts();
-      // TODO (spershin): Move add logic to bolt::exec::Task::DriverCounts.
+      // TODO (spershin): Move add logic to bytedance::bolt::exec::Task::DriverCounts.
       ret.numQueuedDrivers += counts.numQueuedDrivers;
       ret.numOnThreadDrivers += counts.numOnThreadDrivers;
       ret.numSuspendedDrivers += counts.numSuspendedDrivers;
@@ -1132,7 +1132,7 @@ bolt::exec::Task::DriverCounts TaskManager::getDriverCounts() const {
 
 bool TaskManager::getStuckOpCalls(
     std::vector<std::string>& deadlockTasks,
-    std::vector<bolt::exec::Task::OpCallInfo>& stuckOpCalls) const {
+    std::vector<bytedance::bolt::exec::Task::OpCallInfo>& stuckOpCalls) const {
   const auto thresholdDurationMs =
       SystemConfig::instance()->driverStuckOperatorThresholdMs();
   const auto thresholdCancelMs =
@@ -1166,8 +1166,9 @@ bool TaskManager::getStuckOpCalls(
             std::stringstream ss;
             ss << "Task " << id
                << " cancelled due to stuck operator: tid=" << it->tid
-               << " opCall=" << it->opCall
-               << " duration= " << bolt::succinctMillis(it->durationMs);
+               //<< " opCall=" << it->opCall
+               << " opId=" << it->opId
+               << " duration= " << bytedance::bolt::succinctMillis(it->durationMs);
             const std::string msg = ss.str();
             LOG(ERROR) << msg;
             prestoTask->task->setError(msg);
@@ -1224,7 +1225,7 @@ void TaskManager::shutdown() {
   size_t numTasks;
   auto taskNumbers = getTaskNumbers(numTasks);
   size_t seconds = 0;
-  while (taskNumbers[static_cast<int>(bolt::exec::TaskState::kRunning)] > 0) {
+  while (taskNumbers[static_cast<int>(bytedance::bolt::exec::TaskState::kRunning)] > 0) {
     PRESTO_SHUTDOWN_LOG(INFO)
         << "Waited (" << seconds
         << " seconds so far) for 'Running' tasks to complete. " << numTasks

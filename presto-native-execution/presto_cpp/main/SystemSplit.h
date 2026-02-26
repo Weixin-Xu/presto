@@ -17,13 +17,13 @@
 
 namespace facebook::presto {
 
-struct SystemSplit : public bolt::connector::ConnectorSplit {
+struct SystemSplit : public bytedance::bolt::connector::ConnectorSplit {
   explicit SystemSplit(
       const std::string& connectorId,
       const std::string& schemaName,
       const std::string& tableName,
       bool cacheable)
-      : ConnectorSplit(connectorId, /*splitWeight=*/0, cacheable),
+      : ConnectorSplit(connectorId/*, splitWeight=0, cacheable*/),
         schemaName_(schemaName),
         tableName_(tableName) {}
 

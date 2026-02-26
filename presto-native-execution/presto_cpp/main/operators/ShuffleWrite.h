@@ -19,15 +19,15 @@
 
 namespace facebook::presto::operators {
 
-class ShuffleWriteNode : public bolt::core::PlanNode {
+class ShuffleWriteNode : public bytedance::bolt::core::PlanNode {
  public:
   ShuffleWriteNode(
-      const bolt::core::PlanNodeId& id,
+      const bytedance::bolt::core::PlanNodeId& id,
       uint32_t numPartitions,
       const std::string& shuffleName,
       const std::string& serializedShuffleWriteInfo,
-      bolt::core::PlanNodePtr source)
-      : bolt::core::PlanNode(id),
+      bytedance::bolt::core::PlanNodePtr source)
+      : bytedance::bolt::core::PlanNode(id),
         numPartitions_{numPartitions},
         shuffleName_{shuffleName},
         serializedShuffleWriteInfo_(serializedShuffleWriteInfo),
@@ -35,15 +35,15 @@ class ShuffleWriteNode : public bolt::core::PlanNode {
 
   folly::dynamic serialize() const override;
 
-  static bolt::core::PlanNodePtr create(
+  static bytedance::bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const bolt::RowTypePtr& outputType() const override {
+  const bytedance::bolt::RowTypePtr& outputType() const override {
     return sources_[0]->outputType();
   }
 
-  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
+  const std::vector<bytedance::bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
@@ -71,15 +71,15 @@ class ShuffleWriteNode : public bolt::core::PlanNode {
   const uint32_t numPartitions_;
   const std::string shuffleName_;
   const std::string serializedShuffleWriteInfo_;
-  const std::vector<bolt::core::PlanNodePtr> sources_;
+  const std::vector<bytedance::bolt::core::PlanNodePtr> sources_;
 };
 
 class ShuffleWriteTranslator
-    : public bolt::exec::Operator::PlanNodeTranslator {
+    : public bytedance::bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<bolt::exec::Operator> toOperator(
-      bolt::exec::DriverCtx* ctx,
+  std::unique_ptr<bytedance::bolt::exec::Operator> toOperator(
+      bytedance::bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const bolt::core::PlanNodePtr& node) override;
+      const bytedance::bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

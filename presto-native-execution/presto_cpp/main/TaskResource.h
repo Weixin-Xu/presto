@@ -23,7 +23,7 @@ namespace facebook::presto {
 class TaskResource {
  public:
   explicit TaskResource(
-      bolt::memory::MemoryPool* pool,
+      bytedance::bolt::memory::MemoryPool* pool,
       folly::Executor* httpSrvCpuExecutor,
       BoltPlanValidator* planValidator,
       TaskManager& taskManager)
@@ -99,7 +99,7 @@ class TaskResource {
       const std::vector<std::string>& pathMatch);
 
   folly::Executor* const httpSrvCpuExecutor_;
-  bolt::memory::MemoryPool* const pool_;
+  bytedance::bolt::memory::MemoryPool* const pool_;
   BoltPlanValidator* const planValidator_;
 
   TaskManager& taskManager_;

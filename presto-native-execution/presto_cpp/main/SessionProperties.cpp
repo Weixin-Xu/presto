@@ -52,7 +52,7 @@ void SessionProperties::addSessionProperty(
 
 // List of native session properties is kept as the source of truth here.
 SessionProperties::SessionProperties() {
-  using bolt::core::QueryConfig;
+  using bytedance::bolt::core::QueryConfig;
   // Use empty instance to get default property values.
   QueryConfig c{{}};
 
@@ -63,23 +63,6 @@ SessionProperties::SessionProperties() {
       false,
       QueryConfig::kExprEvalSimplified,
       boolToString(c.exprEvalSimplified()));
-
-  addSessionProperty(
-      kExprMaxArraySizeInReduce,
-      "Reduce() function will throw an error if it encounters an array of size greater than this value.",
-      BIGINT(),
-      false,
-      QueryConfig::kExprMaxArraySizeInReduce,
-      std::to_string(c.exprMaxArraySizeInReduce()));
-
-  addSessionProperty(
-      kExprMaxCompiledRegexes,
-      "Controls maximum number of compiled regular expression patterns per regular expression function instance "
-      "per thread of execution.",
-      BIGINT(),
-      false,
-      QueryConfig::kExprMaxCompiledRegexes,
-      std::to_string(c.exprMaxCompiledRegexes()));
 
   addSessionProperty(
       kMaxPartialAggregationMemory,
@@ -224,56 +207,6 @@ SessionProperties::SessionProperties() {
       boolToString(c.validateOutputFromOperators()));
 
   addSessionProperty(
-      kDebugDisableExpressionWithPeeling,
-      "If set to true, disables optimization in expression evaluation to peel "
-      "common dictionary layer from inputs. Should only be used for debugging.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kDebugDisableExpressionWithPeeling,
-      boolToString(c.debugDisableExpressionsWithPeeling()));
-
-  addSessionProperty(
-      kDebugDisableCommonSubExpressions,
-      "If set to true, disables optimization in expression evaluation to "
-      "re-use cached results for common sub-expressions. Should only be "
-      "used for debugging.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kDebugDisableCommonSubExpressions,
-      boolToString(c.debugDisableCommonSubExpressions()));
-
-  addSessionProperty(
-      kDebugDisableExpressionWithMemoization,
-      "If set to true, disables optimization in expression evaluation to "
-      "re-use cached results between subsequent input batches that are "
-      "dictionary encoded and have the same alphabet(underlying flat vector). "
-      "Should only be used for debugging.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kDebugDisableExpressionWithMemoization,
-      boolToString(c.debugDisableExpressionsWithMemoization()));
-
-  addSessionProperty(
-      kDebugDisableExpressionWithLazyInputs,
-      "If set to true, disables optimization in expression evaluation to delay "
-      "loading of lazy inputs unless required. Should only be used for "
-      "debugging.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kDebugDisableExpressionWithLazyInputs,
-      boolToString(c.debugDisableExpressionsWithLazyInputs()));
-
-  addSessionProperty(
-      kSelectiveNimbleReaderEnabled,
-      "Temporary flag to control whether selective Nimble reader should be "
-      "used in this query or not.  Will be removed after the selective Nimble "
-      "reader is fully rolled out.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kSelectiveNimbleReaderEnabled,
-      boolToString(c.selectiveNimbleReaderEnabled()));
-
-  addSessionProperty(
       kQueryTraceEnabled,
       "Enables query tracing.",
       BOOLEAN(),
@@ -365,101 +298,6 @@ SessionProperties::SessionProperties() {
       // Overrides bolt default value. Set it to 1 second to be aligned with
       // Presto Java.
       std::to_string(1000));
-
-  addSessionProperty(
-      kMaxLocalExchangePartitionCount,
-      "Maximum number of partitions created by a local exchange."
-      "Affects concurrency for pipelines containing LocalPartitionNode",
-      BIGINT(),
-      false,
-      QueryConfig::kMaxLocalExchangePartitionCount,
-      std::to_string(c.maxLocalExchangePartitionCount()));
-
-  addSessionProperty(
-      kSpillPrefixSortEnabled,
-      "Enable the prefix sort or fallback to std::sort in spill. The prefix sort is "
-      "faster than std::sort but requires the memory to build normalized prefix "
-      "keys, which might have potential risk of running out of server memory.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kSpillPrefixSortEnabled,
-      std::to_string(c.spillPrefixSortEnabled()));
-
-  addSessionProperty(
-      kPrefixSortNormalizedKeyMaxBytes,
-      "Maximum number of bytes to use for the normalized key in prefix-sort. "
-      "Use 0 to disable prefix-sort.",
-      INTEGER(),
-      false,
-      QueryConfig::kPrefixSortNormalizedKeyMaxBytes,
-      std::to_string(c.prefixSortNormalizedKeyMaxBytes()));
-
-  addSessionProperty(
-      kPrefixSortMinRows,
-      "Minimum number of rows to use prefix-sort. The default value (130) has been "
-      "derived using micro-benchmarking.",
-      INTEGER(),
-      false,
-      QueryConfig::kPrefixSortMinRows,
-      std::to_string(c.prefixSortMinRows()));
-
-  addSessionProperty(
-      kScaleWriterRebalanceMaxMemoryUsageRatio,
-      "The max ratio of a query used memory to its max capacity, "
-      "and the scale writer exchange stops scaling writer processing if the query's current "
-      "memory usage exceeds this ratio. The value is in the range of (0, 1].",
-      DOUBLE(),
-      false,
-      QueryConfig::kScaleWriterRebalanceMaxMemoryUsageRatio,
-      std::to_string(c.scaleWriterRebalanceMaxMemoryUsageRatio()));
-
-  addSessionProperty(
-      kScaleWriterMaxPartitionsPerWriter,
-      "The max number of logical table partitions that can be assigned to a "
-      "single table writer thread. The logical table partition is used by local "
-      "exchange writer for writer scaling, and multiple physical table "
-      "partitions can be mapped to the same logical table partition based on the "
-      "hash value of calculated partitioned ids.",
-      INTEGER(),
-      false,
-      QueryConfig::kScaleWriterMaxPartitionsPerWriter,
-      std::to_string(c.scaleWriterMaxPartitionsPerWriter()));
-
-  addSessionProperty(
-      kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      "Minimum amount of data processed by a logical table partition "
-      "to trigger writer scaling if it is detected as overloaded by scale writer exchange.",
-      BIGINT(),
-      false,
-      QueryConfig::kScaleWriterMinPartitionProcessedBytesRebalanceThreshold,
-      std::to_string(
-          c.scaleWriterMinPartitionProcessedBytesRebalanceThreshold()));
-
-  addSessionProperty(
-      kScaleWriterMinProcessedBytesRebalanceThreshold,
-      "Minimum amount of data processed by all the logical table partitions "
-      "to trigger skewed partition rebalancing by scale writer exchange.",
-      BIGINT(),
-      false,
-      QueryConfig::kScaleWriterMinProcessedBytesRebalanceThreshold,
-      std::to_string(c.scaleWriterMinProcessedBytesRebalanceThreshold()));
-
-  addSessionProperty(
-      kTableScanScaledProcessingEnabled,
-      "If set to true, enables scaled processing for table scans.",
-      BOOLEAN(),
-      false,
-      QueryConfig::kTableScanScaledProcessingEnabled,
-      std::to_string(c.tableScanScaledProcessingEnabled()));
-
-  addSessionProperty(
-      kTableScanScaleUpMemoryUsageRatio,
-      "Controls the ratio of available memory that can be used for scaling up table scans. "
-      "The value is in the range of [0, 1].",
-      DOUBLE(),
-      false,
-      QueryConfig::kTableScanScaleUpMemoryUsageRatio,
-      std::to_string(c.tableScanScaleUpMemoryUsageRatio()));
 }
 
 const std::unordered_map<std::string, std::shared_ptr<SessionProperty>>&

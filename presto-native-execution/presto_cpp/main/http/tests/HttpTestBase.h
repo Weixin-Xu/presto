@@ -15,9 +15,9 @@
 #include <boost/filesystem.hpp>
 #include <folly/init/Init.h>
 #include <gtest/gtest.h>
-#include "bolt/common/base/BoltException.h>
-#include "bolt/common/base/tests/GTestUtils.h>
-#include "bolt/common/memory/Memory.h>
+#include "bolt/common/base/BoltException.h"
+#include "bolt/common/base/tests/GTestUtils.h"
+#include "bolt/common/memory/Memory.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
 #include "presto_cpp/main/http/HttpClient.h"
@@ -146,7 +146,7 @@ void blackhole(
 
 std::string bodyAsString(
     facebook::presto::http::HttpResponse& response,
-    facebook::bolt::memory::MemoryPool* pool) {
+    bytedance::bolt::memory::MemoryPool* pool) {
   EXPECT_FALSE(response.hasError());
   std::ostringstream oss;
   auto iobufs = response.consumeBody();
@@ -195,7 +195,7 @@ class HttpClientFactory {
       const std::chrono::milliseconds& transactionTimeout,
       const std::chrono::milliseconds& connectTimeout,
       bool useHttps,
-      std::shared_ptr<facebook::bolt::memory::MemoryPool> pool,
+      std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr) {
     return std::make_shared<facebook::presto::http::HttpClient>(
         eventBase_.get(),

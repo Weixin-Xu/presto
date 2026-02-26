@@ -17,7 +17,7 @@
 namespace facebook::presto {
 class BoltPlanValidator {
  public:
-  virtual void validatePlanFragment(const bolt::core::PlanFragment& fragment);
+  virtual void validatePlanFragment(const bytedance::bolt::core::PlanFragment& fragment);
   virtual ~BoltPlanValidator() = default;
 };
 } // namespace facebook::presto

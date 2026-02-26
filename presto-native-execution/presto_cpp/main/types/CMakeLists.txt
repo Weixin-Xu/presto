@@ -24,9 +24,9 @@ target_link_libraries(presto_types presto_type_converter bolt::bolt)
 
 set_property(TARGET presto_types PROPERTY JOB_POOL_LINK presto_link_job_pool)
 
-add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
-
-target_link_libraries(presto_function_metadata bolt::bolt)
+# add_library(presto_function_metadata OBJECT FunctionMetadata.cpp)
+# 
+# target_link_libraries(presto_function_metadata bolt::bolt)
 
 add_library(presto_bolt_conversion OBJECT BoltPlanConversion.cpp)
 

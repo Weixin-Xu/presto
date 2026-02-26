@@ -16,12 +16,12 @@
 #include "bolt/exec/OperatorUtils.h"
 #include "bolt/row/CompactRow.h"
 
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
 namespace {
-bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bytedance::bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -82,7 +82,7 @@ class PartitionAndSerializeOperator : public Operator {
     rowSizes_.resize(numInput);
 
     compactRow_ =
-        std::make_unique<bolt::row::CompactRow>(reorderInputsIfNeeded());
+        std::make_unique<bytedance::bolt::row::CompactRow>(reorderInputsIfNeeded());
     calculateRowSize();
 
     // Process partitionVector and replicateVector once, and reuse on subsequent
@@ -320,9 +320,9 @@ class PartitionAndSerializeOperator : public Operator {
   // Holder for partitionVector and replicateVector.
   RowVectorPtr output_;
 
-  std::unique_ptr<bolt::row::CompactRow> compactRow_;
+  std::unique_ptr<bytedance::bolt::row::CompactRow> compactRow_;
   // Decoded 'keyChannels_' columns.
-  std::vector<bolt::DecodedVector> decodedVectors_;
+  std::vector<bytedance::bolt::DecodedVector> decodedVectors_;
   // Reusable vector for storing partition id for each input row.
   std::vector<uint32_t> partitions_;
   // Reusable vector for storing serialised row size for each input row.
@@ -376,19 +376,19 @@ folly::dynamic PartitionAndSerializeNode::serialize() const {
   return obj;
 }
 
-bolt::core::PlanNodePtr PartitionAndSerializeNode::create(
+bytedance::bolt::core::PlanNodePtr PartitionAndSerializeNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<PartitionAndSerializeNode>(
       deserializePlanNodeId(obj),
-      ISerializable::deserialize<std::vector<bolt::core::ITypedExpr>>(
+      ISerializable::deserialize<std::vector<bytedance::bolt::core::ITypedExpr>>(
           obj["keys"], context),
       obj["numPartitions"].asInt(),
       ISerializable::deserialize<RowType>(obj["serializedRowType"], context),
-      ISerializable::deserialize<std::vector<bolt::core::PlanNode>>(
+      ISerializable::deserialize<std::vector<bytedance::bolt::core::PlanNode>>(
           obj["sources"], context)[0],
       obj["replicateNullsAndAny"].asBool(),
-      ISerializable::deserialize<bolt::core::PartitionFunctionSpec>(
+      ISerializable::deserialize<bytedance::bolt::core::PartitionFunctionSpec>(
           obj["partitionFunctionSpec"], context));
 }
 } // namespace facebook::presto::operators

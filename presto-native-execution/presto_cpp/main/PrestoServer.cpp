@@ -37,7 +37,7 @@
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
 #include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
-#include "presto_cpp/main/types/FunctionMetadata.h"
+//#include "presto_cpp/main/types/FunctionMetadata.h"
 #include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
 #include "presto_cpp/main/types/BoltPlanConversion.h"
 #include "bolt/common/base/Counters.h"
@@ -50,8 +50,6 @@
 #include "bolt/connectors/Connector.h"
 #include "bolt/connectors/hive/HiveConnector.h"
 #include "bolt/connectors/hive/HiveDataSink.h"
-#include "bolt/connectors/hive/storage_adapters/abfs/RegisterAbfsFileSystem.h"
-#include "bolt/connectors/hive/storage_adapters/gcs/RegisterGcsFileSystem.h"
 #include "bolt/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
 #include "bolt/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
 #include "bolt/connectors/tpch/TpchConnector.h"
@@ -102,10 +100,10 @@ protocol::NodeState convertNodeState(presto::NodeState nodeState) {
 }
 
 void enableChecksum() {
-  bolt::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+  bytedance::bolt::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
       []() {
         return std::make_unique<
-            bolt::serializer::presto::PrestoOutputStreamListener>();
+            bytedance::bolt::serializer::presto::PrestoOutputStreamListener>();
       });
 }
 
@@ -238,7 +236,7 @@ void PrestoServer::run() {
       address_ = fmt::format("[{}]", address_);
     }
     nodeLocation_ = nodeConfig->nodeLocation();
-  } catch (const bolt::BoltUserError& e) {
+  } catch (const bytedance::bolt::BoltUserError& e) {
     PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
     exit(EXIT_FAILURE);
   }
@@ -251,18 +249,10 @@ void PrestoServer::run() {
   registerCustomOperators();
   registerConnectorFactories();
 
-  // Register Bolt connector factory for iceberg.
-  // The iceberg catalog is handled by the hive connector factory.
-  bolt::connector::registerConnectorFactory(
-      std::make_shared<bolt::connector::hive::HiveConnectorFactory>(
-          "iceberg"));
-
   registerPrestoToBoltConnector(
       std::make_unique<HivePrestoToBoltConnector>("hive"));
   registerPrestoToBoltConnector(
       std::make_unique<HivePrestoToBoltConnector>("hive-hadoop2"));
-  registerPrestoToBoltConnector(
-      std::make_unique<IcebergPrestoToBoltConnector>("iceberg"));
   registerPrestoToBoltConnector(
       std::make_unique<TpchPrestoToBoltConnector>("tpch"));
   // Presto server uses system catalog or system schema in other catalogs
@@ -277,7 +267,7 @@ void PrestoServer::run() {
   registerPrestoToBoltConnector(
       std::make_unique<SystemPrestoToBoltConnector>("$system@system"));
 
-  bolt::exec::OutputBufferManager::initialize({});
+  //bytedance::bolt::exec::OutputBufferManager::initialize({});
   initializeBoltMemory();
   initializeThreadPools();
 
@@ -375,18 +365,18 @@ void PrestoServer::run() {
 
   if (systemConfig->enableRuntimeMetricsCollection()) {
     enableWorkerStatsReporting();
-    if (folly::Singleton<bolt::BaseStatsReporter>::try_get()) {
-      httpServer_->registerGet(
-          "/v1/info/metrics",
-          [](proxygen::HTTPMessage* /*message*/,
-             const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-             proxygen::ResponseHandler* downstream) {
-            http::sendOkResponse(
-                downstream,
-                folly::Singleton<bolt::BaseStatsReporter>::try_get()
-                    ->fetchMetrics());
-          });
-    }
+    //if (folly::Singleton<bytedance::bolt::BaseStatsReporter>::try_get()) {
+    //  httpServer_->registerGet(
+    //      "/v1/info/metrics",
+    //      [](proxygen::HTTPMessage* /*message*/,
+    //         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+    //         proxygen::ResponseHandler* downstream) {
+    //        http::sendOkResponse(
+    //            downstream,
+    //            folly::Singleton<bytedance::bolt::BaseStatsReporter>::try_get()
+    //                ->fetchMetrics());
+    //      });
+    //}
   }
   registerFunctions();
   registerRemoteFunctions();
@@ -426,12 +416,12 @@ void PrestoServer::run() {
         std::make_unique<http::HttpClientConnectionPool>();
   }
 
-  facebook::bolt::exec::ExchangeSource::registerFactory(
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
       [this](
           const std::string& taskId,
           int destination,
-          std::shared_ptr<bolt::exec::ExchangeQueue> queue,
-          bolt::memory::MemoryPool* pool) {
+          std::shared_ptr<bytedance::bolt::exec::ExchangeQueue> queue,
+          bytedance::bolt::memory::MemoryPool* pool) {
         return PrestoExchangeSource::create(
             taskId,
             destination,
@@ -443,16 +433,16 @@ void PrestoServer::run() {
             sslContext_);
       });
 
-  bolt::exec::ExchangeSource::registerFactory(
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
       operators::UnsafeRowExchangeSource::createExchangeSource);
 
   // Batch broadcast exchange source.
-  bolt::exec::ExchangeSource::registerFactory(
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
       operators::BroadcastExchangeSource::createExchangeSource);
 
   pool_ =
-      bolt::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
-  nativeWorkerPool_ = bolt::memory::MemoryManager::getInstance()->addLeafPool(
+      bytedance::bolt::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
+  nativeWorkerPool_ = bytedance::bolt::memory::MemoryManager::getInstance()->addLeafPool(
       "PrestoNativeWorker");
 
   taskManager_ = std::make_unique<TaskManager>(
@@ -485,13 +475,13 @@ void PrestoServer::run() {
 
   if (systemConfig->enableBoltTaskLogging()) {
     if (auto listener = getTaskListener()) {
-      bolt::exec::registerTaskListener(listener);
+      bytedance::bolt::exec::registerTaskListener(listener);
     }
   }
 
   if (systemConfig->enableBoltExprSetLogging()) {
     if (auto listener = getExprSetListener()) {
-      bolt::exec::registerExprSetListener(listener);
+      bytedance::bolt::exec::registerExprSetListener(listener);
     }
   }
   prestoServerOperations_ =
@@ -531,8 +521,8 @@ void PrestoServer::run() {
 
   PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks";
 
-  auto* memoryAllocator = bolt::memory::memoryManager()->allocator();
-  auto* asyncDataCache = bolt::cache::AsyncDataCache::getInstance();
+  auto* memoryAllocator = bytedance::bolt::memory::memoryManager()->allocator();
+  auto* asyncDataCache = bytedance::bolt::cache::AsyncDataCache::getInstance();
   periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
       driverExecutor_.get(),
       spillerExecutor_.get(),
@@ -543,7 +533,7 @@ void PrestoServer::run() {
       taskManager_.get(),
       memoryAllocator,
       asyncDataCache,
-      bolt::connector::getAllConnectors(),
+      bytedance::bolt::connector::getAllConnectors(),
       this);
   addServerPeriodicTasks();
   addAdditionalPeriodicTasks();
@@ -828,7 +818,7 @@ void PrestoServer::initializeThreadPools() {
   }
 }
 
-std::unique_ptr<bolt::cache::SsdCache> PrestoServer::setupSsdCache() {
+std::unique_ptr<bytedance::bolt::cache::SsdCache> PrestoServer::setupSsdCache() {
   BOLT_CHECK_NULL(cacheExecutor_);
   auto* systemConfig = SystemConfig::instance();
   if (systemConfig->asyncCacheSsdGb() == 0) {
@@ -838,18 +828,22 @@ std::unique_ptr<bolt::cache::SsdCache> PrestoServer::setupSsdCache() {
   constexpr int32_t kNumSsdShards = 16;
   cacheExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
       kNumSsdShards, std::make_shared<folly::NamedThreadFactory>("SsdCache"));
-  bolt::cache::SsdCache::Config cacheConfig(
+  auto asyncCacheSsdCheckpointGb =
+      systemConfig->asyncCacheSsdCheckpointGb();
+  auto asyncCacheSsdDisableFileCow =
+      systemConfig->asyncCacheSsdDisableFileCow();
+  PRESTO_STARTUP_LOG(INFO)
+      << "Initializing SSD cache with capacity " << systemConfig->asyncCacheSsdGb()
+      << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
+      << "GB, file cow "
+      << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
+  return std::make_unique<bytedance::bolt::cache::SsdCache>(
       systemConfig->asyncCacheSsdPath(),
       systemConfig->asyncCacheSsdGb() << 30,
       kNumSsdShards,
       cacheExecutor_.get(),
-      systemConfig->asyncCacheSsdCheckpointGb() << 30,
-      systemConfig->asyncCacheSsdDisableFileCow(),
-      systemConfig->ssdCacheChecksumEnabled(),
-      systemConfig->ssdCacheReadVerificationEnabled());
-  PRESTO_STARTUP_LOG(INFO) << "Initializing SSD cache with "
-                           << cacheConfig.toString();
-  return std::make_unique<bolt::cache::SsdCache>(cacheConfig);
+      asyncCacheSsdCheckpointGb << 30,
+      asyncCacheSsdDisableFileCow);
 }
 
 void PrestoServer::initializeBoltMemory() {
@@ -858,7 +852,7 @@ void PrestoServer::initializeBoltMemory() {
   PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
 
   // Set up bolt memory manager.
-  bolt::memory::MemoryManagerOptions options;
+  bytedance::bolt::memory::MemoryManager::Options options;
   options.allocatorCapacity = memoryGb << 30;
   if (systemConfig->useMmapAllocator()) {
     options.useMmapAllocator = true;
@@ -876,9 +870,9 @@ void PrestoServer::initializeBoltMemory() {
         memoryGb,
         "Query memory capacity must not be larger than system memory capacity");
     options.arbitratorCapacity = queryMemoryGb << 30;
-    const uint64_t sharedArbitratorReservedMemoryGb = bolt::config::toCapacity(
+    const uint64_t sharedArbitratorReservedMemoryGb = bytedance::bolt::config::toCapacity(
         systemConfig->sharedArbitratorReservedCapacity(),
-        bolt::config::CapacityUnit::GIGABYTE);
+        bytedance::bolt::config::CapacityUnit::GIGABYTE);
     BOLT_USER_CHECK_LE(
         sharedArbitratorReservedMemoryGb,
         queryMemoryGb,
@@ -886,9 +880,9 @@ void PrestoServer::initializeBoltMemory() {
         "query memory capacity");
 
     options.largestSizeClassPages = systemConfig->largestSizeClassPages();
-    options.arbitrationStateCheckCb = bolt::exec::memoryArbitrationStateCheck;
+    options.arbitrationStateCheckCb = bytedance::bolt::exec::memoryArbitrationStateCheck;
 
-    using SharedArbitratorConfig = bolt::memory::SharedArbitrator::ExtraConfig;
+    using SharedArbitratorConfig = bytedance::bolt::memory::SharedArbitrator::ExtraConfig;
     options.extraArbitratorConfigs = {
         {std::string(SharedArbitratorConfig::kReservedCapacity),
          systemConfig->sharedArbitratorReservedCapacity()},
@@ -912,35 +906,34 @@ void PrestoServer::initializeBoltMemory() {
         {std::string(SharedArbitratorConfig::kCheckUsageLeak),
          folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
   }
-  bolt::memory::initializeMemoryManager(options);
+  bytedance::bolt::memory::initializeMemoryManager(options);
   PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
-                           << bolt::memory::memoryManager()->toString();
+                           << bytedance::bolt::memory::memoryManager()->toString();
 
   if (systemConfig->asyncDataCacheEnabled()) {
-    std::unique_ptr<bolt::cache::SsdCache> ssd = setupSsdCache();
+    std::unique_ptr<bytedance::bolt::cache::SsdCache> ssd = setupSsdCache();
     std::string cacheStr =
         ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
 
-    bolt::cache::AsyncDataCache::Options cacheOptions{
+    /*bytedance::bolt::cache::AsyncDataCache::Options cacheOptions{
         systemConfig->asyncCacheMaxSsdWriteRatio(),
         systemConfig->asyncCacheSsdSavableRatio(),
-        systemConfig->asyncCacheMinSsdSavableBytes()};
-    cache_ = bolt::cache::AsyncDataCache::create(
-        bolt::memory::memoryManager()->allocator(),
-        std::move(ssd),
-        cacheOptions);
-    bolt::cache::AsyncDataCache::setInstance(cache_.get());
+        systemConfig->asyncCacheMinSsdSavableBytes()};*/
+    cache_ = bytedance::bolt::cache::AsyncDataCache::create(
+        bytedance::bolt::memory::memoryManager()->allocator(),
+        std::move(ssd));
+    bytedance::bolt::cache::AsyncDataCache::setInstance(cache_.get());
     PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
 
     if (isCacheTtlEnabled()) {
-      bolt::cache::CacheTTLController::create(*cache_);
+      bytedance::bolt::cache::CacheTTLController::create(*cache_);
       PRESTO_STARTUP_LOG(INFO) << fmt::format(
           "Cache TTL is enabled, with TTL {} enforced every {}.",
-          bolt::succinctMillis(
+          bytedance::bolt::succinctMillis(
               std::chrono::duration_cast<std::chrono::milliseconds>(
                   systemConfig->cacheBoltTtlThreshold())
                   .count()),
-          bolt::succinctMillis(
+          bytedance::bolt::succinctMillis(
               std::chrono::duration_cast<std::chrono::milliseconds>(
                   systemConfig->cacheBoltTtlCheckInterval())
                   .count()));
@@ -1075,7 +1068,7 @@ void PrestoServer::addServerPeriodicTasks() {
     periodicTaskManager_->addTask(
         [ttlThreshold]() {
           if (auto* cacheTTLController =
-                  bolt::cache::CacheTTLController::getInstance()) {
+                  bytedance::bolt::cache::CacheTTLController::getInstance()) {
             cacheTTLController->applyTTL(ttlThreshold);
           }
         },
@@ -1083,10 +1076,10 @@ void PrestoServer::addServerPeriodicTasks() {
         "cache_ttl");
   }
 
-  if (cachePeriodicPersistenceEnabled()) {
+  /*if (cachePeriodicPersistenceEnabled()) {
     PRESTO_STARTUP_LOG(INFO)
         << "Initializing cache periodic full persistence task...";
-    auto* cache = bolt::cache::AsyncDataCache::getInstance();
+    auto* cache = bytedance::bolt::cache::AsyncDataCache::getInstance();
     BOLT_CHECK_NOT_NULL(cache);
     auto* ssdCache = cache->ssdCache();
     BOLT_CHECK_NOT_NULL(ssdCache);
@@ -1111,14 +1104,14 @@ void PrestoServer::addServerPeriodicTasks() {
         },
         cacheFullPersistenceIntervalUs,
         "cache_full_persistence");
-  }
+  }*/
 }
 
-std::shared_ptr<bolt::exec::TaskListener> PrestoServer::getTaskListener() {
+std::shared_ptr<bytedance::bolt::exec::TaskListener> PrestoServer::getTaskListener() {
   return nullptr;
 }
 
-std::shared_ptr<bolt::exec::ExprSetListener>
+std::shared_ptr<bytedance::bolt::exec::ExprSetListener>
 PrestoServer::getExprSetListener() {
   return nullptr;
 }
@@ -1161,21 +1154,10 @@ PrestoServer::getAdditionalHttpServerFilters() {
 }
 
 void PrestoServer::registerConnectorFactories() {
-  // These checks for connector factories can be removed after we remove the
-  // registrations from the Bolt library.
-  if (!bolt::connector::hasConnectorFactory(
-          bolt::connector::hive::HiveConnectorFactory::kHiveConnectorName)) {
-    bolt::connector::registerConnectorFactory(
-        std::make_shared<bolt::connector::hive::HiveConnectorFactory>());
-    bolt::connector::registerConnectorFactory(
-        std::make_shared<bolt::connector::hive::HiveConnectorFactory>(
-            kHiveHadoop2ConnectorName));
-  }
-  if (!bolt::connector::hasConnectorFactory(
-          bolt::connector::tpch::TpchConnectorFactory::kTpchConnectorName)) {
-    bolt::connector::registerConnectorFactory(
-        std::make_shared<bolt::connector::tpch::TpchConnectorFactory>());
-  }
+  bytedance::bolt::connector::hive::CheckHiveConnectorFactoryInit<
+      bytedance::bolt::connector::hive::HiveConnectorFactory>();
+  bytedance::bolt::connector::tpch::CheckTpchConnectorFactoryInit<
+      bytedance::bolt::connector::tpch::TpchConnectorFactory>();
 }
 
 std::vector<std::string> PrestoServer::registerConnectors(
@@ -1223,8 +1205,8 @@ std::vector<std::string> PrestoServer::registerConnectors(
           << "Registered properties from " << entry.path() << ":\n"
           << stringifyConnectorConfig(connectorConf);
 
-      std::shared_ptr<const bolt::config::ConfigBase> properties =
-          std::make_shared<const bolt::config::ConfigBase>(
+      std::shared_ptr<const bytedance::bolt::config::ConfigBase> properties =
+          std::make_shared<const bytedance::bolt::config::ConfigBase>(
               std::move(connectorConf));
 
       auto connectorName = util::requiredProperty(*properties, kConnectorName);
@@ -1237,14 +1219,13 @@ std::vector<std::string> PrestoServer::registerConnectors(
       // make sure connector type is supported
       getPrestoToBoltConnector(connectorName);
 
-      std::shared_ptr<bolt::connector::Connector> connector =
-          bolt::connector::getConnectorFactory(connectorName)
+      std::shared_ptr<bytedance::bolt::connector::Connector> connector =
+          bytedance::bolt::connector::getConnectorFactory(connectorName)
               ->newConnector(
                   catalogName,
                   std::move(properties),
-                  connectorIoExecutor_.get(),
-                  connectorCpuExecutor_.get());
-      bolt::connector::registerConnector(connector);
+                  connectorIoExecutor_.get());
+      bytedance::bolt::connector::registerConnector(connector);
     }
   }
   return catalogNames;
@@ -1256,12 +1237,12 @@ void PrestoServer::registerSystemConnector() {
   BOLT_CHECK(taskManager_);
   auto systemConnector =
       std::make_shared<SystemConnector>("$system@system", taskManager_.get());
-  bolt::connector::registerConnector(systemConnector);
+  bytedance::bolt::connector::registerConnector(systemConnector);
 }
 
 void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
-  auto connectors = bolt::connector::getAllConnectors();
+  auto connectors = bytedance::bolt::connector::getAllConnectors();
   if (connectors.empty()) {
     PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
     return;
@@ -1270,7 +1251,7 @@ void PrestoServer::unregisterConnectors() {
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Unregistering " << connectors.size() << " connectors";
   for (const auto& connectorEntry : connectors) {
-    if (bolt::connector::unregisterConnector(connectorEntry.first)) {
+    if (bytedance::bolt::connector::unregisterConnector(connectorEntry.first)) {
       PRESTO_SHUTDOWN_LOG(INFO)
           << "Unregistered connector: " << connectorEntry.first;
     } else {
@@ -1279,7 +1260,7 @@ void PrestoServer::unregisterConnectors() {
     }
   }
 
-  bolt::connector::unregisterConnector("$system@system");
+  bytedance::bolt::connector::unregisterConnector("$system@system");
   PRESTO_SHUTDOWN_LOG(INFO)
       << "Unregistered " << connectors.size() << " connectors";
 }
@@ -1291,29 +1272,29 @@ void PrestoServer::registerShuffleInterfaceFactories() {
 }
 
 void PrestoServer::registerCustomOperators() {
-  bolt::exec::Operator::registerOperator(
+  bytedance::bolt::exec::Operator::registerOperator(
       std::make_unique<operators::PartitionAndSerializeTranslator>());
-  bolt::exec::Operator::registerOperator(
+  bytedance::bolt::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleWriteTranslator>());
-  bolt::exec::Operator::registerOperator(
+  bytedance::bolt::exec::Operator::registerOperator(
       std::make_unique<operators::ShuffleReadTranslator>());
 
   // Todo - Split Presto & Presto-on-Spark server into different classes
   // which will allow server specific operator registration.
-  bolt::exec::Operator::registerOperator(
+  bytedance::bolt::exec::Operator::registerOperator(
       std::make_unique<operators::BroadcastWriteTranslator>());
 }
 
 void PrestoServer::registerFunctions() {
   static const std::string kPrestoDefaultPrefix{"presto.default."};
-  bolt::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
-  bolt::aggregate::prestosql::registerAllAggregateFunctions(
+  bytedance::bolt::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  bytedance::bolt::aggregate::prestosql::registerAllAggregateFunctions(
       kPrestoDefaultPrefix);
-  bolt::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  bytedance::bolt::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
   if (SystemConfig::instance()->registerTestFunctions()) {
-    bolt::functions::prestosql::registerAllScalarFunctions(
+    bytedance::bolt::functions::prestosql::registerAllScalarFunctions(
         "json.test_schema.");
-    bolt::aggregate::prestosql::registerAllAggregateFunctions(
+    bytedance::bolt::aggregate::prestosql::registerAllAggregateFunctions(
         "json.test_schema.");
   }
 }
@@ -1347,59 +1328,57 @@ void PrestoServer::registerRemoteFunctions() {
 }
 
 void PrestoServer::registerVectorSerdes() {
-  if (!bolt::isRegisteredVectorSerde()) {
-    bolt::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  if (!bytedance::bolt::isRegisteredVectorSerde()) {
+    bytedance::bolt::serializer::presto::PrestoVectorSerde::registerVectorSerde();
   }
-  if (!bolt::isRegisteredNamedVectorSerde(bolt::VectorSerde::Kind::kPresto)) {
-    bolt::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  /*if (!bytedance::bolt::isRegisteredNamedVectorSerde(bytedance::bolt::VectorSerde::Kind::kPresto)) {
+    bytedance::bolt::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
   }
-  if (!bolt::isRegisteredNamedVectorSerde(
-          bolt::VectorSerde::Kind::kCompactRow)) {
-    bolt::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  if (!bytedance::bolt::isRegisteredNamedVectorSerde(
+          bytedance::bolt::VectorSerde::Kind::kCompactRow)) {
+    bytedance::bolt::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
   }
-  if (!bolt::isRegisteredNamedVectorSerde(
-          bolt::VectorSerde::Kind::kUnsafeRow)) {
-    bolt::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
-  }
+  if (!bytedance::bolt::isRegisteredNamedVectorSerde(
+          bytedance::bolt::VectorSerde::Kind::kUnsafeRow)) {
+    bytedance::bolt::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+  }*/
 }
 
 void PrestoServer::registerFileSinks() {
-  bolt::dwio::common::registerFileSinks();
+  bytedance::bolt::dwio::common::registerFileSinks();
 }
 
 void PrestoServer::registerFileSystems() {
-  bolt::filesystems::registerLocalFileSystem();
-  bolt::filesystems::registerS3FileSystem();
-  bolt::filesystems::registerHdfsFileSystem();
-  bolt::filesystems::registerGcsFileSystem();
-  bolt::filesystems::registerAbfsFileSystem();
+  bytedance::bolt::filesystems::registerLocalFileSystem();
+  bytedance::bolt::filesystems::registerS3FileSystem();
+  bytedance::bolt::filesystems::registerHdfsFileSystem();
 }
 
 void PrestoServer::unregisterFileSystems() {
-  bolt::filesystems::finalizeS3FileSystem();
+  bytedance::bolt::filesystems::finalizeS3FileSystem();
 }
 
 void PrestoServer::registerMemoryArbitrators() {
-  bolt::memory::SharedArbitrator::registerFactory();
+  bytedance::bolt::memory::SharedArbitrator::registerFactory();
 }
 
 void PrestoServer::registerFileReadersAndWriters() {
-  bolt::dwrf::registerDwrfReaderFactory();
-  bolt::dwrf::registerDwrfWriterFactory();
-  bolt::parquet::registerParquetReaderFactory();
-  bolt::parquet::registerParquetWriterFactory();
+  bytedance::bolt::dwrf::registerDwrfReaderFactory();
+  bytedance::bolt::dwrf::registerDwrfWriterFactory();
+  bytedance::bolt::parquet::registerParquetReaderFactory();
+  bytedance::bolt::parquet::registerParquetWriterFactory();
 }
 
 void PrestoServer::unregisterFileReadersAndWriters() {
-  bolt::dwrf::unregisterDwrfReaderFactory();
-  bolt::dwrf::unregisterDwrfWriterFactory();
-  bolt::parquet::unregisterParquetReaderFactory();
-  bolt::parquet::unregisterParquetWriterFactory();
+  bytedance::bolt::dwrf::unregisterDwrfReaderFactory();
+  bytedance::bolt::dwrf::unregisterDwrfWriterFactory();
+  bytedance::bolt::parquet::unregisterParquetReaderFactory();
+  bytedance::bolt::parquet::unregisterParquetWriterFactory();
 }
 
 void PrestoServer::registerStatsCounters() {
   registerPrestoMetrics();
-  bolt::registerBoltMetrics();
+  bytedance::bolt::registerBoltMetrics();
 }
 
 std::string PrestoServer::getLocalIp() const {
@@ -1425,7 +1404,7 @@ std::string PrestoServer::getBaseSpillDirectory() const {
 
 void PrestoServer::enableWorkerStatsReporting() {
   // This flag must be set to register the counters.
-  facebook::bolt::BaseStatsReporter::registered = true;
+  bytedance::bolt::BaseStatsReporter::registered = true;
   registerStatsCounters();
 }
 
@@ -1455,7 +1434,7 @@ void PrestoServer::populateMemAndCPUInfo() {
   const auto* queryCtxMgr = taskManager_->getQueryContextManager();
   size_t numContexts{0};
   queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
-                                    const bolt::core::QueryCtx* queryCtx) {
+                                    const bytedance::bolt::core::QueryCtx* queryCtx) {
     const protocol::Long bytes = queryCtx->pool()->usedBytes();
     poolInfo.queryMemoryReservations.insert({queryId, bytes});
     // TODO(spershin): Might want to see what Java exports and export similar
@@ -1539,13 +1518,13 @@ void PrestoServer::registerSidecarEndpoints() {
             taskManager_->getQueryContextManager()->getSessionProperties();
         http::sendOkResponse(downstream, sessionProperties.serialize());
       });
-  httpServer_->registerGet(
-      "/v1/functions",
-      [](proxygen::HTTPMessage* /*message*/,
-         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
-         proxygen::ResponseHandler* downstream) {
-        http::sendOkResponse(downstream, getFunctionsMetadata());
-      });
+  //httpServer_->registerGet(
+  //    "/v1/functions",
+  //    [](proxygen::HTTPMessage* /*message*/,
+  //       const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+  //       proxygen::ResponseHandler* downstream) {
+  //      http::sendOkResponse(downstream, getFunctionsMetadata());
+  //    });
   httpServer_->registerPost(
       "/v1/bolt/plan",
       [server = this](

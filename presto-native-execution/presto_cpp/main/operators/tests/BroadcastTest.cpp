@@ -97,14 +97,14 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     return {serdeRowType, broadcastFilePaths};
   }
 
-  std::pair<std::unique_ptr<bolt::exec::TaskCursor>, std::vector<RowVectorPtr>>
+  std::pair<std::unique_ptr<bytedance::bolt::exec::TaskCursor>, std::vector<RowVectorPtr>>
   executeBroadcastRead(
       RowTypePtr dataType,
       const std::string& basePath,
       const std::vector<std::string>& broadcastFilePaths) {
     // Create plan for read node using file path.
     auto readerPlan = exec::test::PlanBuilder()
-                          .exchange(dataType, bolt::VectorSerde::Kind::kPresto)
+                          .exchange(dataType, bytedance::bolt::VectorSerde::Kind::kPresto)
                           .planNode();
     exec::CursorParameters broadcastReadParams;
     broadcastReadParams.planNode = readerPlan;
@@ -181,7 +181,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
     auto expected = reorderColumns(data, serdeLayout, serdeRowType);
 
     // Assert data from broadcast file matches input.
-    bolt::exec::test::assertEqualResults(expected, {result});
+    bytedance::bolt::exec::test::assertEqualResults(expected, {result});
 
     std::vector<RowVectorPtr> actualOutputVectors;
 
@@ -190,7 +190,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         serdeRowType, tempDirectoryPath->getPath(), broadcastFilePaths);
 
     // Assert its same as data.
-    bolt::exec::test::assertEqualResults(expected, broadcastReadResults);
+    bytedance::bolt::exec::test::assertEqualResults(expected, broadcastReadResults);
   }
 
   RowVectorPtr readFromFile(
@@ -214,7 +214,7 @@ class BroadcastTest : public exec::test::OperatorTestBase {
         byteStream.get(),
         pool(),
         dataType,
-        bolt::getNamedVectorSerde(bolt::VectorSerde::Kind::kPresto),
+        bytedance::bolt::getNamedVectorSerde(bytedance::bolt::VectorSerde::Kind::kPresto),
         &result,
         nullptr);
     return result;
@@ -283,7 +283,7 @@ TEST_F(BroadcastTest, endToEndWithNoRows) {
   ASSERT_EQ(broadcastFilePaths.size(), 0);
 
   auto fileSystem =
-      bolt::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
+      bytedance::bolt::filesystems::getFileSystem(tempDirectoryPath->getPath(), nullptr);
   auto files = fileSystem->list(tempDirectoryPath->getPath());
 
   // Assert no file was generated in broadcast directory path.
@@ -317,7 +317,7 @@ TEST_F(BroadcastTest, endToEndWithMultipleWriteNodes) {
       broadcastFilePaths);
 
   // Validate BroadcastExchange reads back output of both writes.
-  bolt::exec::test::assertEqualResults(dataVector, broadcastReadResults);
+  bytedance::bolt::exec::test::assertEqualResults(dataVector, broadcastReadResults);
 }
 
 TEST_F(BroadcastTest, invalidFileSystem) {
@@ -358,7 +358,7 @@ TEST_F(BroadcastTest, malformedBroadcastInfoJson) {
   std::string invalidBroadcastFilePath = "/tmp/file.bin";
 
   auto readerPlan = exec::test::PlanBuilder()
-                        .exchange(dataType, bolt::VectorSerde::Kind::kPresto)
+                        .exchange(dataType, bytedance::bolt::VectorSerde::Kind::kPresto)
                         .planNode();
   exec::CursorParameters broadcastReadParams;
   broadcastReadParams.planNode = readerPlan;

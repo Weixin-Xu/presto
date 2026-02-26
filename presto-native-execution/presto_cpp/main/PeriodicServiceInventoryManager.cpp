@@ -13,7 +13,7 @@
  */
 #include "presto_cpp/main/PeriodicServiceInventoryManager.h"
 #include <folly/futures/Retrying.h>
-#include "bolt/common/memory/Memory.h>
+#include "bolt/common/memory/Memory.h"
 
 namespace facebook::presto {
 PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
@@ -29,7 +29,7 @@ PeriodicServiceInventoryManager::PeriodicServiceInventoryManager(
       sslContext_(std::move(sslContext)),
       id_(std::move(id)),
       frequencyMs_(frequencyMs),
-      pool_(bolt::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
+      pool_(bytedance::bolt::memory::deprecatedAddDefaultLeafMemoryPool(id_)),
       eventBaseThread_(false /*autostart*/) {}
 
 void PeriodicServiceInventoryManager::start() {

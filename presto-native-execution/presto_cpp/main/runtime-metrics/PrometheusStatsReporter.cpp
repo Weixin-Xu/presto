@@ -25,8 +25,8 @@
 namespace facebook::presto::prometheus {
 
 // Initialize singleton for the reporter
-folly::Singleton<facebook::bolt::BaseStatsReporter> reporter(
-    []() -> facebook::bolt::BaseStatsReporter* {
+folly::Singleton<bytedance::bolt::BaseStatsReporter> reporter(
+    []() -> bytedance::bolt::BaseStatsReporter* {
       return facebook::presto::prometheus::PrometheusStatsReporter::
           createPrometheusReporter()
               .release();
@@ -53,7 +53,7 @@ PrometheusStatsReporter::PrometheusStatsReporter(
 
 void PrometheusStatsReporter::registerMetricExportType(
     const char* key,
-    facebook::bolt::StatType statType) const {
+    bytedance::bolt::StatType statType) const {
   if (registeredMetricsMap_.count(key)) {
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
@@ -62,7 +62,7 @@ void PrometheusStatsReporter::registerMetricExportType(
   std::string sanitizedMetricKey = std::string(key);
   std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '.', '_');
   switch (statType) {
-    case facebook::bolt::StatType::COUNT: {
+    case bytedance::bolt::StatType::COUNT: {
       // A new MetricFamily object is built for every new metric key.
       auto& counterFamily = ::prometheus::BuildCounter()
                                 .Name(sanitizedMetricKey)
@@ -71,9 +71,9 @@ void PrometheusStatsReporter::registerMetricExportType(
       registeredMetricsMap_.emplace(
           std::string(key), StatsInfo{statType, &counter});
     } break;
-    case facebook::bolt::StatType::SUM:
-    case facebook::bolt::StatType::AVG:
-    case facebook::bolt::StatType::RATE: {
+    case bytedance::bolt::StatType::SUM:
+    case bytedance::bolt::StatType::AVG:
+    case bytedance::bolt::StatType::RATE: {
       auto& gaugeFamily = ::prometheus::BuildGauge()
                               .Name(sanitizedMetricKey)
                               .Register(*impl_->registry);
@@ -83,13 +83,13 @@ void PrometheusStatsReporter::registerMetricExportType(
     } break;
     default:
       BOLT_UNSUPPORTED(
-          "Unsupported metric type {}", bolt::statTypeString(statType));
+          "Unsupported metric type {}", bytedance::bolt::statTypeString(statType));
   }
 }
 
 void PrometheusStatsReporter::registerMetricExportType(
     folly::StringPiece key,
-    facebook::bolt::StatType statType) const {
+    bytedance::bolt::StatType statType) const {
   registerMetricExportType(key.toString().c_str(), statType);
 }
 
@@ -124,7 +124,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
   auto& histogramMetric = histogramFamily.Add(impl_->labels, bucketBoundaries);
 
   registeredMetricsMap_.emplace(
-      key, StatsInfo{bolt::StatType::HISTOGRAM, &histogramMetric});
+      key, StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &histogramMetric});
   // If percentiles are provided, create a Summary type metric and register.
   if (pcts.size() > 0) {
     auto summaryMetricKey = sanitizedMetricKey + std::string(kSummarySuffix);
@@ -139,7 +139,7 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
     registeredMetricsMap_.emplace(
         std::string(key).append(kSummarySuffix),
-        StatsInfo{bolt::StatType::HISTOGRAM, &summaryMetric});
+        StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &summaryMetric});
   }
 }
 
@@ -168,19 +168,19 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
   }
   auto statsInfo = metricIterator->second;
   switch (statsInfo.statType) {
-    case bolt::StatType::COUNT: {
+    case bytedance::bolt::StatType::COUNT: {
       auto* counter =
           reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
       counter->Increment(static_cast<double>(value));
       break;
     }
-    case bolt::StatType::SUM: {
+    case bytedance::bolt::StatType::SUM: {
       auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
       gauge->Increment(static_cast<double>(value));
       break;
     }
-    case bolt::StatType::AVG:
-    case bolt::StatType::RATE: {
+    case bytedance::bolt::StatType::AVG:
+    case bytedance::bolt::StatType::RATE: {
       // Overrides the existing state.
       auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
       gauge->Set(static_cast<double>(value));
@@ -189,7 +189,7 @@ void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
     default:
       BOLT_UNSUPPORTED(
           "Unsupported metric type {}",
-          bolt::statTypeString(statsInfo.statType));
+          bytedance::bolt::statTypeString(statsInfo.statType));
   };
 }
 

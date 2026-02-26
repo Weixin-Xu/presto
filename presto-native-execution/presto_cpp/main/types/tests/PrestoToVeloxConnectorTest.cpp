@@ -29,8 +29,6 @@ TEST_F(PrestoToBoltConnectorTest, registerVariousConnectors) {
       "hive-hadoop2",
 
       std::make_unique<HivePrestoToBoltConnector>("hive-hadoop2")));
-  connectorList.emplace_back(std::pair(
-      "iceberg", std::make_unique<IcebergPrestoToBoltConnector>("iceberg")));
   connectorList.emplace_back(
       std::pair("tpch", std::make_unique<HivePrestoToBoltConnector>("tpch")));
 

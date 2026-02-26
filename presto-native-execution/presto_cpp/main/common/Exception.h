@@ -31,7 +31,7 @@ class BoltToPrestoExceptionTranslator {
  public:
   // Translates to Presto error from Bolt exceptions
   static protocol::ExecutionFailureInfo translate(
-      const bolt::BoltException& e);
+      const bytedance::bolt::BoltException& e);
 
   // Translates to Presto error from std::exceptions
   static protocol::ExecutionFailureInfo translate(const std::exception& e);
@@ -45,47 +45,47 @@ class BoltToPrestoExceptionTranslator {
         std::string,
         std::unordered_map<std::string, protocol::ErrorCode>>
         kTranslateMap = {
-            {bolt::error_source::kErrorSourceRuntime,
-             {{bolt::error_code::kMemCapExceeded,
+            {bytedance::bolt::error_source::kErrorSourceRuntime,
+             {{bytedance::bolt::error_code::kMemCapExceeded,
                {0x00020007,
                 "EXCEEDED_LOCAL_MEMORY_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {bolt::error_code::kMemAborted,
+              {bytedance::bolt::error_code::kMemAborted,
                {0x00020000,
                 "GENERIC_INSUFFICIENT_RESOURCES",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {bolt::error_code::kSpillLimitExceeded,
+              {bytedance::bolt::error_code::kSpillLimitExceeded,
                {0x00020006,
                 "EXCEEDED_SPILL_LIMIT",
                 protocol::ErrorType::INSUFFICIENT_RESOURCES}},
-              {bolt::error_code::kInvalidState,
+              {bytedance::bolt::error_code::kInvalidState,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {bolt::error_code::kUnreachableCode,
+              {bytedance::bolt::error_code::kUnreachableCode,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {bolt::error_code::kNotImplemented,
+              {bytedance::bolt::error_code::kNotImplemented,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}},
-              {bolt::error_code::kUnknown,
+              {bytedance::bolt::error_code::kUnknown,
                {0x00010000,
                 "GENERIC_INTERNAL_ERROR",
                 protocol::ErrorType::INTERNAL_ERROR}}}},
-            {bolt::error_source::kErrorSourceUser,
-             {{bolt::error_code::kInvalidArgument,
+            {bytedance::bolt::error_source::kErrorSourceUser,
+             {{bytedance::bolt::error_code::kInvalidArgument,
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}},
-              {bolt::error_code::kUnsupported,
+              {bytedance::bolt::error_code::kUnsupported,
                {0x0000000D, "NOT_SUPPORTED", protocol::ErrorType::USER_ERROR}},
-              {bolt::error_code::kArithmeticError,
+              {bytedance::bolt::error_code::kArithmeticError,
                {0x00000000,
                 "GENERIC_USER_ERROR",
                 protocol::ErrorType::USER_ERROR}}}},
-            {bolt::error_source::kErrorSourceSystem, {}}};
+            {bytedance::bolt::error_source::kErrorSourceSystem, {}}};
     return kTranslateMap;
   }
 };

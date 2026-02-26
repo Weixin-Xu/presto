@@ -48,9 +48,9 @@ void PeriodicMemoryChecker::start() {
     PRESTO_STARTUP_LOG(INFO)
         << "Creating server memory pushback checker, memory check interval "
         << config_.memoryCheckerIntervalMs << "ms, system memory limit: "
-        << bolt::succinctBytes(config_.systemMemLimitBytes)
+        << bytedance::bolt::succinctBytes(config_.systemMemLimitBytes)
         << ", memory shrink size: "
-        << bolt::succinctBytes(config_.systemMemShrinkBytes);
+        << bytedance::bolt::succinctBytes(config_.systemMemShrinkBytes);
   }
 
   if (!config_.mallocMemHeapDumpEnabled) {
@@ -59,7 +59,7 @@ void PeriodicMemoryChecker::start() {
     PRESTO_STARTUP_LOG(INFO)
         << "Enabling Malloc memory heap dumper"
         << ", malloc'd memory dump threshold: "
-        << bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold)
+        << bytedance::bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold)
         << ", max dump files: " << config_.maxHeapDumpFiles
         << ", heap dump folder: " << config_.heapDumpLogDir
         << ", heap dump interval: " << config_.minHeapDumpIntervalSec
@@ -93,7 +93,7 @@ void PeriodicMemoryChecker::stop() {
 }
 
 std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
-  const size_t now = bolt::getCurrentTimeMs() / 1000;
+  const size_t now = bytedance::bolt::getCurrentTimeMs() / 1000;
   // Format as follow:
   // <heapDumpFilePrefix>.<pid>.<global_sequence>.i<sequence> =>
   // prefix.1234.235.i565
@@ -107,7 +107,7 @@ std::string PeriodicMemoryChecker::createHeapDumpFilePath() const {
 }
 
 void PeriodicMemoryChecker::maybeDumpHeap() {
-  const auto now = bolt::getCurrentTimeMs() / 1000;
+  const auto now = bytedance::bolt::getCurrentTimeMs() / 1000;
   const auto allocatedSize = mallocBytes();
   if (allocatedSize >= config_.mallocBytesUsageDumpThreshold &&
       now - lastHeapDumpAttemptTimestamp_ >= config_.minHeapDumpIntervalSec) {
@@ -115,8 +115,8 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     LOG(INFO) << fmt::format(
         "Memory usage allocated via malloc exceeded threshold of {}, current "
         "allocation: {}",
-        bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold),
-        bolt::succinctBytes(allocatedSize));
+        bytedance::bolt::succinctBytes(config_.mallocBytesUsageDumpThreshold),
+        bytedance::bolt::succinctBytes(allocatedSize));
 
     const auto minMemUsageDumped = dumpFilesByHeapMemUsageMinPq_.empty()
         ? 0
@@ -126,8 +126,8 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
       LOG(INFO) << fmt::format(
           "Heap profile not dumped as current usage {} is below the "
           "minimum usage dumped {} and we already have {} files in rotation",
-          bolt::succinctBytes(allocatedSize),
-          bolt::succinctBytes(minMemUsageDumped),
+          bytedance::bolt::succinctBytes(allocatedSize),
+          bytedance::bolt::succinctBytes(minMemUsageDumped),
           config_.maxHeapDumpFiles);
       return;
     }
@@ -139,7 +139,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     }
     LOG(INFO) << fmt::format(
         "Heap profile with usage {} dumped to {}",
-        bolt::succinctBytes(allocatedSize),
+        bytedance::bolt::succinctBytes(allocatedSize),
         filePath);
 
     dumpFilesByHeapMemUsageMinPq_.push({allocatedSize, filePath});
@@ -149,7 +149,7 @@ void PeriodicMemoryChecker::maybeDumpHeap() {
     auto& evicted = dumpFilesByHeapMemUsageMinPq_.top();
     LOG(INFO) << fmt::format(
         "Removing Heap profile with lowest usage {} : {}",
-        bolt::succinctBytes(evicted.mallocUsedBytes),
+        bytedance::bolt::succinctBytes(evicted.mallocUsedBytes),
         evicted.filePath);
     removeDumpFile(evicted.filePath.c_str());
     dumpFilesByHeapMemUsageMinPq_.pop();
@@ -160,9 +160,9 @@ void PeriodicMemoryChecker::pushbackMemory() {
   RECORD_METRIC_VALUE(kCounterMemoryPushbackCount);
   const uint64_t currentMemBytes = systemUsedMemoryBytes();
   BOLT_CHECK(config_.systemMemPushbackEnabled);
-  LOG(WARNING) << "System used memory " << bolt::succinctBytes(currentMemBytes)
+  LOG(WARNING) << "System used memory " << bytedance::bolt::succinctBytes(currentMemBytes)
                << " exceeded limit: "
-               << bolt::succinctBytes(config_.systemMemLimitBytes);
+               << bytedance::bolt::succinctBytes(config_.systemMemLimitBytes);
   const uint64_t targetMemBytes =
       config_.systemMemLimitBytes - config_.systemMemShrinkBytes;
   BOLT_CHECK_GT(currentMemBytes, targetMemBytes);
@@ -172,16 +172,16 @@ void PeriodicMemoryChecker::pushbackMemory() {
   uint64_t latencyUs{0};
   uint64_t freedBytes{0};
   {
-    bolt::MicrosecondTimer timer(&latencyUs);
-    auto* cache = bolt::cache::AsyncDataCache::getInstance();
+    bytedance::bolt::MicrosecondTimer timer(&latencyUs);
+    auto* cache = bytedance::bolt::cache::AsyncDataCache::getInstance();
     auto systemConfig = SystemConfig::instance();
     freedBytes = cache != nullptr ? cache->shrink(bytesToShrink) : 0;
     if (freedBytes < bytesToShrink) {
       try {
-        auto* memoryManager = bolt::memory::memoryManager();
-        freedBytes += bolt::memory::AllocationTraits::pageBytes(
+        auto* memoryManager = bytedance::bolt::memory::memoryManager();
+        freedBytes += bytedance::bolt::memory::AllocationTraits::pageBytes(
             memoryManager->allocator()->unmap(
-                bolt::memory::AllocationTraits::numPages(
+                bytedance::bolt::memory::AllocationTraits::numPages(
                     bytesToShrink - freedBytes)));
         if (freedBytes < bytesToShrink &&
             systemConfig->systemMemPushBackAbortEnabled()) {
@@ -196,13 +196,13 @@ void PeriodicMemoryChecker::pushbackMemory() {
             freedBytes += cache->shrink(bytesToShrink - freedBytes);
           }
           if (freedBytes < bytesToShrink) {
-            freedBytes += bolt::memory::AllocationTraits::pageBytes(
+            freedBytes += bytedance::bolt::memory::AllocationTraits::pageBytes(
                 memoryManager->allocator()->unmap(
-                    bolt::memory::AllocationTraits::numPages(
+                    bytedance::bolt::memory::AllocationTraits::numPages(
                         bytesToShrink - freedBytes)));
           }
         }
-      } catch (const bolt::BoltException& ex) {
+      } catch (const bytedance::bolt::BoltException& ex) {
         LOG(ERROR) << ex.what();
       }
     }
@@ -215,9 +215,9 @@ void PeriodicMemoryChecker::pushbackMemory() {
       kCounterMemoryPushbackExpectedReductionBytes, freedBytes);
   RECORD_HISTOGRAM_METRIC_VALUE(
       kCounterMemoryPushbackReductionBytes, actualFreedBytes);
-  LOG(INFO) << "Memory pushback shrunk " << bolt::succinctBytes(freedBytes)
+  LOG(INFO) << "Memory pushback shrunk " << bytedance::bolt::succinctBytes(freedBytes)
             << " Effective bytes shrunk: "
-            << bolt::succinctBytes(actualFreedBytes);
+            << bytedance::bolt::succinctBytes(actualFreedBytes);
 }
 
 #ifndef PRESTO_MEMORY_CHECKER_TYPE

@@ -22,7 +22,7 @@
 namespace facebook::presto {
 namespace {
 
-using bolt::functions::remote::PageFormat;
+using bytedance::bolt::functions::remote::PageFormat;
 
 std::string genFunctionName(
     const std::string& baseFunctionName,
@@ -58,14 +58,14 @@ size_t processFile(
   std::stringstream buffer;
   buffer << stream.rdbuf();
 
-  bolt::functions::RemoteVectorFunctionMetadata metadata;
+  bytedance::bolt::functions::RemoteVectorFunctionMetadata metadata;
   metadata.location = location;
   metadata.serdeFormat = fromSerdeString(serde);
 
   // First group possible functions with the same name but different
   // schemas.
   std::
-      unordered_map<std::string, std::vector<bolt::exec::FunctionSignaturePtr>>
+      unordered_map<std::string, std::vector<bytedance::bolt::exec::FunctionSignaturePtr>>
           functionMap;
 
   for (const auto& it : JsonSignatureParser(buffer.str())) {
@@ -79,7 +79,7 @@ size_t processFile(
 
   // Register signatures in Bolt.
   for (const auto& it : functionMap) {
-    bolt::functions::registerRemoteFunction(it.first, it.second, metadata);
+    bytedance::bolt::functions::registerRemoteFunction(it.first, it.second, metadata);
     signaturesCount += it.second.size();
   }
   return signaturesCount;

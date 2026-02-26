@@ -30,171 +30,171 @@ namespace facebook::presto {
 class BoltQueryPlanConverterBase {
  public:
   BoltQueryPlanConverterBase(
-      bolt::core::QueryCtx* queryCtx,
-      bolt::memory::MemoryPool* pool)
+      bytedance::bolt::core::QueryCtx* queryCtx,
+      bytedance::bolt::memory::MemoryPool* pool)
       : pool_(pool), queryCtx_{queryCtx}, exprConverter_(pool, &typeParser_) {}
 
   virtual ~BoltQueryPlanConverterBase() = default;
 
-  virtual bolt::core::PlanFragment toBoltQueryPlan(
+  virtual bytedance::bolt::core::PlanFragment toBoltQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
   // visible for testing
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::PlanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
  protected:
-  virtual bolt::core::PlanNodePtr toBoltQueryPlan(
+  virtual bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) = 0;
 
-  virtual bolt::connector::CommitStrategy getCommitStrategy() const = 0;
+  virtual bytedance::bolt::connector::CommitStrategy getCommitStrategy() const = 0;
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::OutputNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::ExchangeNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::FilterNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::ProjectNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::ProjectNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::ProjectNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::ValuesNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::ValuesNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::ValuesNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::TableScanNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::TableScanNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableScanNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::AggregationNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::AggregationNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::AggregationNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::GroupIdNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::GroupIdNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::GroupIdNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::DistinctLimitNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::JoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::SemiJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::MarkDistinctNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::MergeJoinNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::TopNNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::TopNNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TopNNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::LimitNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::LimitNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::LimitNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::OrderByNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::OrderByNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::SortNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::TableWriteNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::TableWriteNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableWriterNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::TableWriteMergeNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::TableWriteMergeNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TableWriterMergeNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::UnnestNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::UnnestNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::UnnestNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::EnforceSingleRowNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::EnforceSingleRowNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::EnforceSingleRowNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::AssignUniqueIdNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::AssignUniqueIdNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::AssignUniqueId>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::WindowNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::WindowNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::WindowNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::RowNumberNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::RowNumberNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::RowNumberNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::shared_ptr<const bolt::core::PlanNode> toBoltQueryPlan(
+  std::shared_ptr<const bytedance::bolt::core::PlanNode> toBoltQueryPlan(
       const std::shared_ptr<const protocol::TopNRowNumberNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  std::vector<bolt::core::FieldAccessTypedExprPtr> toBoltExprs(
+  std::vector<bytedance::bolt::core::FieldAccessTypedExprPtr> toBoltExprs(
       const std::vector<protocol::VariableReferenceExpression>& variables);
 
-  std::shared_ptr<const bolt::core::ProjectNode> tryConvertOffsetLimit(
+  std::shared_ptr<const bytedance::bolt::core::ProjectNode> tryConvertOffsetLimit(
       const std::shared_ptr<const protocol::ProjectNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
-  bolt::core::WindowNode::Function toBoltWindowFunction(
+  bytedance::bolt::core::WindowNode::Function toBoltWindowFunction(
       const protocol::Function& func);
 
-  bolt::VectorPtr evaluateConstantExpression(
-      const bolt::core::TypedExprPtr& expression);
+  bytedance::bolt::VectorPtr evaluateConstantExpression(
+      const bytedance::bolt::core::TypedExprPtr& expression);
 
-  std::shared_ptr<bolt::core::AggregationNode> generateAggregationNode(
+  std::shared_ptr<bytedance::bolt::core::AggregationNode> generateAggregationNode(
       const std::shared_ptr<protocol::StatisticAggregations>&
           statisticsAggregation,
-      bolt::core::AggregationNode::Step step,
+      bytedance::bolt::core::AggregationNode::Step step,
       const protocol::PlanNodeId& id,
-      const bolt::core::PlanNodePtr& sourceBoltPlan,
+      const bytedance::bolt::core::PlanNodePtr& sourceBoltPlan,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId);
 
@@ -209,11 +209,11 @@ class BoltQueryPlanConverterBase {
       const std::map<
           protocol::VariableReferenceExpression,
           protocol::Aggregation>& aggregationMap,
-      std::vector<bolt::core::AggregationNode::Aggregate>& aggregates,
+      std::vector<bytedance::bolt::core::AggregationNode::Aggregate>& aggregates,
       std::vector<std::string>& aggregateNames);
 
-  bolt::memory::MemoryPool* const pool_;
-  bolt::core::QueryCtx* const queryCtx_;
+  bytedance::bolt::memory::MemoryPool* const pool_;
+  bytedance::bolt::core::QueryCtx* const queryCtx_;
   BoltExprConverter exprConverter_;
   TypeParser typeParser_;
 };
@@ -223,17 +223,17 @@ class BoltInteractiveQueryPlanConverter : public BoltQueryPlanConverterBase {
   using BoltQueryPlanConverterBase::toBoltQueryPlan;
 
   explicit BoltInteractiveQueryPlanConverter(
-      bolt::core::QueryCtx* queryCtx,
-      bolt::memory::MemoryPool* pool)
+      bytedance::bolt::core::QueryCtx* queryCtx,
+      bytedance::bolt::memory::MemoryPool* pool)
       : BoltQueryPlanConverterBase(queryCtx, pool) {}
 
  protected:
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
-  bolt::connector::CommitStrategy getCommitStrategy() const override;
+  bytedance::bolt::connector::CommitStrategy getCommitStrategy() const override;
 };
 
 class BoltBatchQueryPlanConverter : public BoltQueryPlanConverterBase {
@@ -244,25 +244,25 @@ class BoltBatchQueryPlanConverter : public BoltQueryPlanConverterBase {
       const std::string& shuffleName,
       std::shared_ptr<std::string>&& serializedShuffleWriteInfo,
       std::shared_ptr<std::string>&& broadcastBasePath,
-      bolt::core::QueryCtx* queryCtx,
-      bolt::memory::MemoryPool* pool)
+      bytedance::bolt::core::QueryCtx* queryCtx,
+      bytedance::bolt::memory::MemoryPool* pool)
       : BoltQueryPlanConverterBase(queryCtx, pool),
         shuffleName_(shuffleName),
         serializedShuffleWriteInfo_(std::move(serializedShuffleWriteInfo)),
         broadcastBasePath_(std::move(broadcastBasePath)) {}
 
-  bolt::core::PlanFragment toBoltQueryPlan(
+  bytedance::bolt::core::PlanFragment toBoltQueryPlan(
       const protocol::PlanFragment& fragment,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
  protected:
-  bolt::core::PlanNodePtr toBoltQueryPlan(
+  bytedance::bolt::core::PlanNodePtr toBoltQueryPlan(
       const std::shared_ptr<const protocol::RemoteSourceNode>& node,
       const std::shared_ptr<protocol::TableWriteInfo>& tableWriteInfo,
       const protocol::TaskId& taskId) override;
 
-  bolt::connector::CommitStrategy getCommitStrategy() const override;
+  bytedance::bolt::connector::CommitStrategy getCommitStrategy() const override;
 
  private:
   const std::string shuffleName_;
@@ -274,6 +274,6 @@ void registerPrestoPlanNodeSerDe();
 
 void parseSqlFunctionHandle(
     const std::shared_ptr<protocol::SqlFunctionHandle>& sqlFunction,
-    std::vector<bolt::TypePtr>& rawInputTypes,
+    std::vector<bytedance::bolt::TypePtr>& rawInputTypes,
     TypeParser& typeParser);
 } // namespace facebook::presto

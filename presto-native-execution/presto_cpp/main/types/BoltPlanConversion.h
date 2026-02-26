@@ -26,7 +26,7 @@ namespace facebook::presto {
 /// @param planValidator BoltPlanValidator to validate the converted plan.
 protocol::PlanConversionResponse prestoToBoltPlanConversion(
     const std::string& planFragmentJson,
-    bolt::memory::MemoryPool* pool,
+    bytedance::bolt::memory::MemoryPool* pool,
     BoltPlanValidator* planValidator);
 
 } // namespace facebook::presto

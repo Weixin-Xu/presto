@@ -17,7 +17,7 @@
 #include <proxygen/lib/http/connpool/ServerIdleSessionController.h>
 #include <proxygen/lib/http/connpool/SessionPool.h>
 #include <proxygen/lib/http/session/HTTPUpstreamSession.h>
-#include "bolt/common/memory/MemoryPool.h>
+#include "bolt/common/memory/MemoryPool.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 #include "bolt/common/base/Exceptions.h"
 
@@ -28,7 +28,7 @@ class HttpResponse {
  public:
   HttpResponse(
       std::unique_ptr<proxygen::HTTPMessage> headers,
-      std::shared_ptr<bolt::memory::MemoryPool> pool,
+      std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool,
       uint64_t minResponseAllocBytes,
       uint64_t maxResponseAllocBytes);
 
@@ -73,7 +73,7 @@ class HttpResponse {
 
   /// Consumes the response body. The memory of body will be transferred to the
   /// memory to be allocated from 'pool'.
-  std::unique_ptr<folly::IOBuf> consumeBody(bolt::memory::MemoryPool* pool);
+  std::unique_ptr<folly::IOBuf> consumeBody(bytedance::bolt::memory::MemoryPool* pool);
 
   void freeBuffers();
 
@@ -99,7 +99,7 @@ class HttpResponse {
   FOLLY_ALWAYS_INLINE size_t nextAllocationSize(uint64_t dataLength) const;
 
   const std::unique_ptr<proxygen::HTTPMessage> headers_;
-  const std::shared_ptr<bolt::memory::MemoryPool> pool_;
+  const std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool_;
   const uint64_t minResponseAllocBytes_;
   const uint64_t maxResponseAllocBytes_;
 
@@ -164,7 +164,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       const folly::SocketAddress& address,
       std::chrono::milliseconds transactionTimeout,
       std::chrono::milliseconds connectTimeout,
-      std::shared_ptr<bolt::memory::MemoryPool> pool,
+      std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool,
       folly::SSLContextPtr sslContext,
       std::function<void(int)>&& reportOnBodyStatsFunc = nullptr);
 
@@ -176,7 +176,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
       const std::string& body = "",
       int64_t delayMs = 0);
 
-  const std::shared_ptr<bolt::memory::MemoryPool>& memoryPool() {
+  const std::shared_ptr<bytedance::bolt::memory::MemoryPool>& memoryPool() {
     return pool_;
   }
 
@@ -200,7 +200,7 @@ class HttpClient : public std::enable_shared_from_this<HttpClient> {
   const folly::SocketAddress address_;
   const std::chrono::milliseconds transactionTimeout_;
   const std::chrono::milliseconds connectTimeout_;
-  const std::shared_ptr<bolt::memory::MemoryPool> pool_;
+  const std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool_;
   const folly::SSLContextPtr sslContext_;
   const std::function<void(int)> reportOnBodyStatsFunc_;
   const uint64_t maxResponseAllocBytes_;

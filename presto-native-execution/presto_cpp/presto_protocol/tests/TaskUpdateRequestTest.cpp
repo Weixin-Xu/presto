@@ -33,7 +33,7 @@ TEST_F(TestPrestoProtocol, DISABLED_TestAggregationNode) {
   // Check some values ...
   ASSERT_NE(p.fragment, nullptr);
 
-  PlanFragment f = json::parse(bolt::encoding::Base64::decode(*p.fragment));
+  PlanFragment f = json::parse(bytedance::bolt::encoding::Base64::decode(*p.fragment));
 
   ASSERT_EQ(f.root->_type, ".AggregationNode");
 
@@ -66,7 +66,7 @@ TEST_F(TestPrestoProtocol, DISABLED_TestLimitNode) {
   // Check some values ...
   ASSERT_NE(p.fragment, nullptr);
 
-  PlanFragment f = json::parse(bolt::encoding::Base64::decode(*p.fragment));
+  PlanFragment f = json::parse(bytedance::bolt::encoding::Base64::decode(*p.fragment));
 
   ASSERT_EQ(f.root->_type, ".LimitNode");
 

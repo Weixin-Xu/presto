@@ -18,8 +18,8 @@
 #include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/io/async/SSLContext.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
-#include "bolt/exec/Task.h>
-#include "bolt/expression/Expr.h>
+#include "bolt/exec/Task.h"
+#include "bolt/expression/Expr.h"
 #include "presto_cpp/main/CPUMon.h"
 #include "presto_cpp/main/CoordinatorDiscoverer.h"
 #include "presto_cpp/main/PeriodicHeartbeatManager.h"
@@ -36,7 +36,7 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-namespace facebook::bolt::connector {
+namespace bytedance::bolt::connector {
 class Connector;
 }
 
@@ -127,9 +127,9 @@ class PrestoServer {
 
   virtual void initializeCoordinatorDiscoverer();
 
-  virtual std::shared_ptr<bolt::exec::TaskListener> getTaskListener();
+  virtual std::shared_ptr<bytedance::bolt::exec::TaskListener> getTaskListener();
 
-  virtual std::shared_ptr<bolt::exec::ExprSetListener> getExprSetListener();
+  virtual std::shared_ptr<bytedance::bolt::exec::ExprSetListener> getExprSetListener();
 
   /// Returns any additional http filters.
   virtual std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
@@ -226,7 +226,7 @@ class PrestoServer {
 
   void registerSidecarEndpoints();
 
-  std::unique_ptr<bolt::cache::SsdCache> setupSsdCache();
+  std::unique_ptr<bytedance::bolt::cache::SsdCache> setupSsdCache();
 
   const std::string configDirectoryPath_;
 
@@ -264,14 +264,14 @@ class PrestoServer {
   std::unique_ptr<http::HttpClientConnectionPool> exchangeSourceConnectionPool_;
 
   // If not null,  the instance of AsyncDataCache used for in-memory file cache.
-  std::shared_ptr<bolt::cache::AsyncDataCache> cache_;
+  std::shared_ptr<bytedance::bolt::cache::AsyncDataCache> cache_;
 
   std::unique_ptr<http::HttpServer> httpServer_;
   std::unique_ptr<SignalHandler> signalHandler_;
   std::unique_ptr<Announcer> announcer_;
   std::unique_ptr<PeriodicHeartbeatManager> heartbeatManager_;
-  std::shared_ptr<bolt::memory::MemoryPool> pool_;
-  std::shared_ptr<bolt::memory::MemoryPool> nativeWorkerPool_;
+  std::shared_ptr<bytedance::bolt::memory::MemoryPool> pool_;
+  std::shared_ptr<bytedance::bolt::memory::MemoryPool> nativeWorkerPool_;
   std::unique_ptr<TaskManager> taskManager_;
   std::unique_ptr<TaskResource> taskResource_;
   std::atomic<NodeState> nodeState_{NodeState::kActive};

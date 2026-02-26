@@ -1,0 +1,270 @@
+
+syntax = "proto3";
+
+package presto_protocol;
+
+
+enum ColumnType {
+    PARTITION_KEY = 1;
+    REGULAR = 2;
+    SYNTHESIZED = 3;
+    AGGREGATED = 4;
+}
+
+message HiveColumnHandle {
+    String name = 1;
+    HiveType hiveType = 2;
+    TypeSignature typeSignature = 3;
+    int hiveColumnIndex = 4;
+    ColumnType columnType = 5;
+    String comment = 6;
+    List<Subfield> requiredSubfields = 7;
+    Aggregation partialAggregation = 8;
+}
+
+message BucketConversion {
+    int tableBucketCount = 1;
+    int partitionBucketCount = 2;
+    List<HiveColumnHandle> bucketColumnHandles = 3;
+}
+
+message DwrfEncryptionMetadata {
+    Map<String, String> fieldToKeyData = 1;
+    Map<String, String> extraMetadata = 2;
+    String encryptionAlgorithm = 3;
+    String encryptionProvider = 4;
+}
+
+message EncryptionInformation {
+    DwrfEncryptionMetadata dwrfEncryptionMetadata = 1;
+}
+
+message HiveBucketFilter {
+    List<Integer> bucketsToKeep = 1;
+}
+
+message HiveBucketHandle {
+    List<HiveColumnHandle> columns = 1;
+    int tableBucketCount = 2;
+    int readBucketCount = 3;
+}
+
+enum BucketFunctionType {
+    HIVE_COMPATIBLE = 1;
+    PRESTO_NATIVE = 2;
+}
+
+enum Order {
+    ASCENDING = 1;
+    DESCENDING = 2;
+}
+
+message SortingColumn {
+    String columnName = 1;
+    Order order = 2;
+}
+
+message HiveBucketProperty {
+    List<String> bucketedBy = 1;
+    int bucketCount = 2;
+    List<SortingColumn> sortedBy = 3;
+    BucketFunctionType bucketFunctionType = 4;
+    List<Type> types = 5;
+}
+
+message HiveFileSplit {
+    String path = 1;
+    int64_t start = 2;
+    int64_t length = 3;
+    int64_t fileSize = 4;
+    int64_t fileModifiedTime = 5;
+    String extraFileInfo = 6;
+    Map<String, String> customSplitInfo = 7;
+    int64_t affinitySchedulingFileSectionIndex = 8;
+}
+
+enum HiveCompressionCodec {
+    NONE = 1;
+    SNAPPY = 2;
+    GZIP = 3;
+    LZ4 = 4;
+    ZSTD = 5;
+}
+
+enum PrestoTableType {
+    MANAGED_TABLE = 1;
+    EXTERNAL_TABLE = 2;
+    VIRTUAL_VIEW = 3;
+    MATERIALIZED_VIEW = 4;
+    TEMPORARY_TABLE = 5;
+    OTHER = 6;
+}
+
+message StorageFormat {
+    String serDe = 1;
+    String inputFormat = 2;
+    String outputFormat = 3;
+}
+
+message Storage {
+    StorageFormat storageFormat = 1;
+    String location = 2;
+    HiveBucketProperty bucketProperty = 3;
+    bool skewed = 4;
+    Map<String, String> serdeParameters = 5;
+    Map<String, String> parameters = 6;
+}
+
+message Table {
+    String databaseName = 1;
+    String tableName = 2;
+    String owner = 3;
+    PrestoTableType tableType = 4;
+    Storage storage = 5;
+    List<Column> dataColumns = 6;
+    List<Column> partitionColumns = 7;
+    Map<String, String> parameters = 8;
+    String viewOriginalText = 9;
+    String viewExpandedText = 10;
+}
+
+
+
+enum TableType {
+    NEW = 1;
+    EXISTING = 2;
+    TEMPORARY = 3;
+}
+
+enum WriteMode {
+    STAGE_AND_MOVE_TO_TARGET_DIRECTORY = 1;
+    DIRECT_TO_TARGET_NEW_DIRECTORY = 2;
+    DIRECT_TO_TARGET_EXISTING_DIRECTORY = 3;
+}
+
+message LocationHandle {
+    String targetPath = 1;
+    String writePath = 2;
+    String tempPath = 3;
+    TableType tableType = 4;
+    WriteMode writeMode = 5;
+}
+
+message HiveInsertTableHandle {
+    String schemaName = 1;
+    String tableName = 2;
+    List<HiveColumnHandle> inputColumns = 3;
+    HivePageSinkMetadata pageSinkMetadata = 4;
+    LocationHandle locationHandle = 5;
+    HiveBucketProperty bucketProperty = 6;
+    List<SortingColumn> preferredOrderingColumns = 7;
+    HiveStorageFormat tableStorageFormat = 8;
+    HiveStorageFormat partitionStorageFormat = 9;
+    HiveStorageFormat actualStorageFormat = 10;
+    HiveCompressionCodec compressionCodec = 11;
+    EncryptionInformation encryptionInformation = 12;
+}
+
+message HiveMetadataUpdateHandle {
+    UUID requestId = 1;
+    SchemaTableName schemaTableName = 2;
+    String partitionName = 3;
+    String fileName = 4;
+}
+
+message HiveOutputTableHandle {
+    String schemaName = 1;
+    String tableName = 2;
+    List<HiveColumnHandle> inputColumns = 3;
+    HivePageSinkMetadata pageSinkMetadata = 4;
+    LocationHandle locationHandle = 5;
+    HiveStorageFormat tableStorageFormat = 6;
+    HiveStorageFormat partitionStorageFormat = 7;
+    HiveStorageFormat actualStorageFormat = 8;
+    HiveCompressionCodec compressionCodec = 9;
+    List<String> partitionedBy = 10;
+    HiveBucketProperty bucketProperty = 11;
+    List<SortingColumn> preferredOrderingColumns = 12;
+    String tableOwner = 13;
+    Map<String, String> additionalTableParameters = 14;
+    EncryptionInformation encryptionInformation = 15;
+}
+
+message HivePartitionKey {
+    String name = 1;
+    String value = 2;
+}
+
+message HivePartitioningHandle {
+    int bucketCount = 1;
+    int maxCompatibleBucketCount = 2;
+    BucketFunctionType bucketFunctionType = 3;
+    List<HiveType> hiveTypes = 4;
+    List<Type> types = 5;
+}
+
+message ColumnHandle {
+    oneof columnHandle {
+        HiveColumnHandle hiveColumnHandle = 1;
+    }
+}
+
+message TableToPartitionMapping {
+    Map<Integer, Integer> tableToPartitionColumns = 1;
+    Map<Integer, Column> partitionSchemaDifference = 2;
+}
+
+message HiveSplit {
+    HiveFileSplit fileSplit = 1;
+    String database = 2;
+    String table = 3;
+    String partitionName = 4;
+    Storage storage = 5;
+    List<HivePartitionKey> partitionKeys = 6;
+    List<HostAddress> addresses = 7;
+    int readBucketNumber = 8;
+    int tableBucketNumber = 9;
+    NodeSelectionStrategy nodeSelectionStrategy = 10;
+    int partitionDataColumnCount = 11;
+    TableToPartitionMapping tableToPartitionMapping = 12;
+    BucketConversion bucketConversion = 13;
+    bool s3SelectPushdownEnabled = 14;
+    CacheQuotaRequirement cacheQuota = 15;
+    EncryptionInformation encryptionMetadata = 16;
+    List<std::shared_ptr<ColumnHandle>> redundantColumnDomains = 17;
+    SplitWeight splitWeight = 18;
+    String rowIdPartitionComponent = 19;
+}
+
+message HiveTableHandle {
+    String schemaName = 1;
+    String tableName = 2;
+    List<List<String>> analyzePartitionValues = 3;
+}
+
+message HiveTableLayoutHandle {
+    SchemaTableName schemaTableName = 1;
+    String tablePath = 2;
+    List<HiveColumnHandle> partitionColumns = 3;
+    List<Column> dataColumns = 4;
+    Map<String, String> tableParameters = 5;
+    TupleDomain<Subfield> domainPredicate = 6;
+    std::shared_ptr<RowExpression> remainingPredicate = 7;
+    Map<String, HiveColumnHandle> predicateColumns = 8;
+    TupleDomain<std::shared_ptr<ColumnHandle>> partitionColumnPredicate = 9;
+    HiveBucketHandle bucketHandle = 10;
+    HiveBucketFilter bucketFilter = 11;
+    bool pushdownFilterEnabled = 12;
+    String layoutString = 13;
+    List<HiveColumnHandle> requestedColumns = 14;
+    bool partialAggregationsPushedDown = 15;
+    bool appendRowNumber = 16;
+    bool footerStatsUnreliable = 17;
+}
+
+message HiveTransactionHandle {
+    UUID uuid = 1;
+}
+
+    
+

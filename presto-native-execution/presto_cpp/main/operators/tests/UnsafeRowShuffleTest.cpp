@@ -13,7 +13,7 @@
  */
 #include <folly/Uri.h>
 #include "folly/init/Init.h"
-#include "presto_cpp/external/json/nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
 #include "presto_cpp/main/operators/LocalPersistentShuffle.h"
 #include "presto_cpp/main/operators/PartitionAndSerialize.h"
 #include "presto_cpp/main/operators/ShuffleRead.h"
@@ -32,7 +32,7 @@
 #include "bolt/vector/fuzzer/VectorFuzzer.h"
 
 using namespace bytedance::bolt;
-using namespace facebook::bolt::common::testutil;
+using namespace bytedance::bolt::common::testutil;
 using namespace facebook::presto;
 using namespace facebook::presto::operators;
 using namespace ::testing;
@@ -73,7 +73,7 @@ class TestShuffleWriter : public ShuffleWriter {
     readyPartitions_->resize(numPartitions_);
   }
 
-  void initialize(bolt::memory::MemoryPool* pool) {
+  void initialize(bytedance::bolt::memory::MemoryPool* pool) {
     if (pool_ == nullptr) {
       pool_ = pool;
     }
@@ -149,7 +149,7 @@ class TestShuffleWriter : public ShuffleWriter {
 
   static std::shared_ptr<TestShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
+      bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool) {
     std::shared_ptr<TestShuffleWriter>& instance = getInstance();
     if (instance) {
       return instance;
@@ -221,14 +221,14 @@ class TestShuffleFactory : public ShuffleInterfaceFactory {
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& /* serializedShuffleInfo */,
       const int partition,
-      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
+      bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
     return std::make_shared<TestShuffleReader>(
         partition, TestShuffleWriter::getInstance()->readyPartitions());
   }
 
   std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
+      bytedance::bolt::memory::MemoryPool* FOLLY_NONNULL pool) override {
     return TestShuffleWriter::createWriter(serializedShuffleInfo, pool);
   }
 };
@@ -396,11 +396,11 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
     // Verify 'data'.
     auto deserialized = deserialize(results, asRowType(data->type()));
-    bolt::test::assertEqualVectors(data, deserialized);
+    bytedance::bolt::test::assertEqualVectors(data, deserialized);
 
     // Verify 'replicate' flags.
     if (replicateNullsAndAny) {
-      bolt::test::assertEqualVectors(results->childAt(2), expectedReplicate);
+      bytedance::bolt::test::assertEqualVectors(results->childAt(2), expectedReplicate);
     }
   }
 
@@ -423,7 +423,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         result->append(deserialized.get());
       }
     }
-    bolt::test::assertEqualVectors(expected, result);
+    bytedance::bolt::test::assertEqualVectors(expected, result);
     if (expectedOutputCount) {
       ASSERT_EQ(expectedOutputCount.value(), serializedResults.size());
     }
@@ -576,7 +576,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
 
       // TODO: Add assertContainResults for the remaining elements
     } else {
-      bolt::exec::test::assertEqualResults(
+      bytedance::bolt::exec::test::assertEqualResults(
           expectedOutputVectors, outputVectors);
     }
   }
@@ -638,8 +638,8 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
     });
 
     // Create a local file system storage based shuffle.
-    bolt::filesystems::registerLocalFileSystem();
-    auto rootDirectory = bolt::exec::test::TempDirectoryPath::create();
+    bytedance::bolt::filesystems::registerLocalFileSystem();
+    auto rootDirectory = bytedance::bolt::exec::test::TempDirectoryPath::create();
     auto rootPath = rootDirectory->getPath();
     const std::string shuffleWriteInfo =
         localShuffleWriteInfo(rootPath, numPartitions);
@@ -661,7 +661,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
         auto input = fuzzer.fuzzInputRow(rowType);
         inputVectors.push_back(input);
       }
-      bolt::exec::ExchangeSource::factories().clear();
+      bytedance::bolt::exec::ExchangeSource::factories().clear();
       registerExchangeSource(
           std::string(LocalPersistentShuffleFactory::kShuffleName));
       runShuffleTest(
@@ -721,7 +721,7 @@ class UnsafeRowShuffleTest : public exec::test::OperatorTestBase {
   }
 
   void cleanupDirectory(const std::string& rootPath) {
-    auto fileSystem = bolt::filesystems::getFileSystem(rootPath, nullptr);
+    auto fileSystem = bytedance::bolt::filesystems::getFileSystem(rootPath, nullptr);
     auto files = fileSystem->list(rootPath);
     for (auto& file : files) {
       fileSystem->remove(file);
@@ -842,7 +842,7 @@ TEST_F(UnsafeRowShuffleTest, endToEnd) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  bolt::exec::ExchangeSource::factories().clear();
+  bytedance::bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleInfo = testShuffleInfo(numPartitions, 1 << 20);
   TestShuffleWriter::createWriter(shuffleInfo, pool());
   registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
@@ -868,7 +868,7 @@ TEST_F(UnsafeRowShuffleTest, endToEndWithReplicateNullAndAny) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  bolt::exec::ExchangeSource::factories().clear();
+  bytedance::bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleInfo = testShuffleInfo(numPartitions, 1 << 20);
   TestShuffleWriter::createWriter(shuffleInfo, pool());
   registerExchangeSource(std::string(TestShuffleFactory::kShuffleName));
@@ -981,8 +981,8 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   uint32_t numMapDrivers = 1;
 
   // Create a local file system storage based shuffle.
-  bolt::filesystems::registerLocalFileSystem();
-  auto rootDirectory = bolt::exec::test::TempDirectoryPath::create();
+  bytedance::bolt::filesystems::registerLocalFileSystem();
+  auto rootDirectory = bytedance::bolt::exec::test::TempDirectoryPath::create();
   auto rootPath = rootDirectory->getPath();
 
   auto data = makeRowVector({
@@ -991,7 +991,7 @@ TEST_F(UnsafeRowShuffleTest, persistentShuffle) {
   });
 
   // Make sure all previously registered exchange factory are gone.
-  bolt::exec::ExchangeSource::factories().clear();
+  bytedance::bolt::exec::ExchangeSource::factories().clear();
   const std::string shuffleWriteInfo =
       localShuffleWriteInfo(rootPath, numPartitions);
   registerExchangeSource(
@@ -1169,12 +1169,12 @@ class DummyShuffleInterfaceFactory : public ShuffleInterfaceFactory {
   std::shared_ptr<ShuffleReader> createReader(
       const std::string& serializedShuffleInfo,
       const int32_t partition,
-      bolt::memory::MemoryPool* pool) override {
+      bytedance::bolt::memory::MemoryPool* pool) override {
     return nullptr;
   }
   std::shared_ptr<ShuffleWriter> createWriter(
       const std::string& serializedShuffleInfo,
-      bolt::memory::MemoryPool* pool) override {
+      bytedance::bolt::memory::MemoryPool* pool) override {
     return nullptr;
   }
 };

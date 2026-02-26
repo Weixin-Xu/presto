@@ -544,6 +544,6 @@ INSTANTIATE_TEST_CASE_P(
     ::testing::Values(true, false));
 
 // Initialize singleton for the reporter
-folly::Singleton<facebook::bolt::BaseStatsReporter> reporter([]() {
-  return new facebook::bolt::DummyStatsReporter();
+folly::Singleton<bytedance::bolt::BaseStatsReporter> reporter([]() {
+  return new bytedance::bolt::DummyStatsReporter();
 });

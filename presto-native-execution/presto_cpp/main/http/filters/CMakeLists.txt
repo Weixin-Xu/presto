@@ -18,7 +18,10 @@ if(PRESTO_ENABLE_JWT)
     http_filters PRIVATE ${CMAKE_SOURCE_DIR}/presto_cpp/external/json)
 endif()
 
-target_link_libraries(http_filters presto_common ${PROXYGEN_LIBRARIES})
+target_link_libraries(http_filters presto_common
+    proxygen::proxygenhttpserver
+    wangle::wangle
+    Folly::folly)
 
 if(PRESTO_ENABLE_TESTING)
   add_subdirectory(tests)

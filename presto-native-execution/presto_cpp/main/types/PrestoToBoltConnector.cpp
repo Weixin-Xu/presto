@@ -14,16 +14,13 @@
 
 #include "presto_cpp/main/types/PrestoToBoltConnector.h"
 #include "presto_cpp/presto_protocol/connector/hive/HiveConnectorProtocol.h"
-#include "presto_cpp/presto_protocol/connector/iceberg/IcebergConnectorProtocol.h"
 #include "presto_cpp/presto_protocol/connector/tpch/TpchConnectorProtocol.h"
 
-#include "bolt/type/fbhive/HiveTypeParser.h>
+#include "bolt/type/fbhive/HiveTypeParser.h"
 #include "bolt/connectors/hive/HiveConnector.h"
 #include "bolt/connectors/hive/HiveConnectorSplit.h"
 #include "bolt/connectors/hive/HiveDataSink.h"
 #include "bolt/connectors/hive/TableHandle.h"
-#include "bolt/connectors/hive/iceberg/IcebergDeleteFile.h"
-#include "bolt/connectors/hive/iceberg/IcebergSplit.h"
 #include "bolt/connectors/tpch/TpchConnector.h"
 #include "bolt/connectors/tpch/TpchConnectorSplit.h"
 
@@ -65,7 +62,7 @@ const PrestoToBoltConnector& getPrestoToBoltConnector(
 }
 
 namespace {
-using namespace bolt;
+using namespace bytedance::bolt;
 
 dwio::common::FileFormat toBoltFileFormat(
     const presto::protocol::hive::StorageFormat& format) {
@@ -89,21 +86,10 @@ dwio::common::FileFormat toBoltFileFormat(
       return dwio::common::FileFormat::PARQUET;
     }
   } else if (format.inputFormat == "com.facebook.alpha.AlphaInputFormat") {
-    // ALPHA has been renamed in Bolt to NIMBLE.
-    return dwio::common::FileFormat::NIMBLE;
+    return dwio::common::FileFormat::ALPHA;
   }
   BOLT_UNSUPPORTED(
       "Unsupported file format: {} {}", format.inputFormat, format.serDe);
-}
-
-dwio::common::FileFormat toBoltFileFormat(
-    const presto::protocol::iceberg::FileFormat format) {
-  if (format == protocol::iceberg::FileFormat::ORC) {
-    return dwio::common::FileFormat::ORC;
-  } else if (format == protocol::iceberg::FileFormat::PARQUET) {
-    return dwio::common::FileFormat::PARQUET;
-  }
-  BOLT_UNSUPPORTED("Unsupported file format: {}", fmt::underlying(format));
 }
 
 template <typename T>
@@ -197,7 +183,7 @@ int64_t toInt64(
     const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
-  return VariantConverter::convert<bolt::TypeKind::BIGINT>(value)
+  return VariantConverter::convert<bytedance::bolt::TypeKind::BIGINT>(value)
       .value<int64_t>();
 }
 
@@ -206,7 +192,7 @@ int128_t toInt128(
     const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   auto value = exprConverter.getConstantValue(type, *block);
-  return value.value<bolt::TypeKind::HUGEINT>();
+  return value.value<bytedance::bolt::TypeKind::HUGEINT>();
 }
 
 Timestamp toTimestamp(
@@ -214,7 +200,7 @@ Timestamp toTimestamp(
     const BoltExprConverter& exprConverter,
     const TypePtr& type) {
   const auto value = exprConverter.getConstantValue(type, *block);
-  return value.value<bolt::TypeKind::TIMESTAMP>();
+  return value.value<bytedance::bolt::TypeKind::TIMESTAMP>();
 }
 
 int64_t dateToInt64(
@@ -826,7 +812,7 @@ std::unique_ptr<connector::ConnectorTableHandle> toHiveTableHandle(
   if (!dataColumns.empty()) {
     std::vector<std::string> names;
     std::vector<TypePtr> types;
-    bolt::type::fbhive::HiveTypeParser hiveTypeParser;
+    bytedance::bolt::type::fbhive::HiveTypeParser hiveTypeParser;
     names.reserve(dataColumns.size());
     types.reserve(dataColumns.size());
     for (auto& column : dataColumns) {
@@ -902,8 +888,7 @@ dwio::common::FileFormat toFileFormat(
     case protocol::hive::HiveStorageFormat::PARQUET:
       return dwio::common::FileFormat::PARQUET;
     case protocol::hive::HiveStorageFormat::ALPHA:
-      // This has been renamed in Bolt from ALPHA to NIMBLE.
-      return dwio::common::FileFormat::NIMBLE;
+      return dwio::common::FileFormat::ALPHA;
     default:
       BOLT_UNSUPPORTED(
           "Unsupported file format in {}: {}.",
@@ -912,19 +897,19 @@ dwio::common::FileFormat toFileFormat(
   }
 }
 
-bolt::common::CompressionKind toFileCompressionKind(
+bytedance::bolt::common::CompressionKind toFileCompressionKind(
     const protocol::hive::HiveCompressionCodec& hiveCompressionCodec) {
   switch (hiveCompressionCodec) {
     case protocol::hive::HiveCompressionCodec::SNAPPY:
-      return bolt::common::CompressionKind::CompressionKind_SNAPPY;
+      return bytedance::bolt::common::CompressionKind::CompressionKind_SNAPPY;
     case protocol::hive::HiveCompressionCodec::GZIP:
-      return bolt::common::CompressionKind::CompressionKind_GZIP;
+      return bytedance::bolt::common::CompressionKind::CompressionKind_GZIP;
     case protocol::hive::HiveCompressionCodec::LZ4:
-      return bolt::common::CompressionKind::CompressionKind_LZ4;
+      return bytedance::bolt::common::CompressionKind::CompressionKind_LZ4;
     case protocol::hive::HiveCompressionCodec::ZSTD:
-      return bolt::common::CompressionKind::CompressionKind_ZSTD;
+      return bytedance::bolt::common::CompressionKind::CompressionKind_ZSTD;
     case protocol::hive::HiveCompressionCodec::NONE:
-      return bolt::common::CompressionKind::CompressionKind_NONE;
+      return bytedance::bolt::common::CompressionKind::CompressionKind_NONE;
     default:
       BOLT_UNSUPPORTED(
           "Unsupported file compression format: {}.",
@@ -932,13 +917,13 @@ bolt::common::CompressionKind toFileCompressionKind(
   }
 }
 
-bolt::connector::hive::HiveBucketProperty::Kind toHiveBucketPropertyKind(
+bytedance::bolt::connector::hive::HiveBucketProperty::Kind toHiveBucketPropertyKind(
     protocol::hive::BucketFunctionType bucketFuncType) {
   switch (bucketFuncType) {
     case protocol::hive::BucketFunctionType::PRESTO_NATIVE:
-      return bolt::connector::hive::HiveBucketProperty::Kind::kPrestoNative;
+      return bytedance::bolt::connector::hive::HiveBucketProperty::Kind::kPrestoNative;
     case protocol::hive::BucketFunctionType::HIVE_COMPATIBLE:
-      return bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible;
+      return bytedance::bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible;
     default:
       BOLT_USER_FAIL(
           "Unknown hive bucket function: {}", toJsonString(bucketFuncType));
@@ -967,16 +952,16 @@ core::SortOrder toSortOrder(protocol::hive::Order order) {
   }
 }
 
-std::shared_ptr<bolt::connector::hive::HiveSortingColumn> toHiveSortingColumn(
+std::shared_ptr<bytedance::bolt::connector::hive::HiveSortingColumn> toHiveSortingColumn(
     const protocol::hive::SortingColumn& sortingColumn) {
-  return std::make_shared<bolt::connector::hive::HiveSortingColumn>(
+  return std::make_shared<bytedance::bolt::connector::hive::HiveSortingColumn>(
       sortingColumn.columnName, toSortOrder(sortingColumn.order));
 }
 
-std::vector<std::shared_ptr<const bolt::connector::hive::HiveSortingColumn>>
+std::vector<std::shared_ptr<const bytedance::bolt::connector::hive::HiveSortingColumn>>
 toHiveSortingColumns(
     const protocol::List<protocol::hive::SortingColumn>& sortedBy) {
-  std::vector<std::shared_ptr<const bolt::connector::hive::HiveSortingColumn>>
+  std::vector<std::shared_ptr<const bytedance::bolt::connector::hive::HiveSortingColumn>>
       sortingColumns;
   sortingColumns.reserve(sortedBy.size());
   for (const auto& sortingColumn : sortedBy) {
@@ -985,7 +970,7 @@ toHiveSortingColumns(
   return sortingColumns;
 }
 
-std::shared_ptr<bolt::connector::hive::HiveBucketProperty>
+std::shared_ptr<bytedance::bolt::connector::hive::HiveBucketProperty>
 toHiveBucketProperty(
     const std::vector<std::shared_ptr<const connector::hive::HiveColumnHandle>>&
         inputColumns,
@@ -1003,11 +988,11 @@ toHiveBucketProperty(
       "Bucketed columns must be set: {}",
       toJsonString(*bucketProperty));
 
-  const bolt::connector::hive::HiveBucketProperty::Kind kind =
+  const bytedance::bolt::connector::hive::HiveBucketProperty::Kind kind =
       toHiveBucketPropertyKind(bucketProperty->bucketFunctionType);
   std::vector<TypePtr> bucketedTypes;
   if (kind ==
-      bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible) {
+      bytedance::bolt::connector::hive::HiveBucketProperty::Kind::kHiveCompatible) {
     BOLT_USER_CHECK_NULL(
         bucketProperty->types,
         "Unexpected bucketed types set for hive compatible bucket function: {}",
@@ -1038,7 +1023,7 @@ toHiveBucketProperty(
 
   const auto sortedBy = toHiveSortingColumns(bucketProperty->sortedBy);
 
-  return std::make_shared<bolt::connector::hive::HiveBucketProperty>(
+  return std::make_shared<bytedance::bolt::connector::hive::HiveBucketProperty>(
       toHiveBucketPropertyKind(bucketProperty->bucketFunctionType),
       bucketProperty->bucketCount,
       bucketProperty->bucketedBy,
@@ -1046,7 +1031,7 @@ toHiveBucketProperty(
       sortedBy);
 }
 
-std::unique_ptr<bolt::connector::hive::HiveColumnHandle>
+std::unique_ptr<bytedance::bolt::connector::hive::HiveColumnHandle>
 toBoltHiveColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) {
@@ -1054,10 +1039,10 @@ toBoltHiveColumnHandle(
       dynamic_cast<const protocol::hive::HiveColumnHandle*>(column);
   BOLT_CHECK_NOT_NULL(
       hiveColumn, "Unexpected column handle type {}", column->_type);
-  bolt::type::fbhive::HiveTypeParser hiveTypeParser;
+  bytedance::bolt::type::fbhive::HiveTypeParser hiveTypeParser;
   // TODO(spershin): Should we pass something different than 'typeSignature'
   // to 'hiveType' argument of the 'HiveColumnHandle' constructor?
-  return std::make_unique<bolt::connector::hive::HiveColumnHandle>(
+  return std::make_unique<bytedance::bolt::connector::hive::HiveColumnHandle>(
       hiveColumn->name,
       toHiveColumnType(hiveColumn->columnType),
       stringToType(hiveColumn->typeSignature, typeParser),
@@ -1065,9 +1050,9 @@ toBoltHiveColumnHandle(
       toRequiredSubfields(hiveColumn->requiredSubfields));
 }
 
-bolt::connector::hive::HiveBucketConversion toBoltBucketConversion(
+/*bytedance::bolt::connector::hive::HiveBucketConversion toBoltBucketConversion(
     const protocol::hive::BucketConversion& bucketConversion) {
-  bolt::connector::hive::HiveBucketConversion boltBucketConversion;
+  bytedance::bolt::connector::hive::HiveBucketConversion boltBucketConversion;
   // Current table bucket count (new).
   boltBucketConversion.tableBucketCount = bucketConversion.tableBucketCount;
   // Partition bucket count (old).
@@ -1080,21 +1065,11 @@ bolt::connector::hive::HiveBucketConversion toBoltBucketConversion(
         toBoltHiveColumnHandle(&column, typeParser));
   }
   return boltBucketConversion;
-}
-
-bolt::connector::hive::iceberg::FileContent toBoltFileContent(
-    const presto::protocol::iceberg::FileContent content) {
-  if (content == protocol::iceberg::FileContent::DATA) {
-    return bolt::connector::hive::iceberg::FileContent::kData;
-  } else if (content == protocol::iceberg::FileContent::POSITION_DELETES) {
-    return bolt::connector::hive::iceberg::FileContent::kPositionalDeletes;
-  }
-  BOLT_UNSUPPORTED("Unsupported file content: {}", fmt::underlying(content));
-}
+}*/
 
 } // namespace
 
-std::unique_ptr<bolt::connector::ConnectorSplit>
+std::unique_ptr<bytedance::bolt::connector::ConnectorSplit>
 HivePrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
@@ -1117,7 +1092,7 @@ HivePrestoToBoltConnector::toBoltSplit(
   std::shared_ptr<std::string> extraFileInfo;
   if (hiveSplit->fileSplit.extraFileInfo) {
     extraFileInfo = std::make_shared<std::string>(
-        bolt::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
+        bytedance::bolt::encoding::Base64::decode(*hiveSplit->fileSplit.extraFileInfo));
   }
   std::unordered_map<std::string, std::string> serdeParameters;
   serdeParameters.reserve(hiveSplit->storage.serdeParameters.size());
@@ -1134,7 +1109,7 @@ HivePrestoToBoltConnector::toBoltSplit(
     infoColumns["$bucket"] = std::to_string(*hiveSplit->tableBucketNumber);
   }
   auto boltSplit =
-      std::make_unique<bolt::connector::hive::HiveConnectorSplit>(
+      std::make_unique<bytedance::bolt::connector::hive::HiveConnectorSplit>(
           catalogId,
           hiveSplit->fileSplit.path,
           toBoltFileFormat(hiveSplit->storage.storageFormat),
@@ -1144,40 +1119,41 @@ HivePrestoToBoltConnector::toBoltSplit(
           hiveSplit->tableBucketNumber
               ? std::optional<int>(*hiveSplit->tableBucketNumber)
               : std::nullopt,
+          nullptr,
           customSplitInfo,
           extraFileInfo,
-          serdeParameters,
+          serdeParameters/*,
           hiveSplit->splitWeight,
           splitContext->cacheable,
-          infoColumns);
-  if (hiveSplit->bucketConversion) {
+          infoColumns*/);
+  /*if (hiveSplit->bucketConversion) {
     BOLT_CHECK_NOT_NULL(hiveSplit->tableBucketNumber);
     boltSplit->bucketConversion =
         toBoltBucketConversion(*hiveSplit->bucketConversion);
-  }
+  }*/
   return boltSplit;
 }
 
-std::unique_ptr<bolt::connector::ColumnHandle>
+std::unique_ptr<bytedance::bolt::connector::ColumnHandle>
 HivePrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
   return toBoltHiveColumnHandle(column, typeParser);
 }
 
-std::unique_ptr<bolt::connector::ConnectorTableHandle>
+std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle>
 HivePrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
     const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments) const {
   auto addSynthesizedColumn = [&](const std::string& name,
                                   protocol::hive::ColumnType columnType,
                                   const protocol::ColumnHandle& column) {
     if (toHiveColumnType(columnType) ==
-        bolt::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
+        bytedance::bolt::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
       if (assignments.count(name) == 0) {
         assignments.emplace(name, toBoltColumnHandle(&column, typeParser));
       }
@@ -1225,7 +1201,7 @@ HivePrestoToBoltConnector::toBoltTableHandle(
       typeParser);
 }
 
-std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+std::unique_ptr<bytedance::bolt::connector::ConnectorInsertTableHandle>
 HivePrestoToBoltConnector::toBoltInsertTableHandle(
     const protocol::CreateHandle* createHandle,
     const TypeParser& typeParser) const {
@@ -1239,7 +1215,7 @@ HivePrestoToBoltConnector::toBoltInsertTableHandle(
   bool isPartitioned{false};
   const auto inputColumns = toHiveColumns(
       hiveOutputTableHandle->inputColumns, typeParser, isPartitioned);
-  return std::make_unique<bolt::connector::hive::HiveInsertTableHandle>(
+  return std::make_unique<bytedance::bolt::connector::hive::HiveInsertTableHandle>(
       inputColumns,
       toLocationHandle(hiveOutputTableHandle->locationHandle),
       toFileFormat(hiveOutputTableHandle->actualStorageFormat, "TableWrite"),
@@ -1249,7 +1225,7 @@ HivePrestoToBoltConnector::toBoltInsertTableHandle(
           toFileCompressionKind(hiveOutputTableHandle->compressionCodec)));
 }
 
-std::unique_ptr<bolt::connector::ConnectorInsertTableHandle>
+std::unique_ptr<bytedance::bolt::connector::ConnectorInsertTableHandle>
 HivePrestoToBoltConnector::toBoltInsertTableHandle(
     const protocol::InsertHandle* insertHandle,
     const TypeParser& typeParser) const {
@@ -1298,12 +1274,12 @@ HivePrestoToBoltConnector::toHiveColumns(
   return hiveColumns;
 }
 
-std::unique_ptr<bolt::core::PartitionFunctionSpec>
+std::unique_ptr<bytedance::bolt::core::PartitionFunctionSpec>
 HivePrestoToBoltConnector::createBoltPartitionFunctionSpec(
     const protocol::ConnectorPartitioningHandle* partitioningHandle,
     const std::vector<int>& bucketToPartition,
-    const std::vector<bolt::column_index_t>& channels,
-    const std::vector<bolt::VectorPtr>& constValues,
+    const std::vector<bytedance::bolt::column_index_t>& channels,
+    const std::vector<bytedance::bolt::VectorPtr>& constValues,
     bool& effectivelyGather) const {
   auto hivePartitioningHandle =
       dynamic_cast<const protocol::hive::HivePartitioningHandle*>(
@@ -1330,160 +1306,7 @@ HivePrestoToBoltConnector::createConnectorProtocol() const {
   return std::make_unique<protocol::hive::HiveConnectorProtocol>();
 }
 
-std::unique_ptr<bolt::connector::ConnectorSplit>
-IcebergPrestoToBoltConnector::toBoltSplit(
-    const protocol::ConnectorId& catalogId,
-    const protocol::ConnectorSplit* connectorSplit,
-    const protocol::SplitContext* splitContext) const {
-  auto icebergSplit =
-      dynamic_cast<const protocol::iceberg::IcebergSplit*>(connectorSplit);
-  BOLT_CHECK_NOT_NULL(
-      icebergSplit, "Unexpected split type {}", connectorSplit->_type);
-
-  std::unordered_map<std::string, std::optional<std::string>> partitionKeys;
-  for (const auto& entry : icebergSplit->partitionKeys) {
-    partitionKeys.emplace(
-        entry.second.name,
-        entry.second.value == nullptr
-            ? std::nullopt
-            : std::optional<std::string>{*entry.second.value});
-  }
-
-  std::unordered_map<std::string, std::string> customSplitInfo;
-  customSplitInfo["table_format"] = "hive-iceberg";
-
-  std::vector<bolt::connector::hive::iceberg::IcebergDeleteFile> deletes;
-  deletes.reserve(icebergSplit->deletes.size());
-  for (const auto& deleteFile : icebergSplit->deletes) {
-    std::unordered_map<int32_t, std::string> lowerBounds(
-        deleteFile.lowerBounds.begin(), deleteFile.lowerBounds.end());
-
-    std::unordered_map<int32_t, std::string> upperBounds(
-        deleteFile.upperBounds.begin(), deleteFile.upperBounds.end());
-
-    bolt::connector::hive::iceberg::IcebergDeleteFile icebergDeleteFile(
-        toBoltFileContent(deleteFile.content),
-        deleteFile.path,
-        toBoltFileFormat(deleteFile.format),
-        deleteFile.recordCount,
-        deleteFile.fileSizeInBytes,
-        std::vector(deleteFile.equalityFieldIds),
-        lowerBounds,
-        upperBounds);
-
-    deletes.emplace_back(icebergDeleteFile);
-  }
-
-  std::unordered_map<std::string, std::string> infoColumns = {
-      {"$data_sequence_number",
-       std::to_string(icebergSplit->dataSequenceNumber)},
-      {"$path", icebergSplit->path}};
-
-  return std::make_unique<connector::hive::iceberg::HiveIcebergSplit>(
-      catalogId,
-      icebergSplit->path,
-      toBoltFileFormat(icebergSplit->fileFormat),
-      icebergSplit->start,
-      icebergSplit->length,
-      partitionKeys,
-      std::nullopt,
-      customSplitInfo,
-      nullptr,
-      splitContext->cacheable,
-      deletes,
-      infoColumns);
-}
-
-std::unique_ptr<bolt::connector::ColumnHandle>
-IcebergPrestoToBoltConnector::toBoltColumnHandle(
-    const protocol::ColumnHandle* column,
-    const TypeParser& typeParser) const {
-  auto icebergColumn =
-      dynamic_cast<const protocol::iceberg::IcebergColumnHandle*>(column);
-  BOLT_CHECK_NOT_NULL(
-      icebergColumn, "Unexpected column handle type {}", column->_type);
-  // TODO(imjalpreet): Modify 'hiveType' argument of the 'HiveColumnHandle'
-  //  constructor similar to how Hive Connector is handling for bucketing
-  bolt::type::fbhive::HiveTypeParser hiveTypeParser;
-  return std::make_unique<connector::hive::HiveColumnHandle>(
-      icebergColumn->columnIdentity.name,
-      toHiveColumnType(icebergColumn->columnType),
-      stringToType(icebergColumn->type, typeParser),
-      stringToType(icebergColumn->type, typeParser),
-      toRequiredSubfields(icebergColumn->requiredSubfields));
-}
-
-std::unique_ptr<bolt::connector::ConnectorTableHandle>
-IcebergPrestoToBoltConnector::toBoltTableHandle(
-    const protocol::TableHandle& tableHandle,
-    const BoltExprConverter& exprConverter,
-    const TypeParser& typeParser,
-    std::unordered_map<
-        std::string,
-        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
-  auto addSynthesizedColumn = [&](const std::string& name,
-                                  protocol::hive::ColumnType columnType,
-                                  const protocol::ColumnHandle& column) {
-    if (toHiveColumnType(columnType) ==
-        bolt::connector::hive::HiveColumnHandle::ColumnType::kSynthesized) {
-      if (assignments.count(name) == 0) {
-        assignments.emplace(name, toBoltColumnHandle(&column, typeParser));
-      }
-    }
-  };
-
-  auto icebergLayout = std::dynamic_pointer_cast<
-      const protocol::iceberg::IcebergTableLayoutHandle>(
-      tableHandle.connectorTableLayout);
-  BOLT_CHECK_NOT_NULL(
-      icebergLayout,
-      "Unexpected layout type {}",
-      tableHandle.connectorTableLayout->_type);
-
-  for (const auto& entry : icebergLayout->partitionColumns) {
-    assignments.emplace(
-        entry.columnIdentity.name, toBoltColumnHandle(&entry, typeParser));
-  }
-
-  // Add synthesized columns to the TableScanNode columnHandles as well.
-  for (const auto& entry : icebergLayout->predicateColumns) {
-    addSynthesizedColumn(entry.first, entry.second.columnType, entry.second);
-  }
-
-  auto icebergTableHandle =
-      std::dynamic_pointer_cast<const protocol::iceberg::IcebergTableHandle>(
-          tableHandle.connectorHandle);
-  BOLT_CHECK_NOT_NULL(
-      icebergTableHandle,
-      "Unexpected table handle type {}",
-      tableHandle.connectorHandle->_type);
-
-  // Use fully qualified name if available.
-  std::string tableName = icebergTableHandle->schemaName.empty()
-      ? icebergTableHandle->icebergTableName.tableName
-      : fmt::format(
-            "{}.{}",
-            icebergTableHandle->schemaName,
-            icebergTableHandle->icebergTableName.tableName);
-
-  return toHiveTableHandle(
-      icebergLayout->domainPredicate,
-      icebergLayout->remainingPredicate,
-      icebergLayout->pushdownFilterEnabled,
-      tableName,
-      icebergLayout->dataColumns,
-      tableHandle,
-      {},
-      exprConverter,
-      typeParser);
-}
-
-std::unique_ptr<protocol::ConnectorProtocol>
-IcebergPrestoToBoltConnector::createConnectorProtocol() const {
-  return std::make_unique<protocol::iceberg::IcebergConnectorProtocol>();
-}
-
-std::unique_ptr<bolt::connector::ConnectorSplit>
+std::unique_ptr<bytedance::bolt::connector::ConnectorSplit>
 TpchPrestoToBoltConnector::toBoltSplit(
     const protocol::ConnectorId& catalogId,
     const protocol::ConnectorSplit* connectorSplit,
@@ -1494,12 +1317,12 @@ TpchPrestoToBoltConnector::toBoltSplit(
       tpchSplit, "Unexpected split type {}", connectorSplit->_type);
   return std::make_unique<connector::tpch::TpchConnectorSplit>(
       catalogId,
-      splitContext->cacheable,
+      //splitContext->cacheable,
       tpchSplit->totalParts,
       tpchSplit->partNumber);
 }
 
-std::unique_ptr<bolt::connector::ColumnHandle>
+std::unique_ptr<bytedance::bolt::connector::ColumnHandle>
 TpchPrestoToBoltConnector::toBoltColumnHandle(
     const protocol::ColumnHandle* column,
     const TypeParser& typeParser) const {
@@ -1511,14 +1334,14 @@ TpchPrestoToBoltConnector::toBoltColumnHandle(
       tpchColumn->columnName);
 }
 
-std::unique_ptr<bolt::connector::ConnectorTableHandle>
+std::unique_ptr<bytedance::bolt::connector::ConnectorTableHandle>
 TpchPrestoToBoltConnector::toBoltTableHandle(
     const protocol::TableHandle& tableHandle,
     const BoltExprConverter& exprConverter,
     const TypeParser& typeParser,
     std::unordered_map<
         std::string,
-        std::shared_ptr<bolt::connector::ColumnHandle>>& assignments) const {
+        std::shared_ptr<bytedance::bolt::connector::ColumnHandle>>& assignments) const {
   auto tpchLayout =
       std::dynamic_pointer_cast<const protocol::tpch::TpchTableLayoutHandle>(
           tableHandle.connectorTableLayout);

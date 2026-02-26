@@ -19,13 +19,13 @@
 
 namespace facebook::presto {
 
-bolt::TypePtr TypeParser::parse(const std::string& text) const {
+bytedance::bolt::TypePtr TypeParser::parse(const std::string& text) const {
   auto it = cache_.find(text);
   if (it != cache_.end()) {
     return it->second;
   }
 
-  auto result = bolt::parseType(text);
+  auto result = bytedance::bolt::parseType(text);
   cache_.insert({text, result});
   return result;
 }

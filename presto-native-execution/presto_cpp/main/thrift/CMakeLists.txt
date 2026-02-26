@@ -22,6 +22,7 @@ find_library(THRIFT_TYPEREP thrifttyperep)
 # TODO: [Xianda]
 #    Conan provide a clean script for this.
 
+
 set(THRIFT_INCLUDES ${fbthrift_INCLUDE_DIRS})
 include(ThriftLibrary.cmake)
 
@@ -53,12 +54,12 @@ target_include_directories(presto_thrift-cpp2-obj PUBLIC
   ${wangle_INCLUDE_DIRS}
   ${jemalloc_INCLUDE_DIRS})
 
-
 add_library(presto_thrift_extra ProtocolToThrift.cpp)
 
 target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES}
                                                       ${THRIFT_INCLUDES}
-                                                      ${bolt_INCLUDE_DIRS}
+                                                      ${velox_INCLUDE_DIRS}
+
                                                       )
 
 find_package(nlohmann_json CONFIG REQUIRED)

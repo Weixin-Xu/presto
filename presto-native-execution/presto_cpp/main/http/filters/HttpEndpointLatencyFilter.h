@@ -40,8 +40,8 @@ class HttpEndpointLatencyFilter : public proxygen::Filter {
 
     std::string toString() const {
       std::stringstream oss;
-      oss << "{'" << endpoint << "' : " << bolt::succinctMicros(maxLatencyUs)
-          << "(max) " << bolt::succinctMicros(avgLatencyUs) << "(avg) "
+      oss << "{'" << endpoint << "' : " << bytedance::bolt::succinctMicros(maxLatencyUs)
+          << "(max) " << bytedance::bolt::succinctMicros(avgLatencyUs) << "(avg) "
           << count << "(count)}";
       return oss.str();
     }
@@ -82,7 +82,7 @@ class HttpEndpointLatencyFilter : public proxygen::Filter {
   std::string requestEndpoint_;
 
   // The timer used for keeping track of the duration of the request.
-  std::unique_ptr<bolt::MicrosecondTimer> timer_;
+  std::unique_ptr<bytedance::bolt::MicrosecondTimer> timer_;
 
   // The duration in us this request takes.
   uint64_t timeUs_{0};

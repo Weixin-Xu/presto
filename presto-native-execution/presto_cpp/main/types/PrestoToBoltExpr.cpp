@@ -21,8 +21,8 @@
 #include "bolt/vector/ConstantVector.h"
 #include "bolt/vector/FlatVector.h"
 
-using namespace facebook::bolt::core;
-using facebook::bolt::TypeKind;
+using namespace bytedance::bolt::core;
+using bytedance::bolt::TypeKind;
 
 namespace facebook::presto {
 namespace {
@@ -102,44 +102,44 @@ std::string getFunctionName(const protocol::SqlFunctionId& functionId) {
 
 } // namespace
 
-bolt::variant BoltExprConverter::getConstantValue(
-    const bolt::TypePtr& type,
+bytedance::bolt::variant BoltExprConverter::getConstantValue(
+    const bytedance::bolt::TypePtr& type,
     const protocol::Block& block) const {
   auto valueVector = protocol::readBlock(type, block.data, pool_);
 
   auto typeKind = type->kind();
   if (valueVector->isNullAt(0)) {
-    return bolt::variant(typeKind);
+    return bytedance::bolt::variant(typeKind);
   }
 
   switch (typeKind) {
     case TypeKind::HUGEINT:
-      return valueVector->as<bolt::SimpleVector<bolt::int128_t>>()->valueAt(
+      return valueVector->as<bytedance::bolt::SimpleVector<bytedance::bolt::int128_t>>()->valueAt(
           0);
     case TypeKind::BIGINT:
-      return valueVector->as<bolt::SimpleVector<int64_t>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<int64_t>>()->valueAt(0);
     case TypeKind::INTEGER:
-      return valueVector->as<bolt::SimpleVector<int32_t>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<int32_t>>()->valueAt(0);
     case TypeKind::SMALLINT:
-      return valueVector->as<bolt::SimpleVector<int16_t>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<int16_t>>()->valueAt(0);
     case TypeKind::TINYINT:
-      return valueVector->as<bolt::SimpleVector<int8_t>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<int8_t>>()->valueAt(0);
     case TypeKind::TIMESTAMP:
-      return valueVector->as<bolt::SimpleVector<bolt::Timestamp>>()->valueAt(
+      return valueVector->as<bytedance::bolt::SimpleVector<bytedance::bolt::Timestamp>>()->valueAt(
           0);
     case TypeKind::BOOLEAN:
-      return valueVector->as<bolt::SimpleVector<bool>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<bool>>()->valueAt(0);
     case TypeKind::DOUBLE:
-      return valueVector->as<bolt::SimpleVector<double>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<double>>()->valueAt(0);
     case TypeKind::REAL:
-      return valueVector->as<bolt::SimpleVector<float>>()->valueAt(0);
+      return valueVector->as<bytedance::bolt::SimpleVector<float>>()->valueAt(0);
     case TypeKind::VARCHAR:
-      return bolt::variant(
-          valueVector->as<bolt::SimpleVector<bolt::StringView>>()->valueAt(
+      return bytedance::bolt::variant(
+          valueVector->as<bytedance::bolt::SimpleVector<bytedance::bolt::StringView>>()->valueAt(
               0));
     case TypeKind::VARBINARY:
-      return bolt::variant::binary(
-          valueVector->as<bolt::SimpleVector<bolt::StringView>>()->valueAt(
+      return bytedance::bolt::variant::binary(
+          valueVector->as<bytedance::bolt::SimpleVector<bytedance::bolt::StringView>>()->valueAt(
               0));
     default:
       throw std::invalid_argument(
@@ -187,8 +187,8 @@ std::optional<TypedExprPtr> convertCastToVarcharWithMaxLength(
       arg->type(),
       std::vector<TypedExprPtr>{
           arg,
-          std::make_shared<ConstantTypedExpr>(bolt::BIGINT(), 1LL),
-          std::make_shared<ConstantTypedExpr>(bolt::BIGINT(), (int64_t)length),
+          std::make_shared<ConstantTypedExpr>(bytedance::bolt::BIGINT(), 1LL),
+          std::make_shared<ConstantTypedExpr>(bytedance::bolt::BIGINT(), (int64_t)length),
       },
       "presto.default.substr");
 }
@@ -237,7 +237,7 @@ std::optional<TypedExprPtr> tryConvertCast(
     return std::make_shared<CastTypedExpr>(
         type,
         std::vector<TypedExprPtr>{std::make_shared<CallTypedExpr>(
-            bolt::JSON(), args, "presto.default.json_parse")},
+            bytedance::bolt::JSON(), args, "presto.default.json_parse")},
         false);
   } else {
     return std::nullopt;
@@ -298,7 +298,7 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
     const protocol::Signature& signature,
     const std::string& returnType,
     const std::vector<TypedExprPtr>& args,
-    bolt::memory::MemoryPool* pool,
+    bytedance::bolt::memory::MemoryPool* pool,
     const TypeParser* typeParser) {
   static const char* kLiteralArray = "presto.default.$literal$array";
   static const char* kFromBase64 = "presto.default.from_base64";
@@ -324,19 +324,19 @@ std::optional<TypedExprPtr> tryConvertLiteralArray(
   auto encoded =
       std::dynamic_pointer_cast<const ConstantTypedExpr>(call->inputs()[0]);
   BOLT_CHECK_NOT_NULL(encoded);
-  auto encodedString = encoded->value().value<bolt::StringView>();
+  auto encodedString = encoded->value().value<bytedance::bolt::StringView>();
   auto elementsVector =
       protocol::readBlock(type->asArray().elementType(), encodedString, pool);
 
-  bolt::BufferPtr offsets =
-      bolt::AlignedBuffer::allocate<bolt::vector_size_t>(1, pool, 0);
-  bolt::BufferPtr sizes = bolt::AlignedBuffer::allocate<bolt::vector_size_t>(
+  bytedance::bolt::BufferPtr offsets =
+      bytedance::bolt::AlignedBuffer::allocate<bytedance::bolt::vector_size_t>(1, pool, 0);
+  bytedance::bolt::BufferPtr sizes = bytedance::bolt::AlignedBuffer::allocate<bytedance::bolt::vector_size_t>(
       1, pool, elementsVector->size());
-  auto arrayVector = std::make_shared<bolt::ArrayVector>(
+  auto arrayVector = std::make_shared<bytedance::bolt::ArrayVector>(
       pool, type, nullptr, 1, offsets, sizes, elementsVector);
 
   return std::make_shared<ConstantTypedExpr>(
-      bolt::BaseVector::wrapInConstant(1, 0, arrayVector));
+      bytedance::bolt::BaseVector::wrapInConstant(1, 0, arrayVector));
 }
 } // namespace
 
@@ -477,7 +477,7 @@ std::shared_ptr<const ConstantTypedExpr> BoltExprConverter::toBoltExpr(
       auto valueVector =
           protocol::readBlock(type, pexpr->valueBlock.data, pool_);
       return std::make_shared<ConstantTypedExpr>(
-          bolt::BaseVector::wrapInConstant(1, 0, valueVector));
+          bytedance::bolt::BaseVector::wrapInConstant(1, 0, valueVector));
     }
     default: {
       const auto value = getConstantValue(type, pexpr->valueBlock);
@@ -502,18 +502,18 @@ std::shared_ptr<const CallTypedExpr> makeEqualsExpr(
     const TypedExprPtr& b) {
   std::vector<TypedExprPtr> inputs{a, b};
   return std::make_shared<CallTypedExpr>(
-      bolt::BOOLEAN(), std::move(inputs), "presto.default.eq");
+      bytedance::bolt::BOOLEAN(), std::move(inputs), "presto.default.eq");
 }
 
 std::shared_ptr<const CastTypedExpr> makeCastExpr(
     const TypedExprPtr& expr,
-    const bolt::TypePtr& type) {
+    const bytedance::bolt::TypePtr& type) {
   std::vector<TypedExprPtr> inputs{expr};
   return std::make_shared<CastTypedExpr>(type, std::move(inputs), false);
 }
 
 std::shared_ptr<const CallTypedExpr> convertSwitchExpr(
-    const bolt::TypePtr& returnType,
+    const bytedance::bolt::TypePtr& returnType,
     std::vector<TypedExprPtr> args) {
   auto valueExpr = args.front();
   args.erase(args.begin());
@@ -571,7 +571,7 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
 
   std::vector<std::string> newNames;
   newNames.reserve(numArgsLeft);
-  std::vector<bolt::TypePtr> newTypes;
+  std::vector<bytedance::bolt::TypePtr> newTypes;
   newTypes.reserve(numArgsLeft);
   for (auto i = 0; i < numArgsLeft; i++) {
     newNames.emplace_back(signature->nameOf(i + args.size() - 1));
@@ -584,26 +584,26 @@ TypedExprPtr convertBindExpr(const std::vector<TypedExprPtr>& args) {
       newSignature, lambda->body()->rewriteInputNames(mapping));
 }
 
-bolt::ArrayVectorPtr wrapInArray(const bolt::VectorPtr& elements) {
+bytedance::bolt::ArrayVectorPtr wrapInArray(const bytedance::bolt::VectorPtr& elements) {
   auto* pool = elements->pool();
   auto size = elements->size();
-  auto offsets = bolt::allocateOffsets(size, pool);
-  auto sizes = bolt::allocateSizes(size, pool);
+  auto offsets = bytedance::bolt::allocateOffsets(size, pool);
+  auto sizes = bytedance::bolt::allocateSizes(size, pool);
 
-  auto rawSizes = sizes->asMutable<bolt::vector_size_t>();
+  auto rawSizes = sizes->asMutable<bytedance::bolt::vector_size_t>();
   rawSizes[0] = size;
 
-  return std::make_shared<bolt::ArrayVector>(
+  return std::make_shared<bytedance::bolt::ArrayVector>(
       pool, ARRAY(elements->type()), nullptr, 1, offsets, sizes, elements);
 }
 
-bolt::ArrayVectorPtr toArrayOfComplexTypeVector(
-    const bolt::TypePtr& elementType,
+bytedance::bolt::ArrayVectorPtr toArrayOfComplexTypeVector(
+    const bytedance::bolt::TypePtr& elementType,
     std::vector<TypedExprPtr>::const_iterator begin,
     std::vector<TypedExprPtr>::const_iterator end,
-    bolt::memory::MemoryPool* pool) {
+    bytedance::bolt::memory::MemoryPool* pool) {
   const auto size = end - begin;
-  auto elements = bolt::BaseVector::create(elementType, size, pool);
+  auto elements = bytedance::bolt::BaseVector::create(elementType, size, pool);
 
   for (auto i = 0; i < size; ++i) {
     auto constant =
@@ -618,16 +618,16 @@ bolt::ArrayVectorPtr toArrayOfComplexTypeVector(
 }
 
 template <TypeKind KIND>
-bolt::ArrayVectorPtr toArrayVector(
-    const bolt::TypePtr& elementType,
+bytedance::bolt::ArrayVectorPtr toArrayVector(
+    const bytedance::bolt::TypePtr& elementType,
     std::vector<TypedExprPtr>::const_iterator begin,
     std::vector<TypedExprPtr>::const_iterator end,
-    bolt::memory::MemoryPool* pool) {
-  using T = typename bolt::TypeTraits<KIND>::NativeType;
+    bytedance::bolt::memory::MemoryPool* pool) {
+  using T = typename bytedance::bolt::TypeTraits<KIND>::NativeType;
 
   const auto size = end - begin;
-  auto elements = std::dynamic_pointer_cast<bolt::FlatVector<T>>(
-      bolt::BaseVector::create(elementType, size, pool));
+  auto elements = std::dynamic_pointer_cast<bytedance::bolt::FlatVector<T>>(
+      bytedance::bolt::BaseVector::create(elementType, size, pool));
 
   for (auto i = 0; i < size; ++i) {
     auto constant =
@@ -639,8 +639,8 @@ bolt::ArrayVectorPtr toArrayVector(
     if (value.isNull()) {
       elements->setNull(i, true);
     } else {
-      if constexpr (std::is_same_v<T, bolt::StringView>) {
-        elements->set(i, bolt::StringView(value.value<T>()));
+      if constexpr (std::is_same_v<T, bytedance::bolt::StringView>) {
+        elements->set(i, bytedance::bolt::StringView(value.value<T>()));
       } else {
         elements->set(i, value.value<T>());
       }
@@ -652,19 +652,19 @@ bolt::ArrayVectorPtr toArrayVector(
 
 TypedExprPtr convertInExpr(
     const std::vector<TypedExprPtr>& args,
-    bolt::memory::MemoryPool* pool) {
+    bytedance::bolt::memory::MemoryPool* pool) {
   auto numArgs = args.size();
   BOLT_USER_CHECK_GE(numArgs, 2);
 
   const auto typeKind = args[0]->type()->kind();
 
-  bolt::ArrayVectorPtr arrayVector;
+  bytedance::bolt::ArrayVectorPtr arrayVector;
   switch (typeKind) {
-    case bolt::TypeKind::ARRAY:
+    case bytedance::bolt::TypeKind::ARRAY:
       [[fallthrough]];
-    case bolt::TypeKind::MAP:
+    case bytedance::bolt::TypeKind::MAP:
       [[fallthrough]];
-    case bolt::TypeKind::ROW:
+    case bytedance::bolt::TypeKind::ROW:
       arrayVector = toArrayOfComplexTypeVector(
           args[0]->type(), args.begin() + 1, args.end(), pool);
       break;
@@ -679,20 +679,20 @@ TypedExprPtr convertInExpr(
   }
 
   if (arrayVector == nullptr) {
-    return std::make_shared<CallTypedExpr>(bolt::BOOLEAN(), args, "in");
+    return std::make_shared<CallTypedExpr>(bytedance::bolt::BOOLEAN(), args, "in");
   }
 
   auto constantVector =
-      std::make_shared<bolt::ConstantVector<bolt::ComplexType>>(
+      std::make_shared<bytedance::bolt::ConstantVector<bytedance::bolt::ComplexType>>(
           pool, 1, 0, arrayVector);
 
   std::vector<TypedExprPtr> newArgs = {
       args[0], std::make_shared<const ConstantTypedExpr>(constantVector)};
-  return std::make_shared<CallTypedExpr>(bolt::BOOLEAN(), newArgs, "in");
+  return std::make_shared<CallTypedExpr>(bytedance::bolt::BOOLEAN(), newArgs, "in");
 }
 
 TypedExprPtr convertDereferenceExpr(
-    const bolt::TypePtr& returnType,
+    const bytedance::bolt::TypePtr& returnType,
     const std::vector<TypedExprPtr>& args) {
   BOLT_USER_CHECK_EQ(args.size(), 2);
 
@@ -760,7 +760,7 @@ std::shared_ptr<const FieldAccessTypedExpr> BoltExprConverter::toBoltExpr(
 
 std::shared_ptr<const LambdaTypedExpr> BoltExprConverter::toBoltExpr(
     std::shared_ptr<protocol::LambdaDefinitionExpression> lambda) const {
-  std::vector<bolt::TypePtr> argumentTypes;
+  std::vector<bytedance::bolt::TypePtr> argumentTypes;
   argumentTypes.reserve(lambda->argumentTypes.size());
   for (auto& typeName : lambda->argumentTypes) {
     argumentTypes.emplace_back(typeParser_->parse(typeName));

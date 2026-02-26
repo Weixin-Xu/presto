@@ -51,8 +51,8 @@ DECLARE_bool(bolt_memory_leak_check_enabled);
 static const std::string kHiveConnectorId = "test-hive";
 
 using namespace bytedance::bolt;
-using namespace facebook::bolt::exec;
-using namespace facebook::bolt::exec::test;
+using namespace bytedance::bolt::exec;
+using namespace bytedance::bolt::exec::test;
 
 namespace facebook::presto {
 
@@ -113,7 +113,7 @@ class Cursor {
       TaskManager* taskManager,
       const protocol::TaskId& taskId,
       const RowTypePtr& rowType,
-      bolt::VectorSerde::Kind serdeKind,
+      bytedance::bolt::VectorSerde::Kind serdeKind,
       memory::MemoryPool* pool)
       : pool_(pool),
         taskManager_(taskManager),
@@ -161,7 +161,7 @@ class Cursor {
 
     const auto input =
         std::make_unique<BufferInputStream>(std::move(byteRanges));
-    auto* serde = bolt::getNamedVectorSerde(serdeKind_);
+    auto* serde = bytedance::bolt::getNamedVectorSerde(serdeKind_);
     std::vector<RowVectorPtr> vectors;
     while (!input->atEnd()) {
       RowVectorPtr vector;
@@ -176,7 +176,7 @@ class Cursor {
   TaskManager* const taskManager_;
   const protocol::TaskId taskId_;
   const RowTypePtr rowType_;
-  const bolt::VectorSerde::Kind serdeKind_;
+  const bytedance::bolt::VectorSerde::Kind serdeKind_;
   bool atEnd_{false};
   uint64_t sequence_{0};
 };
@@ -296,7 +296,7 @@ class TaskManagerTest : public exec::test::OperatorTestBase,
     std::vector<RowVectorPtr> vectors;
     for (int i = 0; i < count; ++i) {
       auto vector = std::dynamic_pointer_cast<RowVector>(
-          facebook::bolt::test::BatchMaker::createBatch(
+          bytedance::bolt::test::BatchMaker::createBatch(
               rowType_, rowsPerVector, *pool_));
       vectors.emplace_back(vector);
     }
@@ -786,9 +786,9 @@ DEBUG_ONLY_TEST_P(TaskManagerTest, fecthFromArbitraryOutput) {
   folly::EventCount outputWait;
   std::atomic<bool> outputWaitFlag{false};
   SCOPED_TESTVALUE_SET(
-      "facebook::bolt::exec::Values::getOutput",
-      std::function<void(const bolt::exec::Values*)>(
-          [&](const bolt::exec::Values* values) {
+      "bytedance::bolt::exec::Values::getOutput",
+      std::function<void(const bytedance::bolt::exec::Values*)>(
+          [&](const bytedance::bolt::exec::Values* values) {
             outputWait.await([&]() { return outputWaitFlag.load(); });
           }));
 
@@ -1353,7 +1353,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
   taskManager_->createOrUpdateErrorTask(taskId, std::make_exception_ptr(e), 0);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = bolt::getCurrentTimeMicro();
+  const uint64_t startTimeUs = bytedance::bolt::getCurrentTimeMicro();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1363,7 +1363,7 @@ TEST_P(TaskManagerTest, getResultsFromFailedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = bolt::getCurrentTimeMicro();
+  const uint64_t finishTimeUs = bytedance::bolt::getCurrentTimeMicro();
 
   {
     // ensure response is returned with a delay
@@ -1383,7 +1383,7 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
   taskManager_->deleteTask(taskId, true);
 
   // We expect to get empty results, rather than an exception.
-  const uint64_t startTimeUs = bolt::getCurrentTimeMicro();
+  const uint64_t startTimeUs = bytedance::bolt::getCurrentTimeMicro();
   auto results = taskManager_
                      ->getResults(
                          taskId,
@@ -1393,7 +1393,7 @@ TEST_P(TaskManagerTest, getResultsFromAbortedTask) {
                          protocol::Duration("1s"),
                          http::CallbackRequestHandlerState::create())
                      .get();
-  const uint64_t finishTimeUs = bolt::getCurrentTimeMicro();
+  const uint64_t finishTimeUs = bytedance::bolt::getCurrentTimeMicro();
 
   {
     // ensure response is returned with a delay
@@ -1423,7 +1423,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
       std::move(queryCtx),
       Task::ExecutionMode::kParallel);
 
-  const uint64_t startTimeMs = bolt::getCurrentTimeMs();
+  const uint64_t startTimeMs = bytedance::bolt::getCurrentTimeMs();
   auto prestoTask = std::make_unique<PrestoTask>(taskId, "fakeId");
   prestoTask->task = boltTask;
   boltTask->start(1);
@@ -1443,7 +1443,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   const auto memoryUsage = boltTask->queryCtx()->pool()->usedBytes();
   ASSERT_GT(memoryUsage, 0);
 
-  const uint64_t lastTimeMs = bolt::getCurrentTimeMs();
+  const uint64_t lastTimeMs = bytedance::bolt::getCurrentTimeMs();
   protocol::TaskInfo prestoTaskInfo = prestoTask->updateInfo();
   ASSERT_EQ(prestoTaskInfo.stats.userMemoryReservationInBytes, memoryUsage);
   ASSERT_EQ(prestoTaskInfo.stats.systemMemoryReservationInBytes, 0);
@@ -1466,7 +1466,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   prestoTaskInfo = prestoTask->updateInfo();
   // Wait a bit to avoid the timing related flakiness in test check below.
   std::this_thread::sleep_for(std::chrono::milliseconds(1));
-  const uint64_t currentTimeMs = bolt::getCurrentTimeMs();
+  const uint64_t currentTimeMs = bytedance::bolt::getCurrentTimeMs();
   // There won't be any task memory usage change as we don't consume any output
   // buffers.
   ASSERT_EQ(memoryUsage, prestoTaskInfo.stats.userMemoryReservationInBytes);
@@ -1493,7 +1493,7 @@ TEST_P(TaskManagerTest, testCumulativeMemory) {
   ASSERT_EQ(taskStats.peakTotalMemoryInBytes, taskStats.peakUserMemoryInBytes);
   prestoTask.reset();
   boltTask.reset();
-  bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+  bytedance::bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
 }
 
 TEST_P(TaskManagerTest, checkBatchSplits) {
@@ -1607,7 +1607,7 @@ TEST_P(TaskManagerTest, buildSpillDirectoryFailure) {
       }
     }
     waitForAllOldTasksToBeCleaned(taskManager_.get(), 3'000'000);
-    bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
+    bytedance::bolt::exec::test::waitForAllTasksToBeDeleted(3'000'000);
     ASSERT_TRUE(taskManager_->tasks().empty());
   }
 }

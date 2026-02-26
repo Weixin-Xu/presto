@@ -149,11 +149,11 @@ static void addRuntimeMetricIfNotZero(
 }
 
 RuntimeMetric fromMillis(int64_t ms) {
-  return RuntimeMetric{ms * 1'000'000, bolt::RuntimeCounter::Unit::kNanos};
+  return RuntimeMetric{ms * 1'000'000, bytedance::bolt::RuntimeCounter::Unit::kNanos};
 }
 
 RuntimeMetric fromNanos(int64_t nanos) {
-  return RuntimeMetric{nanos, bolt::RuntimeCounter::Unit::kNanos};
+  return RuntimeMetric{nanos, bytedance::bolt::RuntimeCounter::Unit::kNanos};
 }
 
 // Utility to generate presto runtime stat name when translating bolt runtime
@@ -264,7 +264,7 @@ void updateTaskRuntimeStats(
 }
 
 presto::protocol::DynamicFilterStats toPrestoDynamicFilterStats(
-    const bolt::exec::OperatorStats& boltOpStats) {
+    const bytedance::bolt::exec::OperatorStats& boltOpStats) {
   presto::protocol::DynamicFilterStats dynamicFilterStats;
   for (const auto& nodeId : boltOpStats.dynamicFilterStats.producerNodeIds) {
     dynamicFilterStats.producerNodeIds.emplace_back(nodeId);
@@ -286,7 +286,7 @@ PrestoTask::PrestoTask(
 }
 
 void PrestoTask::updateHeartbeatLocked() {
-  lastHeartbeatMs = bolt::getCurrentTimeMs();
+  lastHeartbeatMs = bytedance::bolt::getCurrentTimeMs();
   info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
 }
 
@@ -296,7 +296,7 @@ void PrestoTask::updateCoordinatorHeartbeat() {
 }
 
 void PrestoTask::updateCoordinatorHeartbeatLocked() {
-  lastCoordinatorHeartbeatMs = bolt::getCurrentTimeMs();
+  lastCoordinatorHeartbeatMs = bytedance::bolt::getCurrentTimeMs();
 }
 
 uint64_t PrestoTask::timeSinceLastHeartbeatMs() const {
@@ -351,7 +351,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   // Presto has a Driver per split. When splits represent partitions
   // of data, there is a queue of them per Task. We represent
   // running/queued table scan splits as partitioned drivers for Presto.
-  info.taskStatus.queuedPartitionedDrivers =
+  /*info.taskStatus.queuedPartitionedDrivers =
       boltTaskStats.numQueuedTableScanSplits;
   info.taskStatus.runningPartitionedDrivers =
       boltTaskStats.numRunningTableScanSplits;
@@ -360,7 +360,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
   info.taskStatus.queuedPartitionedSplitsWeight =
       boltTaskStats.queuedTableScanSplitWeights;
   info.taskStatus.runningPartitionedSplitsWeight =
-      boltTaskStats.runningTableScanSplitWeights;
+      boltTaskStats.runningTableScanSplitWeights;*/
 
   info.taskStatus.completedDriverGroups.clear();
   info.taskStatus.completedDriverGroups.reserve(
@@ -399,7 +399,7 @@ protocol::TaskStatus PrestoTask::updateStatusLocked() {
 }
 
 void PrestoTask::updateOutputBufferInfoLocked(
-    const bolt::exec::TaskStats& boltTaskStats,
+    const bytedance::bolt::exec::TaskStats& boltTaskStats,
     std::unordered_map<std::string, RuntimeMetric>& taskRuntimeStats) {
   if (!boltTaskStats.outputBufferStats.has_value()) {
     return;
@@ -407,7 +407,7 @@ void PrestoTask::updateOutputBufferInfoLocked(
   const auto& outputBufferStats = boltTaskStats.outputBufferStats.value();
   auto& outputBufferInfo = info.outputBuffers;
   outputBufferInfo.type =
-      bolt::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
+      bytedance::bolt::core::PartitionedOutputNode::kindString(outputBufferStats.kind);
   outputBufferInfo.canAddBuffers = !outputBufferStats.noMoreBuffers;
   outputBufferInfo.canAddPages = !outputBufferStats.noMoreData;
   outputBufferInfo.totalBufferedBytes = outputBufferStats.bufferedBytes;
@@ -419,8 +419,8 @@ void PrestoTask::updateOutputBufferInfoLocked(
   taskRuntimeStats.insert(
       {"averageOutputBufferWallNanos",
        fromMillis(outputBufferStats.averageBufferTimeMs)});
-  taskRuntimeStats["numTopOutputBuffers"].addValue(
-      outputBufferStats.numTopBuffers);
+  /*taskRuntimeStats["numTopOutputBuffers"].addValue(
+      outputBufferStats.numTopBuffers);*/
 }
 
 protocol::TaskInfo PrestoTask::updateInfoLocked() {
@@ -430,8 +430,8 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
   if (task == nullptr) {
     return info;
   }
-  const bolt::exec::TaskStats boltTaskStats = task->taskStats();
-  const uint64_t currentTimeMs = bolt::getCurrentTimeMs();
+  const bytedance::bolt::exec::TaskStats boltTaskStats = task->taskStats();
+  const uint64_t currentTimeMs = bytedance::bolt::getCurrentTimeMs();
   // Set 'lastTaskStatsUpdateMs' to execution start time if it is 0.
   if (lastTaskStatsUpdateMs == 0) {
     lastTaskStatsUpdateMs = boltTaskStats.executionStartTimeMs;
@@ -497,9 +497,9 @@ protocol::TaskInfo PrestoTask::updateInfoLocked() {
 }
 
 void PrestoTask::updateTimeInfoLocked(
-    const bolt::exec::TaskStats& boltTaskStats,
+    const bytedance::bolt::exec::TaskStats& boltTaskStats,
     uint64_t currentTimeMs,
-    std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats) {
+    std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   prestoTaskStats.totalScheduledTimeInNanos = {};
@@ -541,9 +541,9 @@ void PrestoTask::updateTimeInfoLocked(
 }
 
 void PrestoTask::updateMemoryInfoLocked(
-    const bolt::exec::TaskStats& boltTaskStats,
+    const bytedance::bolt::exec::TaskStats& boltTaskStats,
     uint64_t currentTimeMs,
-    std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats) {
+    std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   const auto boltTaskMemStats = task->pool()->stats();
@@ -578,9 +578,9 @@ void PrestoTask::updateMemoryInfoLocked(
 }
 
 void PrestoTask::updateExecutionInfoLocked(
-    const bolt::exec::TaskStats& boltTaskStats,
+    const bytedance::bolt::exec::TaskStats& boltTaskStats,
     const protocol::TaskStatus& prestoTaskStatus,
-    std::unordered_map<std::string, bolt::RuntimeMetric>& taskRuntimeStats) {
+    std::unordered_map<std::string, bytedance::bolt::RuntimeMetric>& taskRuntimeStats) {
   protocol::TaskStats& prestoTaskStats = info.stats;
 
   prestoTaskStats.rawInputPositions = 0;
@@ -655,11 +655,11 @@ void PrestoTask::updateExecutionInfoLocked(
           prestoPipeline.outputDataSizeInBytes;
     }
 
-    for (const auto& driverStat : boltPipeline.driverStats) {
+    /*for (const auto& driverStat : boltPipeline.driverStats) {
       for (const auto& [name, value] : driverStat.runtimeStats) {
         addRuntimeMetric(taskRuntimeStats, name, value);
       }
-    }
+    }*/
 
     for (auto j = 0; j < boltPipeline.operatorStats.size(); ++j) {
       auto& prestoOp = prestoPipeline.operatorSummaries[j];

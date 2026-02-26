@@ -39,21 +39,21 @@ class BroadcastFileWriter {
  public:
   BroadcastFileWriter(
       std::string_view filename,
-      const bolt::RowTypePtr& inputType,
-      std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
-      bolt::memory::MemoryPool* pool);
+      const bytedance::bolt::RowTypePtr& inputType,
+      std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem,
+      bytedance::bolt::memory::MemoryPool* pool);
 
   virtual ~BroadcastFileWriter() = default;
 
   /// Write to file.
-  void collect(const bolt::RowVectorPtr& input);
+  void collect(const bytedance::bolt::RowVectorPtr& input);
 
   /// Flush the data.
   void noMoreData();
 
   /// Returns file name if non zero rows written to file.
   /// Returns nullptr if there were no rows written.
-  bolt::RowVectorPtr fileStats();
+  bytedance::bolt::RowVectorPtr fileStats();
 
  private:
   /// Initializes write file.
@@ -61,16 +61,16 @@ class BroadcastFileWriter {
 
   /// Serializes input rowVector using PrestoVectorSerde and
   /// writes serialized data to file.
-  void write(const bolt::RowVectorPtr& rowVector);
+  void write(const bytedance::bolt::RowVectorPtr& rowVector);
 
-  std::unique_ptr<bolt::WriteFile> writeFile_;
-  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
+  std::unique_ptr<bytedance::bolt::WriteFile> writeFile_;
+  std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem_;
   std::string filename_;
   int64_t numRows_;
   int64_t maxSerializedSize_;
-  bolt::memory::MemoryPool* pool_;
-  std::unique_ptr<bolt::VectorSerde> serde_;
-  const bolt::RowTypePtr& inputType_;
+  bytedance::bolt::memory::MemoryPool* pool_;
+  std::unique_ptr<bytedance::bolt::VectorSerde> serde_;
+  const bytedance::bolt::RowTypePtr& inputType_;
 };
 
 /// Reads broadcast data back from files.
@@ -78,8 +78,8 @@ class BroadcastFileReader {
  public:
   BroadcastFileReader(
       std::unique_ptr<BroadcastFileInfo>& broadcastFileInfo,
-      std::shared_ptr<bolt::filesystems::FileSystem> fileSystem,
-      bolt::memory::MemoryPool* pool);
+      std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem,
+      bytedance::bolt::memory::MemoryPool* pool);
 
   ~BroadcastFileReader() = default;
 
@@ -87,17 +87,17 @@ class BroadcastFileReader {
   bool hasNext();
 
   /// Read next block of data.
-  bolt::BufferPtr next();
+  bytedance::bolt::BufferPtr next();
 
   /// Reader stats - number of bytes.
   folly::F14FastMap<std::string, int64_t> stats();
 
  private:
   std::unique_ptr<BroadcastFileInfo> broadcastFileInfo_;
-  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem_;
   bool hasData_;
   int64_t numBytes_;
-  bolt::memory::MemoryPool* pool_;
+  bytedance::bolt::memory::MemoryPool* pool_;
 };
 
 /// Factory to create Writers & Reader for file based broadcast.
@@ -108,15 +108,15 @@ class BroadcastFactory {
   virtual ~BroadcastFactory() = default;
 
   std::unique_ptr<BroadcastFileWriter> createWriter(
-      bolt::memory::MemoryPool* pool,
-      const bolt::RowTypePtr& inputType);
+      bytedance::bolt::memory::MemoryPool* pool,
+      const bytedance::bolt::RowTypePtr& inputType);
 
   std::shared_ptr<BroadcastFileReader> createReader(
       const std::unique_ptr<BroadcastFileInfo> fileInfo,
-      bolt::memory::MemoryPool* pool);
+      bytedance::bolt::memory::MemoryPool* pool);
 
  private:
   const std::string basePath_;
-  std::shared_ptr<bolt::filesystems::FileSystem> fileSystem_;
+  std::shared_ptr<bytedance::bolt::filesystems::FileSystem> fileSystem_;
 };
 } // namespace facebook::presto::operators

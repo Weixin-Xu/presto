@@ -29,13 +29,13 @@ TEST(BoltToPrestoExceptionTranslatorTest, exceptionTranslation) {
         return std::string(static_cast<char*>(arg));
       };
       std::string additonalMessage = "additional context message";
-      facebook::bolt::ExceptionContextSetter additionalContextSetter(
+      bytedance::bolt::ExceptionContextSetter additionalContextSetter(
           withAdditionalContext
               ? ExceptionContext{contextMessageFunction, additonalMessage.data(), true}
               : ExceptionContext{});
 
       std::string contextMessage = "context message";
-      facebook::bolt::ExceptionContextSetter contextSetter(
+      bytedance::bolt::ExceptionContextSetter contextSetter(
           withContext
               ? ExceptionContext{contextMessageFunction, contextMessage.data()}
               : ExceptionContext{});

@@ -16,6 +16,5 @@
 // DEPRECATED: This file is deprecated and will be removed in future versions.
 
 #include "presto_cpp/presto_protocol/connector/hive/presto_protocol_hive.cpp"
-#include "presto_cpp/presto_protocol/connector/iceberg/presto_protocol_iceberg.cpp"
 #include "presto_cpp/presto_protocol/connector/tpch/presto_protocol_tpch.cpp"
 #include "presto_cpp/presto_protocol/core/presto_protocol_core.cpp"

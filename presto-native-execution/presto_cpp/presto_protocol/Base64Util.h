@@ -19,8 +19,8 @@ namespace facebook::presto::protocol {
 // Deserializes base64-encoded string created by
 // presto-common/src/main/java/com/facebook/presto/common/block/BlockEncodingManager.java
 // into vector.
-bolt::VectorPtr readBlock(
-    const bolt::TypePtr& type,
+bytedance::bolt::VectorPtr readBlock(
+    const bytedance::bolt::TypePtr& type,
     const std::string& base64Encoded,
-    bolt::memory::MemoryPool* pool);
+    bytedance::bolt::memory::MemoryPool* pool);
 } // namespace facebook::presto::protocol

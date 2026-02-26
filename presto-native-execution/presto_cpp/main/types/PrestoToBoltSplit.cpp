@@ -19,7 +19,7 @@ using namespace bytedance::bolt;
 
 namespace facebook::presto {
 
-bolt::exec::Split toBoltSplit(
+bytedance::bolt::exec::Split toBoltSplit(
     const presto::protocol::ScheduledSplit& scheduledSplit) {
   const auto& connectorSplit = scheduledSplit.split.connectorSplit;
   const auto splitGroupId = scheduledSplit.split.lifespan.isgroup
@@ -27,7 +27,7 @@ bolt::exec::Split toBoltSplit(
       : -1;
   if (auto remoteSplit = std::dynamic_pointer_cast<const protocol::RemoteSplit>(
           connectorSplit)) {
-    return bolt::exec::Split(
+    return bytedance::bolt::exec::Split(
         std::make_shared<exec::RemoteConnectorSplit>(
             remoteSplit->location.location),
         splitGroupId);
@@ -35,7 +35,7 @@ bolt::exec::Split toBoltSplit(
 
   if (std::dynamic_pointer_cast<const protocol::EmptySplit>(connectorSplit)) {
     // We return NULL for empty splits to signal to do nothing.
-    return bolt::exec::Split(nullptr, splitGroupId);
+    return bytedance::bolt::exec::Split(nullptr, splitGroupId);
   }
 
   auto& connector = getPrestoToBoltConnector(connectorSplit->_type);
@@ -43,7 +43,7 @@ bolt::exec::Split toBoltSplit(
       scheduledSplit.split.connectorId,
       connectorSplit.get(),
       &scheduledSplit.split.splitContext);
-  return bolt::exec::Split(std::move(boltSplit), splitGroupId);
+  return bytedance::bolt::exec::Split(std::move(boltSplit), splitGroupId);
 }
 
 } // namespace facebook::presto

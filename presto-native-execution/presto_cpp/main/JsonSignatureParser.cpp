@@ -20,22 +20,22 @@ namespace facebook::presto {
 namespace {
 
 // Parse a single type signature.
-bolt::exec::TypeSignature parseTypeSignature(const folly::dynamic& input) {
+bytedance::bolt::exec::TypeSignature parseTypeSignature(const folly::dynamic& input) {
   BOLT_USER_CHECK(
       input.isString(),
       "Function type name should be a string. Got: {}",
       input.typeName());
-  return bolt::exec::parseTypeSignature(input.asString());
+  return bytedance::bolt::exec::parseTypeSignature(input.asString());
 }
 
 // Parses a list of type signatures.
-std::vector<bolt::exec::TypeSignature> parseTypeSignatures(
+std::vector<bytedance::bolt::exec::TypeSignature> parseTypeSignatures(
     const folly::dynamic& input) {
   BOLT_USER_CHECK(
       input.isArray(),
       "Function paramType should be an array. Got: {}",
       input.typeName());
-  std::vector<bolt::exec::TypeSignature> typeSignatures;
+  std::vector<bytedance::bolt::exec::TypeSignature> typeSignatures;
   typeSignatures.reserve(input.size());
 
   for (const auto& it : input) {
@@ -64,8 +64,8 @@ JsonSignatureParser::FunctionSignatureItem parseSignature(
   std::vector<bool> constantArguments(paramTypeSignatures.size(), false);
 
   return JsonSignatureParser::FunctionSignatureItem{
-      std::make_shared<bolt::exec::FunctionSignature>(
-          std::unordered_map<std::string, bolt::exec::SignatureVariable>{},
+      std::make_shared<bytedance::bolt::exec::FunctionSignature>(
+          std::unordered_map<std::string, bytedance::bolt::exec::SignatureVariable>{},
           parseTypeSignature(*outputType),
           std::move(paramTypeSignatures),
           std::move(constantArguments),

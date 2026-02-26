@@ -19,38 +19,38 @@
 namespace facebook::presto::operators {
 
 /// BroadcastWriteNode represents node which broadcasts using file system.
-class BroadcastWriteNode : public bolt::core::PlanNode {
+class BroadcastWriteNode : public bytedance::bolt::core::PlanNode {
  public:
   /// @param serdeRowType Type of the serialized data. This can be different
   /// from the input type. Input columns may appear in different order, some
   /// columns may be missing, some columns may appear multiple types. May
   /// contain no columns at all if only row count needs to be broadcasted.
   BroadcastWriteNode(
-      const bolt::core::PlanNodeId& id,
+      const bytedance::bolt::core::PlanNodeId& id,
       const std::string& basePath,
-      bolt::RowTypePtr serdeRowType,
-      bolt::core::PlanNodePtr source)
-      : bolt::core::PlanNode(id),
+      bytedance::bolt::RowTypePtr serdeRowType,
+      bytedance::bolt::core::PlanNodePtr source)
+      : bytedance::bolt::core::PlanNode(id),
         basePath_{basePath},
         serdeRowType_{serdeRowType},
         sources_{std::move(source)} {}
 
   folly::dynamic serialize() const override;
 
-  static bolt::core::PlanNodePtr create(
+  static bytedance::bolt::core::PlanNodePtr create(
       const folly::dynamic& obj,
       void* context);
 
-  const bolt::RowTypePtr& outputType() const override {
-    static const auto outputType = bolt::ROW({bolt::VARCHAR()});
+  const bytedance::bolt::RowTypePtr& outputType() const override {
+    static const auto outputType = bytedance::bolt::ROW({bytedance::bolt::VARCHAR()});
     return outputType;
   }
 
-  const std::vector<bolt::core::PlanNodePtr>& sources() const override {
+  const std::vector<bytedance::bolt::core::PlanNodePtr>& sources() const override {
     return sources_;
   }
 
-  const bolt::RowTypePtr& inputType() const {
+  const bytedance::bolt::RowTypePtr& inputType() const {
     return sources_[0]->outputType();
   }
 
@@ -61,7 +61,7 @@ class BroadcastWriteNode : public bolt::core::PlanNode {
   /// The desired schema of the serialized data. May include a subset of input
   /// columns, some columns may be duplicated, some columns may be missing,
   /// columns may appear in different order.
-  const bolt::RowTypePtr& serdeRowType() const {
+  const bytedance::bolt::RowTypePtr& serdeRowType() const {
     return serdeRowType_;
   }
 
@@ -73,16 +73,16 @@ class BroadcastWriteNode : public bolt::core::PlanNode {
   void addDetails(std::stringstream& stream) const override {}
 
   const std::string basePath_;
-  const bolt::RowTypePtr serdeRowType_;
-  const std::vector<bolt::core::PlanNodePtr> sources_;
+  const bytedance::bolt::RowTypePtr serdeRowType_;
+  const std::vector<bytedance::bolt::core::PlanNodePtr> sources_;
 };
 
 class BroadcastWriteTranslator
-    : public bolt::exec::Operator::PlanNodeTranslator {
+    : public bytedance::bolt::exec::Operator::PlanNodeTranslator {
  public:
-  std::unique_ptr<bolt::exec::Operator> toOperator(
-      bolt::exec::DriverCtx* ctx,
+  std::unique_ptr<bytedance::bolt::exec::Operator> toOperator(
+      bytedance::bolt::exec::DriverCtx* ctx,
       int32_t id,
-      const bolt::core::PlanNodePtr& node) override;
+      const bytedance::bolt::core::PlanNodePtr& node) override;
 };
 } // namespace facebook::presto::operators

@@ -28,12 +28,12 @@ namespace test {
 class PrestoExchangeSourceTestHelper;
 };
 
-class PrestoExchangeSource : public bolt::exec::ExchangeSource {
+class PrestoExchangeSource : public bytedance::bolt::exec::ExchangeSource {
  public:
   class RetryState {
    public:
     RetryState(int64_t maxWaitMs = 1'000)
-        : maxWaitMs_(maxWaitMs), startMs_(bolt::getCurrentTimeMs()) {}
+        : maxWaitMs_(maxWaitMs), startMs_(bytedance::bolt::getCurrentTimeMs()) {}
 
     // Returns the delay in millis to wait before next try. This is an
     // exponential backoff delay with jitter. The first call to this always
@@ -53,7 +53,7 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
     }
 
     int64_t durationMs() const {
-      return bolt::getCurrentTimeMs() - startMs_;
+      return bytedance::bolt::getCurrentTimeMs() - startMs_;
     }
 
     // Returns whether we have exhausted all retries. We only retry if we spent
@@ -75,8 +75,8 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   PrestoExchangeSource(
       const folly::Uri& baseUri,
       int destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-      bolt::memory::MemoryPool* pool,
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+      bytedance::bolt::memory::MemoryPool* pool,
       folly::CPUThreadPoolExecutor* driverExecutor,
       folly::EventBase* ioEventBase,
       http::HttpClientConnectionPool* connPool,
@@ -103,21 +103,21 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   /// should not hold a lock over queue's mutex when making this call.
   folly::SemiFuture<Response> request(
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait) override;
+      uint32_t maxWait) override;
 
-  folly::SemiFuture<Response> requestDataSizes(
-      std::chrono::microseconds maxWait) override {
+  /*folly::SemiFuture<Response> requestDataSizes(
+      uint32_t maxWait) override {
     return request(0, maxWait);
-  }
+  }*/
 
-  void pause() override;
+  //void pause() override;
 
   // Create an exchange source using pooled connections.
   static std::shared_ptr<PrestoExchangeSource> create(
       const std::string& url,
       int destination,
-      const std::shared_ptr<bolt::exec::ExchangeQueue>& queue,
-      bolt::memory::MemoryPool* memoryPool,
+      const std::shared_ptr<bytedance::bolt::exec::ExchangeQueue>& queue,
+      bytedance::bolt::memory::MemoryPool* memoryPool,
       folly::CPUThreadPoolExecutor* cpuExecutor,
       folly::IOThreadPoolExecutor* ioExecutor,
       http::HttpClientConnectionPool* connPool,
@@ -131,13 +131,13 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
     return true;
   }
 
-  folly::F14FastMap<std::string, bolt::RuntimeMetric> metrics()
+  folly::F14FastMap<std::string, bytedance::bolt::RuntimeMetric> metrics()
       const override {
     return {
-        {"prestoExchangeSource.numPages", bolt::RuntimeMetric(numPages_)},
+        {"prestoExchangeSource.numPages", bytedance::bolt::RuntimeMetric(numPages_)},
         {"prestoExchangeSource.totalBytes",
-         bolt::RuntimeMetric(
-             totalBytes_, bolt::RuntimeCounter::Unit::kBytes)},
+         bytedance::bolt::RuntimeMetric(
+             totalBytes_, bytedance::bolt::RuntimeCounter::Unit::kBytes)},
     };
   }
 
@@ -176,7 +176,7 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   void doRequest(
       int64_t delayMs,
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait);
+      uint32_t maxWait);
 
   // Handles returned http response from the get result request. It dispatches
   // the data handling to corresponding data processing methods.
@@ -185,7 +185,7 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   // sure 'this' lives during the entire duration of this method call.
   void handleDataResponse(
       folly::Try<std::unique_ptr<http::HttpResponse>> responseTry,
-      std::chrono::microseconds maxWait,
+      uint32_t maxWait,
       uint32_t maxBytes,
       const std::string& httpRequestPath);
 
@@ -207,7 +207,7 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   void processDataError(
       const std::string& path,
       uint32_t maxBytes,
-      std::chrono::microseconds maxWait,
+      uint32_t maxWait,
       const std::string& error);
 
   void acknowledgeResults(int64_t ackSequence);
@@ -280,8 +280,8 @@ class PrestoExchangeSource : public bolt::exec::ExchangeSource {
   std::atomic_bool closed_{false};
   // A boolean indicating whether abortResults() call was issued
   std::atomic_bool abortResultsIssued_{false};
-  bolt::BoltPromise<Response> promise_{
-      bolt::BoltPromise<Response>::makeEmpty()};
+  bytedance::bolt::BoltPromise<Response> promise_{
+      bytedance::bolt::BoltPromise<Response>::makeEmpty()};
 
   friend class test::PrestoExchangeSourceTestHelper;
 };

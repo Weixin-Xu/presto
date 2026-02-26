@@ -15,11 +15,11 @@
 #include "bolt/exec/Exchange.h"
 #include "bolt/serializers/CompactRowSerializer.h"
 
-using namespace facebook::bolt::exec;
+using namespace bytedance::bolt::exec;
 using namespace bytedance::bolt;
 
 namespace facebook::presto::operators {
-bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
+bytedance::bolt::core::PlanNodeId deserializePlanNodeId(const folly::dynamic& obj) {
   return obj["id"].asString();
 }
 
@@ -36,11 +36,10 @@ class ShuffleReadOperator : public Exchange {
             ctx,
             std::make_shared<core::ExchangeNode>(
                 shuffleReadNode->id(),
-                shuffleReadNode->outputType(),
-                bolt::VectorSerde::Kind::kCompactRow),
+                shuffleReadNode->outputType()),
             exchangeClient,
             "ShuffleRead"),
-        serde_(std::make_unique<bolt::serializer::CompactRowVectorSerde>()) {}
+        serde_(std::make_unique<bytedance::bolt::serializer::CompactRowVectorSerde>()) {}
 
  protected:
   VectorSerde* getSerde() override {
@@ -48,7 +47,7 @@ class ShuffleReadOperator : public Exchange {
   }
 
  private:
-  std::unique_ptr<bolt::serializer::CompactRowVectorSerde> serde_;
+  std::unique_ptr<bytedance::bolt::serializer::CompactRowVectorSerde> serde_;
 };
 } // namespace
 
@@ -58,7 +57,7 @@ folly::dynamic ShuffleReadNode::serialize() const {
   return obj;
 }
 
-bolt::core::PlanNodePtr ShuffleReadNode::create(
+bytedance::bolt::core::PlanNodePtr ShuffleReadNode::create(
     const folly::dynamic& obj,
     void* context) {
   return std::make_shared<ShuffleReadNode>(
