@@ -1,0 +1,1576 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+#include "presto_cpp/main/PrestoServer.h"
+#include <boost/asio/io_service.hpp>
+#include <boost/asio/ip/host_name.hpp>
+#include <boost/asio/ip/tcp.hpp>
+#include <glog/logging.h>
+#include "presto_cpp/main/Announcer.h"
+#include "presto_cpp/main/CoordinatorDiscoverer.h"
+#include "presto_cpp/main/PeriodicMemoryChecker.h"
+#include "presto_cpp/main/PeriodicTaskManager.h"
+#include "presto_cpp/main/SignalHandler.h"
+#include "presto_cpp/main/SystemConnector.h"
+#include "presto_cpp/main/TaskResource.h"
+#include "presto_cpp/main/common/ConfigReader.h"
+#include "presto_cpp/main/common/Counters.h"
+#include "presto_cpp/main/common/Utils.h"
+#include "presto_cpp/main/http/HttpConstants.h"
+#include "presto_cpp/main/http/filters/AccessLogFilter.h"
+#include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+#include "presto_cpp/main/http/filters/InternalAuthenticationFilter.h"
+#include "presto_cpp/main/http/filters/StatsFilter.h"
+#include "presto_cpp/main/operators/BroadcastExchangeSource.h"
+#include "presto_cpp/main/operators/BroadcastWrite.h"
+#include "presto_cpp/main/operators/LocalPersistentShuffle.h"
+#include "presto_cpp/main/operators/PartitionAndSerialize.h"
+#include "presto_cpp/main/operators/ShuffleRead.h"
+#include "presto_cpp/main/operators/UnsafeRowExchangeSource.h"
+//#include "presto_cpp/main/types/FunctionMetadata.h"
+#include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
+#include "presto_cpp/main/types/BoltPlanConversion.h"
+#include "bolt/common/base/Counters.h"
+#include "bolt/common/base/StatsReporter.h"
+#include "bolt/common/caching/CacheTTLController.h"
+#include "bolt/common/caching/SsdCache.h"
+#include "bolt/common/file/FileSystems.h"
+#include "bolt/common/memory/MmapAllocator.h"
+#include "bolt/common/memory/SharedArbitrator.h"
+#include "bolt/connectors/Connector.h"
+#include "bolt/connectors/hive/HiveConnector.h"
+#include "bolt/connectors/hive/HiveDataSink.h"
+#include "bolt/connectors/hive/storage_adapters/hdfs/RegisterHdfsFileSystem.h"
+#include "bolt/connectors/hive/storage_adapters/s3fs/RegisterS3FileSystem.h"
+#include "bolt/connectors/tpch/TpchConnector.h"
+#include "bolt/dwio/dwrf/RegisterDwrfReader.h"
+#include "bolt/dwio/dwrf/RegisterDwrfWriter.h"
+#include "bolt/dwio/parquet/RegisterParquetReader.h"
+#include "bolt/dwio/parquet/RegisterParquetWriter.h"
+#include "bolt/exec/OutputBufferManager.h"
+#include "bolt/functions/prestosql/aggregates/RegisterAggregateFunctions.h"
+#include "bolt/functions/prestosql/registration/RegistrationFunctions.h"
+#include "bolt/functions/prestosql/window/WindowFunctionsRegistration.h"
+#include "bolt/serializers/CompactRowSerializer.h"
+#include "bolt/serializers/PrestoSerializer.h"
+#include "bolt/serializers/UnsafeRowSerializer.h"
+
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+#include "presto_cpp/main/RemoteFunctionRegisterer.h"
+#endif
+
+#ifdef __linux__
+// Required by BatchThreadFactory
+#include <pthread.h>
+#include <sched.h>
+#endif
+
+using namespace facebook;
+
+namespace facebook::presto {
+namespace {
+
+constexpr char const* kHttp = "http";
+constexpr char const* kHttps = "https";
+constexpr char const* kTaskUriFormat =
+    "{}://{}:{}"; // protocol, address and port
+constexpr char const* kConnectorName = "connector.name";
+constexpr char const* kHiveHadoop2ConnectorName = "hive-hadoop2";
+
+protocol::NodeState convertNodeState(presto::NodeState nodeState) {
+  switch (nodeState) {
+    case presto::NodeState::kActive:
+      return protocol::NodeState::ACTIVE;
+    case presto::NodeState::kInActive:
+      return protocol::NodeState::INACTIVE;
+    case presto::NodeState::kShuttingDown:
+      return protocol::NodeState::SHUTTING_DOWN;
+  }
+  return protocol::NodeState::ACTIVE; // For gcc build.
+}
+
+void enableChecksum() {
+  bytedance::bolt::exec::OutputBufferManager::getInstance().lock()->setListenerFactory(
+      []() {
+        return std::make_unique<
+            bytedance::bolt::serializer::presto::PrestoOutputStreamListener>();
+      });
+}
+
+std::string stringifyConnectorConfig(
+    const std::unordered_map<std::string, std::string>& configs) {
+  std::stringstream out;
+  for (auto const& [key, value] : configs) {
+    out << "  " << key << "=" << value << "\n";
+  }
+  return out.str();
+}
+
+bool isCacheTtlEnabled() {
+  const auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->cacheBoltTtlEnabled()) {
+    BOLT_USER_CHECK(
+        systemConfig->cacheBoltTtlThreshold() > std::chrono::seconds::zero(),
+        "Config cache.bolt.ttl-threshold must be positive.");
+    BOLT_USER_CHECK(
+        systemConfig->cacheBoltTtlCheckInterval() >
+            std::chrono::seconds::zero(),
+        "Config cache.bolt.ttl-check-interval must be positive.");
+    return true;
+  }
+  return false;
+}
+
+bool cachePeriodicPersistenceEnabled() {
+  const auto* systemConfig = SystemConfig::instance();
+  return systemConfig->asyncDataCacheEnabled() &&
+      systemConfig->asyncCacheSsdGb() > 0 &&
+      systemConfig->asyncCachePersistenceInterval() >
+      std::chrono::seconds::zero();
+}
+
+} // namespace
+
+std::string nodeState2String(NodeState nodeState) {
+  switch (nodeState) {
+    case presto::NodeState::kActive:
+      return "active";
+    case presto::NodeState::kInActive:
+      return "inactive";
+    case presto::NodeState::kShuttingDown:
+      return "shutting_down";
+  }
+  return fmt::format("<unknown>:{}>", static_cast<int>(nodeState));
+}
+
+PrestoServer::PrestoServer(const std::string& configDirectoryPath)
+    : configDirectoryPath_(configDirectoryPath),
+      signalHandler_(std::make_unique<SignalHandler>(this)),
+      start_(std::chrono::steady_clock::now()),
+      memoryInfo_(std::make_unique<protocol::MemoryInfo>()) {}
+
+PrestoServer::~PrestoServer() {}
+
+void PrestoServer::run() {
+  auto systemConfig = SystemConfig::instance();
+  auto nodeConfig = NodeConfig::instance();
+  auto baseBoltQueryConfig = BaseBoltQueryConfig::instance();
+  int httpPort{0};
+
+  std::string certPath;
+  std::string keyPath;
+  std::string ciphers;
+  std::string clientCertAndKeyPath;
+  std::optional<int> httpsPort;
+
+  try {
+    // Allow registering extra config properties before we load them from files.
+    registerExtraConfigProperties();
+    systemConfig->initialize(
+        fmt::format("{}/config.properties", configDirectoryPath_));
+    nodeConfig->initialize(
+        fmt::format("{}/node.properties", configDirectoryPath_));
+    // bolt.properties is optional.
+    baseBoltQueryConfig->initialize(
+        fmt::format("{}/bolt.properties", configDirectoryPath_), true);
+
+    httpPort = systemConfig->httpServerHttpPort();
+    if (systemConfig->httpServerHttpsEnabled()) {
+      httpsPort = systemConfig->httpServerHttpsPort();
+
+      ciphers = systemConfig->httpsSupportedCiphers();
+      if (ciphers.empty()) {
+        BOLT_USER_FAIL("Https is enabled without ciphers");
+      }
+
+      auto optionalCertPath = systemConfig->httpsCertPath();
+      if (!optionalCertPath.has_value()) {
+        BOLT_USER_FAIL("Https is enabled without certificate path");
+      }
+      certPath = optionalCertPath.value();
+
+      auto optionalKeyPath = systemConfig->httpsKeyPath();
+      if (!optionalKeyPath.has_value()) {
+        BOLT_USER_FAIL("Https is enabled without key path");
+      }
+      keyPath = optionalKeyPath.value();
+
+      auto optionalClientCertPath = systemConfig->httpsClientCertAndKeyPath();
+      if (!optionalClientCertPath.has_value()) {
+        // This config is not used in server but validated here, otherwise, it
+        // will fail later in the HttpClient during query execution.
+        BOLT_USER_FAIL(
+            "Https Client Certificates are not configured correctly");
+      }
+
+      sslContext_ =
+          util::createSSLContext(optionalClientCertPath.value(), ciphers);
+    }
+
+    if (systemConfig->internalCommunicationJwtEnabled()) {
+#ifndef PRESTO_ENABLE_JWT
+      BOLT_USER_FAIL("Internal JWT is enabled but not supported");
+#endif
+      BOLT_USER_CHECK(
+          !(systemConfig->internalCommunicationSharedSecret().empty()),
+          "Internal JWT is enabled without a corresponding shared secret");
+    }
+
+    nodeVersion_ = systemConfig->prestoVersion();
+    environment_ = nodeConfig->nodeEnvironment();
+    nodeId_ = nodeConfig->nodeId();
+    address_ = nodeConfig->nodeInternalAddress(
+        std::bind(&PrestoServer::getLocalIp, this));
+    // Add [] to an ipv6 address.
+    if (address_.find(':') != std::string::npos && address_.front() != '[') {
+      address_ = fmt::format("[{}]", address_);
+    }
+    nodeLocation_ = nodeConfig->nodeLocation();
+  } catch (const bytedance::bolt::BoltUserError& e) {
+    PRESTO_STARTUP_LOG(ERROR) << "Failed to start server due to " << e.what();
+    exit(EXIT_FAILURE);
+  }
+
+  registerFileSinks();
+  registerFileSystems();
+  registerFileReadersAndWriters();
+  registerMemoryArbitrators();
+  registerShuffleInterfaceFactories();
+  registerCustomOperators();
+  registerConnectorFactories();
+
+  registerPrestoToBoltConnector(
+      std::make_unique<HivePrestoToBoltConnector>("hive"));
+  registerPrestoToBoltConnector(
+      std::make_unique<HivePrestoToBoltConnector>("hive-hadoop2"));
+  registerPrestoToBoltConnector(
+      std::make_unique<TpchPrestoToBoltConnector>("tpch"));
+  // Presto server uses system catalog or system schema in other catalogs
+  // in different places in the code. All these resolve to the SystemConnector.
+  // Depending on where the operator or column is used, different prefixes can
+  // be used in the naming. So the protocol class is mapped
+  // to all the different prefixes for System tables/columns.
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("$system"));
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("system"));
+  registerPrestoToBoltConnector(
+      std::make_unique<SystemPrestoToBoltConnector>("$system@system"));
+
+  //bytedance::bolt::exec::OutputBufferManager::initialize({});
+  initializeBoltMemory();
+  initializeThreadPools();
+
+  auto catalogNames = registerConnectors(fs::path(configDirectoryPath_));
+
+  const bool bindToNodeInternalAddressOnly =
+      systemConfig->httpServerBindToNodeInternalAddressOnlyEnabled();
+  folly::SocketAddress httpSocketAddress;
+  if (bindToNodeInternalAddressOnly) {
+    httpSocketAddress.setFromHostPort(address_, httpPort);
+  } else {
+    httpSocketAddress.setFromLocalPort(httpPort);
+  }
+  PRESTO_STARTUP_LOG(INFO) << fmt::format(
+      "Starting server at {}:{} ({})",
+      httpSocketAddress.getIPAddress().str(),
+      httpPort,
+      address_);
+
+  initializeCoordinatorDiscoverer();
+
+  const bool reusePort = SystemConfig::instance()->httpServerReusePort();
+  auto httpConfig =
+      std::make_unique<http::HttpConfig>(httpSocketAddress, reusePort);
+
+  std::unique_ptr<http::HttpsConfig> httpsConfig;
+  if (httpsPort.has_value()) {
+    folly::SocketAddress httpsSocketAddress;
+    if (bindToNodeInternalAddressOnly) {
+      httpsSocketAddress.setFromHostPort(address_, httpsPort.value());
+    } else {
+      httpsSocketAddress.setFromLocalPort(httpsPort.value());
+    }
+
+    httpsConfig = std::make_unique<http::HttpsConfig>(
+        httpsSocketAddress, certPath, keyPath, ciphers, reusePort);
+  }
+
+  httpServer_ = std::make_unique<http::HttpServer>(
+      httpSrvIoExecutor_, std::move(httpConfig), std::move(httpsConfig));
+
+  httpServer_->registerPost(
+      "/v1/memory",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportMemoryInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportServerInfo(downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/info/state",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        json infoStateJson = convertNodeState(server->nodeState());
+        http::sendOkResponse(downstream, infoStateJson);
+      });
+  httpServer_->registerPut(
+      "/v1/info/state",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        server->handleGracefulShutdown(body, downstream);
+      });
+  httpServer_->registerGet(
+      "/v1/status",
+      [server = this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        server->reportNodeStatus(downstream);
+      });
+  httpServer_->registerHead(
+      "/v1/status",
+      [](proxygen::HTTPMessage* /*message*/,
+         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+         proxygen::ResponseHandler* downstream) {
+        proxygen::ResponseBuilder(downstream)
+            .status(http::kHttpOk, "OK")
+            .header(
+                proxygen::HTTP_HEADER_CONTENT_TYPE,
+                http::kMimeTypeApplicationJson)
+            .sendWithEOM();
+      });
+
+  if (systemConfig->enableRuntimeMetricsCollection()) {
+    enableWorkerStatsReporting();
+    //if (folly::Singleton<bytedance::bolt::BaseStatsReporter>::try_get()) {
+    //  httpServer_->registerGet(
+    //      "/v1/info/metrics",
+    //      [](proxygen::HTTPMessage* /*message*/,
+    //         const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+    //         proxygen::ResponseHandler* downstream) {
+    //        http::sendOkResponse(
+    //            downstream,
+    //            folly::Singleton<bytedance::bolt::BaseStatsReporter>::try_get()
+    //                ->fetchMetrics());
+    //      });
+    //}
+  }
+  registerFunctions();
+  registerRemoteFunctions();
+  registerVectorSerdes();
+  registerPrestoPlanNodeSerDe();
+
+  const auto numExchangeHttpClientIoThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
+  exchangeHttpIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+      numExchangeHttpClientIoThreads,
+      std::make_shared<folly::NamedThreadFactory>("ExchangeIO"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http IO executor '"
+                           << exchangeHttpIoExecutor_->getName() << "' has "
+                           << exchangeHttpIoExecutor_->numThreads()
+                           << " threads.";
+
+  const auto numExchangeHttpClientCpuThreads = std::max<size_t>(
+      systemConfig->exchangeHttpClientNumCpuThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      1);
+
+  exchangeHttpCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+      numExchangeHttpClientCpuThreads,
+      std::make_shared<folly::NamedThreadFactory>("ExchangeCPU"));
+
+  PRESTO_STARTUP_LOG(INFO) << "Exchange Http CPU executor '"
+                           << exchangeHttpCpuExecutor_->getName() << "' has "
+                           << exchangeHttpCpuExecutor_->numThreads()
+                           << " threads.";
+
+  if (systemConfig->exchangeEnableConnectionPool()) {
+    PRESTO_STARTUP_LOG(INFO) << "Enable exchange Http Client connection pool.";
+    exchangeSourceConnectionPool_ =
+        std::make_unique<http::HttpClientConnectionPool>();
+  }
+
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
+      [this](
+          const std::string& taskId,
+          int destination,
+          std::shared_ptr<bytedance::bolt::exec::ExchangeQueue> queue,
+          bytedance::bolt::memory::MemoryPool* pool) {
+        return PrestoExchangeSource::create(
+            taskId,
+            destination,
+            queue,
+            pool,
+            exchangeHttpCpuExecutor_.get(),
+            exchangeHttpIoExecutor_.get(),
+            exchangeSourceConnectionPool_.get(),
+            sslContext_);
+      });
+
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
+      operators::UnsafeRowExchangeSource::createExchangeSource);
+
+  // Batch broadcast exchange source.
+  bytedance::bolt::exec::ExchangeSource::registerFactory(
+      operators::BroadcastExchangeSource::createExchangeSource);
+
+  pool_ =
+      bytedance::bolt::memory::MemoryManager::getInstance()->addLeafPool("PrestoServer");
+  nativeWorkerPool_ = bytedance::bolt::memory::MemoryManager::getInstance()->addLeafPool(
+      "PrestoNativeWorker");
+
+  taskManager_ = std::make_unique<TaskManager>(
+      driverExecutor_.get(), httpSrvCpuExecutor_.get(), spillerExecutor_.get());
+
+  if (systemConfig->prestoNativeSidecar()) {
+    registerSidecarEndpoints();
+  }
+
+  taskManager_->setNodeId(nodeId_);
+  taskManager_->setOldTaskCleanUpMs(systemConfig->oldTaskCleanUpMs());
+
+  auto baseSpillDirectory = getBaseSpillDirectory();
+  if (!baseSpillDirectory.empty()) {
+    taskManager_->setBaseSpillDirectory(baseSpillDirectory);
+    PRESTO_STARTUP_LOG(INFO)
+        << "Spilling root directory: " << baseSpillDirectory;
+  }
+
+  initBoltPlanValidator();
+  taskResource_ = std::make_unique<TaskResource>(
+      pool_.get(),
+      httpSrvCpuExecutor_.get(),
+      getBoltPlanValidator(),
+      *taskManager_);
+  taskResource_->registerUris(*httpServer_);
+  if (systemConfig->enableSerializedPageChecksum()) {
+    enableChecksum();
+  }
+
+  if (systemConfig->enableBoltTaskLogging()) {
+    if (auto listener = getTaskListener()) {
+      bytedance::bolt::exec::registerTaskListener(listener);
+    }
+  }
+
+  if (systemConfig->enableBoltExprSetLogging()) {
+    if (auto listener = getExprSetListener()) {
+      bytedance::bolt::exec::registerExprSetListener(listener);
+    }
+  }
+  prestoServerOperations_ =
+      std::make_unique<PrestoServerOperations>(taskManager_.get(), this);
+  registerSystemConnector();
+
+  // The endpoint used by operation in production.
+  httpServer_->registerGet(
+      "/v1/operation/.*",
+      [this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        prestoServerOperations_->runOperation(message, downstream);
+      });
+
+  PRESTO_STARTUP_LOG(INFO) << "Driver CPU executor '"
+                           << driverExecutor_->getName() << "' has "
+                           << driverExecutor_->numThreads() << " threads.";
+  if (httpServer_->getExecutor()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "HTTP Server IO executor '" << httpServer_->getExecutor()->getName()
+        << "' has " << httpServer_->getExecutor()->numThreads() << " threads.";
+  }
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "HTTP Server CPU executor '" << httpSrvCpuExecutor_->getName()
+        << "' has " << httpSrvCpuExecutor_->numThreads() << " threads.";
+  }
+  if (spillerExecutor_ != nullptr) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Spiller CPU executor '" << spillerExecutor_->getName() << "', has "
+        << spillerExecutor_->numThreads() << " threads.";
+  } else {
+    PRESTO_STARTUP_LOG(INFO) << "Spill executor was not configured.";
+  }
+
+  PRESTO_STARTUP_LOG(INFO) << "Starting all periodic tasks";
+
+  auto* memoryAllocator = bytedance::bolt::memory::memoryManager()->allocator();
+  auto* asyncDataCache = bytedance::bolt::cache::AsyncDataCache::getInstance();
+  periodicTaskManager_ = std::make_unique<PeriodicTaskManager>(
+      driverExecutor_.get(),
+      spillerExecutor_.get(),
+      httpSrvIoExecutor_.get(),
+      httpSrvCpuExecutor_.get(),
+      exchangeHttpIoExecutor_.get(),
+      exchangeHttpCpuExecutor_.get(),
+      taskManager_.get(),
+      memoryAllocator,
+      asyncDataCache,
+      bytedance::bolt::connector::getAllConnectors(),
+      this);
+  addServerPeriodicTasks();
+  addAdditionalPeriodicTasks();
+  periodicTaskManager_->start();
+
+  addMemoryCheckerPeriodicTask();
+
+  auto setTaskUriCb = [&](bool useHttps, int port) {
+    std::string taskUri;
+    if (useHttps) {
+      taskUri = fmt::format(kTaskUriFormat, kHttps, address_, port);
+    } else {
+      taskUri = fmt::format(kTaskUriFormat, kHttp, address_, port);
+    }
+    taskManager_->setBaseUri(taskUri);
+  };
+
+  auto startAnnouncerAndHeartbeatManagerCb = [&](bool useHttps, int port) {
+    if (coordinatorDiscoverer_ != nullptr) {
+      announcer_ = std::make_unique<Announcer>(
+          address_,
+          useHttps,
+          port,
+          coordinatorDiscoverer_,
+          nodeVersion_,
+          environment_,
+          nodeId_,
+          nodeLocation_,
+          systemConfig->prestoNativeSidecar(),
+          catalogNames,
+          systemConfig->announcementMaxFrequencyMs(),
+          sslContext_);
+      updateAnnouncerDetails();
+      announcer_->start();
+
+      uint64_t heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
+      if (heartbeatFrequencyMs > 0) {
+        heartbeatManager_ = std::make_unique<PeriodicHeartbeatManager>(
+            address_,
+            port,
+            coordinatorDiscoverer_,
+            sslContext_,
+            [server = this]() { return server->fetchNodeStatus(); },
+            heartbeatFrequencyMs);
+        heartbeatManager_->start();
+      }
+    }
+  };
+
+  // Start everything. After the return from the following call we are shutting
+  // down.
+  httpServer_->start(getHttpServerFilters(), [&](proxygen::HTTPServer* server) {
+    const auto addresses = server->addresses();
+    for (auto address : addresses) {
+      PRESTO_STARTUP_LOG(INFO) << fmt::format(
+          "Server listening at {}:{} - https {}",
+          address.address.getIPAddress().str(),
+          address.address.getPort(),
+          address.sslConfigs.size() != 0);
+      // We could be bound to both http and https ports.
+      // If set, we must use the https port and skip http.
+      if (httpsPort.has_value() && address.sslConfigs.size() == 0) {
+        continue;
+      }
+      startAnnouncerAndHeartbeatManagerCb(
+          httpsPort.has_value(), address.address.getPort());
+      setTaskUriCb(httpsPort.has_value(), address.address.getPort());
+      break;
+    }
+
+    if (coordinatorDiscoverer_ != nullptr) {
+      BOLT_CHECK_NOT_NULL(
+          announcer_,
+          "The announcer is expected to have been created but wasn't.");
+      const auto heartbeatFrequencyMs = systemConfig->heartbeatFrequencyMs();
+      if (heartbeatFrequencyMs > 0) {
+        BOLT_CHECK_NOT_NULL(
+            heartbeatManager_,
+            "The heartbeat manager is expected to have been created but wasn't.");
+      }
+    }
+  });
+
+  if (announcer_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping announcer";
+    announcer_->stop();
+  }
+
+  if (heartbeatManager_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Stopping Heartbeat manager";
+    heartbeatManager_->stop();
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO) << "Stopping all periodic tasks";
+  periodicTaskManager_->stop();
+
+  stopAdditionalPeriodicTasks();
+
+  stopMemoryCheckerPeriodicTask();
+
+  // Destroy entities here to ensure we won't get any messages after Server
+  // object is gone and to have nice log in case shutdown gets stuck.
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Resource";
+  taskResource_.reset();
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying Task Manager";
+  taskManager_.reset();
+  PRESTO_SHUTDOWN_LOG(INFO) << "Destroying HTTP Server";
+  httpServer_.reset();
+
+  unregisterFileReadersAndWriters();
+  unregisterFileSystems();
+  unregisterConnectors();
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Driver CPU Executor '" << driverExecutor_->getName()
+      << "': threads: " << driverExecutor_->numActiveThreads() << "/"
+      << driverExecutor_->numThreads()
+      << ", task queue: " << driverExecutor_->getTaskQueueSize();
+  // Schedule release of SessionPools held by HttpClients before the exchange
+  // HTTP IO executor threads are joined.
+  driverExecutor_.reset();
+
+  if (connectorCpuExecutor_) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining Connector CPU Executor '"
+        << connectorCpuExecutor_->getName()
+        << "': threads: " << connectorCpuExecutor_->numActiveThreads() << "/"
+        << connectorCpuExecutor_->numThreads();
+    connectorCpuExecutor_->join();
+  }
+
+  if (connectorIoExecutor_) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining Connector IO Executor '" << connectorIoExecutor_->getName()
+        << "': threads: " << connectorIoExecutor_->numActiveThreads() << "/"
+        << connectorIoExecutor_->numThreads();
+    connectorIoExecutor_->join();
+  }
+
+  if (httpSrvCpuExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server CPU Executor '"
+        << httpSrvCpuExecutor_->getName()
+        << "': threads: " << httpSrvCpuExecutor_->numActiveThreads() << "/"
+        << httpSrvCpuExecutor_->numThreads()
+        << ", task queue: " << httpSrvCpuExecutor_->getTaskQueueSize();
+    httpSrvCpuExecutor_->join();
+  }
+  if (httpSrvIoExecutor_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Joining HTTP Server IO Executor '" << httpSrvIoExecutor_->getName()
+        << "': threads: " << httpSrvIoExecutor_->numActiveThreads() << "/"
+        << httpSrvIoExecutor_->numThreads();
+    httpSrvIoExecutor_->join();
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http CPU executor '"
+      << exchangeHttpCpuExecutor_->getName()
+      << "': threads: " << exchangeHttpCpuExecutor_->numActiveThreads() << "/"
+      << exchangeHttpCpuExecutor_->numThreads();
+  exchangeHttpCpuExecutor_->join();
+  // Schedule release of SessionPools held by HttpClients before the exchange
+  // HTTP IO executor threads are joined.
+  exchangeHttpCpuExecutor_.reset();
+
+  if (exchangeSourceConnectionPool_) {
+    // Connection pool needs to be destroyed after CPU threads are joined but
+    // before IO threads are joined.
+    PRESTO_SHUTDOWN_LOG(INFO) << "Releasing exchange HTTP connection pools";
+    exchangeSourceConnectionPool_->destroy();
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Joining Exchange Http IO executor '"
+      << exchangeHttpIoExecutor_->getName()
+      << "': threads: " << exchangeHttpIoExecutor_->numActiveThreads() << "/"
+      << exchangeHttpIoExecutor_->numThreads();
+  exchangeHttpIoExecutor_->join();
+
+  PRESTO_SHUTDOWN_LOG(INFO) << "Done joining our executors.";
+
+  auto globalCPUKeepAliveExec = folly::getGlobalCPUExecutor();
+  if (auto* pGlobalCPUExecutor = dynamic_cast<folly::CPUThreadPoolExecutor*>(
+          globalCPUKeepAliveExec.get())) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Global CPU Executor '" << pGlobalCPUExecutor->getName()
+        << "': threads: " << pGlobalCPUExecutor->numActiveThreads() << "/"
+        << pGlobalCPUExecutor->numThreads()
+        << ", task queue: " << pGlobalCPUExecutor->getTaskQueueSize();
+  }
+
+  auto globalIOKeepAliveExec = folly::getGlobalIOExecutor();
+  if (auto* pGlobalIOExecutor = dynamic_cast<folly::IOThreadPoolExecutor*>(
+          globalIOKeepAliveExec.get())) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "Global IO Executor '" << pGlobalIOExecutor->getName()
+        << "': threads: " << pGlobalIOExecutor->numActiveThreads() << "/"
+        << pGlobalIOExecutor->numThreads();
+  }
+
+  if (cache_ != nullptr) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown AsyncDataCache";
+    cache_->shutdown();
+  }
+}
+
+void PrestoServer::yieldTasks() {
+  const auto timeslice = SystemConfig::instance()->taskRunTimeSliceMicros();
+  if (timeslice <= 0) {
+    return;
+  }
+  static std::atomic<int32_t> numYields = 0;
+  const auto numQueued = driverExecutor_->getTaskQueueSize();
+  if (numQueued > 0) {
+    numYields += taskManager_->yieldTasks(numQueued, timeslice);
+  }
+  if (numYields > 100'000) {
+    LOG(INFO) << "Yielded " << numYields << " more threads.";
+    numYields = 0;
+  }
+}
+
+#ifdef __linux__
+class BatchThreadFactory : public folly::NamedThreadFactory {
+ public:
+  explicit BatchThreadFactory(const std::string& name)
+      : NamedThreadFactory{name} {}
+
+  std::thread newThread(folly::Func&& func) override {
+    return folly::NamedThreadFactory::newThread([_func = std::move(
+                                                     func)]() mutable {
+      sched_param param;
+      param.sched_priority = 0;
+      const int ret =
+          pthread_setschedparam(pthread_self(), SCHED_BATCH, &param);
+      BOLT_CHECK_EQ(
+          ret, 0, "Failed to set a thread priority: {}", folly::errnoStr(ret));
+      _func();
+    });
+  }
+};
+#endif
+
+void PrestoServer::initializeThreadPools() {
+  const auto hwConcurrency = std::thread::hardware_concurrency();
+  auto* systemConfig = SystemConfig::instance();
+
+  const auto numDriverCpuThreads = std::max<size_t>(
+      systemConfig->driverNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
+
+  std::shared_ptr<folly::NamedThreadFactory> threadFactory;
+  if (systemConfig->driverThreadsBatchSchedulingEnabled()) {
+#ifdef __linux__
+    threadFactory = std::make_shared<BatchThreadFactory>("Driver");
+#else
+    BOLT_FAIL("Batch scheduling policy can only be enabled on Linux");
+#endif
+  } else {
+    threadFactory = std::make_shared<folly::NamedThreadFactory>("Driver");
+  }
+
+  driverExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+      numDriverCpuThreads, threadFactory);
+
+  const auto numIoThreads = std::max<size_t>(
+      systemConfig->httpServerNumIoThreadsHwMultiplier() * hwConcurrency, 1);
+  httpSrvIoExecutor_ = std::make_shared<folly::IOThreadPoolExecutor>(
+      numIoThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvIO"));
+
+  const auto numCpuThreads = std::max<size_t>(
+      systemConfig->httpServerNumCpuThreadsHwMultiplier() * hwConcurrency, 1);
+  httpSrvCpuExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+      numCpuThreads, std::make_shared<folly::NamedThreadFactory>("HTTPSrvCpu"));
+
+  const auto numSpillerCpuThreads = std::max<size_t>(
+      systemConfig->spillerNumCpuThreadsHwMultiplier() * hwConcurrency, 0);
+  if (numSpillerCpuThreads > 0) {
+    spillerExecutor_ = std::make_shared<folly::CPUThreadPoolExecutor>(
+        numSpillerCpuThreads,
+        std::make_shared<folly::NamedThreadFactory>("Spiller"));
+  }
+}
+
+std::unique_ptr<bytedance::bolt::cache::SsdCache> PrestoServer::setupSsdCache() {
+  BOLT_CHECK_NULL(cacheExecutor_);
+  auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->asyncCacheSsdGb() == 0) {
+    return nullptr;
+  }
+
+  constexpr int32_t kNumSsdShards = 16;
+  cacheExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+      kNumSsdShards, std::make_shared<folly::NamedThreadFactory>("SsdCache"));
+  auto asyncCacheSsdCheckpointGb =
+      systemConfig->asyncCacheSsdCheckpointGb();
+  auto asyncCacheSsdDisableFileCow =
+      systemConfig->asyncCacheSsdDisableFileCow();
+  PRESTO_STARTUP_LOG(INFO)
+      << "Initializing SSD cache with capacity " << systemConfig->asyncCacheSsdGb()
+      << "GB, checkpoint size " << asyncCacheSsdCheckpointGb
+      << "GB, file cow "
+      << (asyncCacheSsdDisableFileCow ? "DISABLED" : "ENABLED");
+  return std::make_unique<bytedance::bolt::cache::SsdCache>(
+      systemConfig->asyncCacheSsdPath(),
+      systemConfig->asyncCacheSsdGb() << 30,
+      kNumSsdShards,
+      cacheExecutor_.get(),
+      asyncCacheSsdCheckpointGb << 30,
+      asyncCacheSsdDisableFileCow);
+}
+
+void PrestoServer::initializeBoltMemory() {
+  auto* systemConfig = SystemConfig::instance();
+  const uint64_t memoryGb = systemConfig->systemMemoryGb();
+  PRESTO_STARTUP_LOG(INFO) << "Starting with node memory " << memoryGb << "GB";
+
+  // Set up bolt memory manager.
+  bytedance::bolt::memory::MemoryManager::Options options;
+  options.allocatorCapacity = memoryGb << 30;
+  if (systemConfig->useMmapAllocator()) {
+    options.useMmapAllocator = true;
+  }
+  options.checkUsageLeak = systemConfig->enableMemoryLeakCheck();
+  options.trackDefaultUsage =
+      systemConfig->enableSystemMemoryPoolUsageTracking();
+  options.coreOnAllocationFailureEnabled =
+      systemConfig->coreOnAllocationFailureEnabled();
+  if (!systemConfig->memoryArbitratorKind().empty()) {
+    options.arbitratorKind = systemConfig->memoryArbitratorKind();
+    const uint64_t queryMemoryGb = systemConfig->queryMemoryGb();
+    BOLT_USER_CHECK_LE(
+        queryMemoryGb,
+        memoryGb,
+        "Query memory capacity must not be larger than system memory capacity");
+    options.arbitratorCapacity = queryMemoryGb << 30;
+    const uint64_t sharedArbitratorReservedMemoryGb = bytedance::bolt::config::toCapacity(
+        systemConfig->sharedArbitratorReservedCapacity(),
+        bytedance::bolt::config::CapacityUnit::GIGABYTE);
+    BOLT_USER_CHECK_LE(
+        sharedArbitratorReservedMemoryGb,
+        queryMemoryGb,
+        "Shared arbitrator reserved memory capacity must not be larger than "
+        "query memory capacity");
+
+    options.largestSizeClassPages = systemConfig->largestSizeClassPages();
+    options.arbitrationStateCheckCb = bytedance::bolt::exec::memoryArbitrationStateCheck;
+
+    using SharedArbitratorConfig = bytedance::bolt::memory::SharedArbitrator::ExtraConfig;
+    options.extraArbitratorConfigs = {
+        {std::string(SharedArbitratorConfig::kReservedCapacity),
+         systemConfig->sharedArbitratorReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolInitialCapacity),
+         systemConfig->sharedArbitratorMemoryPoolInitialCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolReservedCapacity),
+         systemConfig->sharedArbitratorMemoryPoolReservedCapacity()},
+        {std::string(SharedArbitratorConfig::kMaxMemoryArbitrationTime),
+         systemConfig->sharedArbitratorMaxMemoryArbitrationTime()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacity),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacity()},
+        {std::string(SharedArbitratorConfig::kMemoryPoolMinFreeCapacityPct),
+         systemConfig->sharedArbitratorMemoryPoolMinFreeCapacityPct()},
+        {std::string(SharedArbitratorConfig::kGlobalArbitrationEnabled),
+         systemConfig->sharedArbitratorGlobalArbitrationEnabled()},
+        {std::string(
+             SharedArbitratorConfig::kFastExponentialGrowthCapacityLimit),
+         systemConfig->sharedArbitratorFastExponentialGrowthCapacityLimit()},
+        {std::string(SharedArbitratorConfig::kSlowCapacityGrowPct),
+         systemConfig->sharedArbitratorSlowCapacityGrowPct()},
+        {std::string(SharedArbitratorConfig::kCheckUsageLeak),
+         folly::to<std::string>(systemConfig->enableMemoryLeakCheck())}};
+  }
+  bytedance::bolt::memory::initializeMemoryManager(options);
+  PRESTO_STARTUP_LOG(INFO) << "Memory manager has been setup: "
+                           << bytedance::bolt::memory::memoryManager()->toString();
+
+  if (systemConfig->asyncDataCacheEnabled()) {
+    std::unique_ptr<bytedance::bolt::cache::SsdCache> ssd = setupSsdCache();
+    std::string cacheStr =
+        ssd == nullptr ? "AsyncDataCache" : "AsyncDataCache with SSD";
+
+    /*bytedance::bolt::cache::AsyncDataCache::Options cacheOptions{
+        systemConfig->asyncCacheMaxSsdWriteRatio(),
+        systemConfig->asyncCacheSsdSavableRatio(),
+        systemConfig->asyncCacheMinSsdSavableBytes()};*/
+    cache_ = bytedance::bolt::cache::AsyncDataCache::create(
+        bytedance::bolt::memory::memoryManager()->allocator(),
+        std::move(ssd));
+    bytedance::bolt::cache::AsyncDataCache::setInstance(cache_.get());
+    PRESTO_STARTUP_LOG(INFO) << cacheStr << " has been setup";
+
+    if (isCacheTtlEnabled()) {
+      bytedance::bolt::cache::CacheTTLController::create(*cache_);
+      PRESTO_STARTUP_LOG(INFO) << fmt::format(
+          "Cache TTL is enabled, with TTL {} enforced every {}.",
+          bytedance::bolt::succinctMillis(
+              std::chrono::duration_cast<std::chrono::milliseconds>(
+                  systemConfig->cacheBoltTtlThreshold())
+                  .count()),
+          bytedance::bolt::succinctMillis(
+              std::chrono::duration_cast<std::chrono::milliseconds>(
+                  systemConfig->cacheBoltTtlCheckInterval())
+                  .count()));
+    }
+  } else {
+    BOLT_CHECK_EQ(
+        systemConfig->asyncCacheSsdGb(),
+        0,
+        "Async data cache cannot be disabled if ssd cache is enabled");
+  }
+}
+
+void PrestoServer::stop() {
+  // Make sure we only go here once and change the state under the lock.
+  {
+    auto writeLockedShuttingDown = shuttingDown_.wlock();
+    if (*writeLockedShuttingDown) {
+      return;
+    }
+
+    PRESTO_SHUTDOWN_LOG(INFO) << "Shutdown has been requested. "
+                                 "Setting node state to 'shutting down'.";
+    *writeLockedShuttingDown = true;
+    setNodeState(NodeState::kShuttingDown);
+  }
+
+  auto shutdownOnsetSec = SystemConfig::instance()->shutdownOnsetSec();
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Waiting for " << shutdownOnsetSec
+      << " second(s) before proceeding with the shutdown...";
+  // Give coordinator some time to receive our new node state and stop sending
+  // any tasks.
+  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+
+  taskManager_->shutdown();
+
+  // Give coordinator some time to request tasks stats for completed or failed
+  // tasks.
+  std::this_thread::sleep_for(std::chrono::seconds(shutdownOnsetSec));
+
+  if (httpServer_) {
+    PRESTO_SHUTDOWN_LOG(INFO)
+        << "All tasks are completed. Stopping HTTP Server...";
+    httpServer_->stop();
+    PRESTO_SHUTDOWN_LOG(INFO) << "HTTP Server stopped.";
+  }
+}
+
+size_t PrestoServer::numDriverThreads() const {
+  BOLT_CHECK(
+      driverExecutor_ != nullptr,
+      "Driver executor is expected to be not null, but it is null!");
+  return driverExecutor_->numThreads();
+}
+
+void PrestoServer::detachWorker() {
+  auto readLockedShuttingDown = shuttingDown_.rlock();
+  if (!*readLockedShuttingDown && nodeState() == NodeState::kActive) {
+    // Benefit of shutting down is that the queries that aren't stuck yet will
+    // be finished.  While stopping announcement would kill them.
+    LOG(WARNING) << "Changing node status to SHUTTING_DOWN.";
+    setNodeState(NodeState::kShuttingDown);
+  }
+}
+
+void PrestoServer::maybeAttachWorker() {
+  auto readLockedShuttingDown = shuttingDown_.rlock();
+  if (!*readLockedShuttingDown && nodeState() == NodeState::kShuttingDown) {
+    LOG(WARNING) << "Changing node status to ACTIVE.";
+    setNodeState(NodeState::kActive);
+  }
+}
+
+void PrestoServer::setNodeState(NodeState nodeState) {
+  nodeState_ = nodeState;
+  updateAnnouncerDetails();
+}
+
+void PrestoServer::enableAnnouncer(bool enable) {
+  if (announcer_ != nullptr) {
+    announcer_->enableRequest(enable);
+  }
+}
+
+void PrestoServer::initializeCoordinatorDiscoverer() {
+  // Do not create CoordinatorDiscoverer if we don't have discovery uri.
+  if (SystemConfig::instance()->discoveryUri().has_value()) {
+    coordinatorDiscoverer_ = std::make_shared<CoordinatorDiscoverer>();
+  }
+}
+
+void PrestoServer::updateAnnouncerDetails() {
+  if (announcer_ != nullptr) {
+    announcer_->setDetails(
+        fmt::format("State: {}.", nodeState2String(nodeState_)));
+  }
+}
+
+void PrestoServer::addMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->start();
+  }
+}
+
+void PrestoServer::stopMemoryCheckerPeriodicTask() {
+  if (folly::Singleton<PeriodicMemoryChecker>::try_get()) {
+    folly::Singleton<PeriodicMemoryChecker>::try_get()->stop();
+  }
+}
+
+void PrestoServer::addServerPeriodicTasks() {
+  periodicTaskManager_->addTask(
+      [server = this]() { server->populateMemAndCPUInfo(); },
+      1'000'000, // 1 second
+      "populate_mem_cpu_info");
+
+  const auto timeslice = SystemConfig::instance()->taskRunTimeSliceMicros();
+  if (timeslice > 0) {
+    periodicTaskManager_->addTask(
+        [server = this]() { server->yieldTasks(); }, timeslice, "yield_tasks");
+  }
+
+  if (isCacheTtlEnabled()) {
+    const int64_t ttlThreshold =
+        std::chrono::duration_cast<std::chrono::seconds>(
+            SystemConfig::instance()->cacheBoltTtlThreshold())
+            .count();
+    const int64_t ttlCheckInterval =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            SystemConfig::instance()->cacheBoltTtlCheckInterval())
+            .count();
+    periodicTaskManager_->addTask(
+        [ttlThreshold]() {
+          if (auto* cacheTTLController =
+                  bytedance::bolt::cache::CacheTTLController::getInstance()) {
+            cacheTTLController->applyTTL(ttlThreshold);
+          }
+        },
+        ttlCheckInterval,
+        "cache_ttl");
+  }
+
+  /*if (cachePeriodicPersistenceEnabled()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Initializing cache periodic full persistence task...";
+    auto* cache = bytedance::bolt::cache::AsyncDataCache::getInstance();
+    BOLT_CHECK_NOT_NULL(cache);
+    auto* ssdCache = cache->ssdCache();
+    BOLT_CHECK_NOT_NULL(ssdCache);
+    const auto* systemConfig = SystemConfig::instance();
+    const int64_t cacheFullPersistenceIntervalUs =
+        std::chrono::duration_cast<std::chrono::microseconds>(
+            systemConfig->asyncCachePersistenceInterval())
+            .count();
+    periodicTaskManager_->addTask(
+        [cache, ssdCache]() {
+          try {
+            if (!ssdCache->startWrite()) {
+              return;
+            }
+            LOG(INFO) << "Flush in-memory cache to SSD...";
+            cache->saveToSsd();
+            ssdCache->waitForWriteToFinish();
+            LOG(INFO) << "Flushing in-memory cache to SSD completed.";
+          } catch (const std::exception& e) {
+            LOG(ERROR) << "Failed to persistent cache to SSD: " << e.what();
+          }
+        },
+        cacheFullPersistenceIntervalUs,
+        "cache_full_persistence");
+  }*/
+}
+
+std::shared_ptr<bytedance::bolt::exec::TaskListener> PrestoServer::getTaskListener() {
+  return nullptr;
+}
+
+std::shared_ptr<bytedance::bolt::exec::ExprSetListener>
+PrestoServer::getExprSetListener() {
+  return nullptr;
+}
+
+std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+PrestoServer::getHttpServerFilters() {
+  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
+  const auto* systemConfig = SystemConfig::instance();
+  if (systemConfig->enableHttpAccessLog()) {
+    filters.push_back(
+        std::make_unique<http::filters::AccessLogFilterFactory>());
+  }
+
+  if (systemConfig->enableHttpStatsFilter()) {
+    auto additionalFilters = getAdditionalHttpServerFilters();
+    for (auto& filter : additionalFilters) {
+      filters.push_back(std::move(filter));
+    }
+  }
+
+  if (systemConfig->enableHttpEndpointLatencyFilter()) {
+    filters.push_back(
+        std::make_unique<http::filters::HttpEndpointLatencyFilterFactory>(
+            httpServer_.get()));
+  }
+
+  // Always add the authentication filter to make sure the worker configuration
+  // is in line with the overall cluster configuration e.g. cannot have a worker
+  // without JWT enabled.
+  filters.push_back(
+      std::make_unique<http::filters::InternalAuthenticationFilterFactory>());
+  return filters;
+}
+
+std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>>
+PrestoServer::getAdditionalHttpServerFilters() {
+  std::vector<std::unique_ptr<proxygen::RequestHandlerFactory>> filters;
+  filters.emplace_back(std::make_unique<http::filters::StatsFilterFactory>());
+  return filters;
+}
+
+void PrestoServer::registerConnectorFactories() {
+  bytedance::bolt::connector::hive::CheckHiveConnectorFactoryInit<
+      bytedance::bolt::connector::hive::HiveConnectorFactory>();
+  bytedance::bolt::connector::tpch::CheckTpchConnectorFactoryInit<
+      bytedance::bolt::connector::tpch::TpchConnectorFactory>();
+}
+
+std::vector<std::string> PrestoServer::registerConnectors(
+    const fs::path& configDirectoryPath) {
+  static const std::string kPropertiesExtension = ".properties";
+
+  const auto numConnectorCpuThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumCpuThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorCpuThreads > 0) {
+    connectorCpuExecutor_ = std::make_unique<folly::CPUThreadPoolExecutor>(
+        numConnectorCpuThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
+
+    PRESTO_STARTUP_LOG(INFO)
+        << "Connector CPU executor has " << connectorCpuExecutor_->numThreads()
+        << " threads.";
+  }
+
+  const auto numConnectorIoThreads = std::max<size_t>(
+      SystemConfig::instance()->connectorNumIoThreadsHwMultiplier() *
+          std::thread::hardware_concurrency(),
+      0);
+  if (numConnectorIoThreads > 0) {
+    connectorIoExecutor_ = std::make_unique<folly::IOThreadPoolExecutor>(
+        numConnectorIoThreads,
+        std::make_shared<folly::NamedThreadFactory>("Connector"));
+
+    PRESTO_STARTUP_LOG(INFO)
+        << "Connector IO executor has " << connectorIoExecutor_->numThreads()
+        << " threads.";
+  }
+
+  std::vector<std::string> catalogNames;
+  for (const auto& entry :
+       fs::directory_iterator(configDirectoryPath / "catalog")) {
+    if (entry.path().extension() == kPropertiesExtension) {
+      auto fileName = entry.path().filename().string();
+      auto catalogName =
+          fileName.substr(0, fileName.size() - kPropertiesExtension.size());
+
+      auto connectorConf = util::readConfig(entry.path());
+      PRESTO_STARTUP_LOG(INFO)
+          << "Registered properties from " << entry.path() << ":\n"
+          << stringifyConnectorConfig(connectorConf);
+
+      std::shared_ptr<const bytedance::bolt::config::ConfigBase> properties =
+          std::make_shared<const bytedance::bolt::config::ConfigBase>(
+              std::move(connectorConf));
+
+      auto connectorName = util::requiredProperty(*properties, kConnectorName);
+
+      catalogNames.emplace_back(catalogName);
+
+      PRESTO_STARTUP_LOG(INFO) << "Registering catalog " << catalogName
+                               << " using connector " << connectorName;
+
+      // make sure connector type is supported
+      getPrestoToBoltConnector(connectorName);
+
+      std::shared_ptr<bytedance::bolt::connector::Connector> connector =
+          bytedance::bolt::connector::getConnectorFactory(connectorName)
+              ->newConnector(
+                  catalogName,
+                  std::move(properties),
+                  connectorIoExecutor_.get());
+      bytedance::bolt::connector::registerConnector(connector);
+    }
+  }
+  return catalogNames;
+}
+
+void PrestoServer::registerSystemConnector() {
+  PRESTO_STARTUP_LOG(INFO) << "Registering system catalog "
+                           << " using connector SystemConnector";
+  BOLT_CHECK(taskManager_);
+  auto systemConnector =
+      std::make_shared<SystemConnector>("$system@system", taskManager_.get());
+  bytedance::bolt::connector::registerConnector(systemConnector);
+}
+
+void PrestoServer::unregisterConnectors() {
+  PRESTO_SHUTDOWN_LOG(INFO) << "Unregistering connectors";
+  auto connectors = bytedance::bolt::connector::getAllConnectors();
+  if (connectors.empty()) {
+    PRESTO_SHUTDOWN_LOG(INFO) << "No connectors to unregister";
+    return;
+  }
+
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Unregistering " << connectors.size() << " connectors";
+  for (const auto& connectorEntry : connectors) {
+    if (bytedance::bolt::connector::unregisterConnector(connectorEntry.first)) {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unregistered connector: " << connectorEntry.first;
+    } else {
+      PRESTO_SHUTDOWN_LOG(INFO)
+          << "Unable to unregister connector: " << connectorEntry.first;
+    }
+  }
+
+  bytedance::bolt::connector::unregisterConnector("$system@system");
+  PRESTO_SHUTDOWN_LOG(INFO)
+      << "Unregistered " << connectors.size() << " connectors";
+}
+
+void PrestoServer::registerShuffleInterfaceFactories() {
+  operators::ShuffleInterfaceFactory::registerFactory(
+      operators::LocalPersistentShuffleFactory::kShuffleName.toString(),
+      std::make_unique<operators::LocalPersistentShuffleFactory>());
+}
+
+void PrestoServer::registerCustomOperators() {
+  bytedance::bolt::exec::Operator::registerOperator(
+      std::make_unique<operators::PartitionAndSerializeTranslator>());
+  bytedance::bolt::exec::Operator::registerOperator(
+      std::make_unique<operators::ShuffleWriteTranslator>());
+  bytedance::bolt::exec::Operator::registerOperator(
+      std::make_unique<operators::ShuffleReadTranslator>());
+
+  // Todo - Split Presto & Presto-on-Spark server into different classes
+  // which will allow server specific operator registration.
+  bytedance::bolt::exec::Operator::registerOperator(
+      std::make_unique<operators::BroadcastWriteTranslator>());
+}
+
+void PrestoServer::registerFunctions() {
+  static const std::string kPrestoDefaultPrefix{"presto.default."};
+  bytedance::bolt::functions::prestosql::registerAllScalarFunctions(kPrestoDefaultPrefix);
+  bytedance::bolt::aggregate::prestosql::registerAllAggregateFunctions(
+      kPrestoDefaultPrefix);
+  bytedance::bolt::window::prestosql::registerAllWindowFunctions(kPrestoDefaultPrefix);
+  if (SystemConfig::instance()->registerTestFunctions()) {
+    bytedance::bolt::functions::prestosql::registerAllScalarFunctions(
+        "json.test_schema.");
+    bytedance::bolt::aggregate::prestosql::registerAllAggregateFunctions(
+        "json.test_schema.");
+  }
+}
+
+void PrestoServer::registerRemoteFunctions() {
+#ifdef PRESTO_ENABLE_REMOTE_FUNCTIONS
+  auto* systemConfig = SystemConfig::instance();
+  if (auto dirPath =
+          systemConfig->remoteFunctionServerSignatureFilesDirectoryPath()) {
+    PRESTO_STARTUP_LOG(INFO)
+        << "Registering remote functions from path: " << *dirPath;
+    if (auto remoteLocation = systemConfig->remoteFunctionServerLocation()) {
+      const auto catalogName = systemConfig->remoteFunctionServerCatalogName();
+      const auto serdeName = systemConfig->remoteFunctionServerSerde();
+      size_t registeredCount = presto::registerRemoteFunctions(
+          *dirPath, *remoteLocation, catalogName, serdeName);
+
+      PRESTO_STARTUP_LOG(INFO)
+          << registeredCount << " remote functions registered in the '"
+          << catalogName << "' catalog.";
+    } else {
+      BOLT_FAIL(
+          "To register remote functions using a json file path you need to "
+          "specify the remote server location using '{}', '{}' or '{}'.",
+          SystemConfig::kRemoteFunctionServerThriftAddress,
+          SystemConfig::kRemoteFunctionServerThriftPort,
+          SystemConfig::kRemoteFunctionServerThriftUdsPath);
+    }
+  }
+#endif
+}
+
+void PrestoServer::registerVectorSerdes() {
+  if (!bytedance::bolt::isRegisteredVectorSerde()) {
+    bytedance::bolt::serializer::presto::PrestoVectorSerde::registerVectorSerde();
+  }
+  /*if (!bytedance::bolt::isRegisteredNamedVectorSerde(bytedance::bolt::VectorSerde::Kind::kPresto)) {
+    bytedance::bolt::serializer::presto::PrestoVectorSerde::registerNamedVectorSerde();
+  }
+  if (!bytedance::bolt::isRegisteredNamedVectorSerde(
+          bytedance::bolt::VectorSerde::Kind::kCompactRow)) {
+    bytedance::bolt::serializer::CompactRowVectorSerde::registerNamedVectorSerde();
+  }
+  if (!bytedance::bolt::isRegisteredNamedVectorSerde(
+          bytedance::bolt::VectorSerde::Kind::kUnsafeRow)) {
+    bytedance::bolt::serializer::spark::UnsafeRowVectorSerde::registerNamedVectorSerde();
+  }*/
+}
+
+void PrestoServer::registerFileSinks() {
+  bytedance::bolt::dwio::common::registerFileSinks();
+}
+
+void PrestoServer::registerFileSystems() {
+  bytedance::bolt::filesystems::registerLocalFileSystem();
+  bytedance::bolt::filesystems::registerS3FileSystem();
+  bytedance::bolt::filesystems::registerHdfsFileSystem();
+}
+
+void PrestoServer::unregisterFileSystems() {
+  bytedance::bolt::filesystems::finalizeS3FileSystem();
+}
+
+void PrestoServer::registerMemoryArbitrators() {
+  bytedance::bolt::memory::SharedArbitrator::registerFactory();
+}
+
+void PrestoServer::registerFileReadersAndWriters() {
+  bytedance::bolt::dwrf::registerDwrfReaderFactory();
+  bytedance::bolt::dwrf::registerDwrfWriterFactory();
+  bytedance::bolt::parquet::registerParquetReaderFactory();
+  bytedance::bolt::parquet::registerParquetWriterFactory();
+}
+
+void PrestoServer::unregisterFileReadersAndWriters() {
+  bytedance::bolt::dwrf::unregisterDwrfReaderFactory();
+  bytedance::bolt::dwrf::unregisterDwrfWriterFactory();
+  bytedance::bolt::parquet::unregisterParquetReaderFactory();
+  bytedance::bolt::parquet::unregisterParquetWriterFactory();
+}
+
+void PrestoServer::registerStatsCounters() {
+  registerPrestoMetrics();
+  bytedance::bolt::registerBoltMetrics();
+}
+
+std::string PrestoServer::getLocalIp() const {
+  using boost::asio::ip::tcp;
+  boost::asio::io_service io_service;
+  tcp::resolver resolver(io_service);
+  tcp::resolver::query query(boost::asio::ip::host_name(), kHttp);
+  tcp::resolver::iterator it = resolver.resolve(query);
+  while (it != tcp::resolver::iterator()) {
+    boost::asio::ip::address addr = (it++)->endpoint().address();
+    // simple check to see if the address is not ::
+    if (addr.to_string().length() > 4) {
+      return fmt::format("{}", addr.to_string());
+    }
+  }
+  BOLT_FAIL(
+      "Could not infer Node IP. Please specify node.internal-address in the node.properties file.");
+}
+
+std::string PrestoServer::getBaseSpillDirectory() const {
+  return SystemConfig::instance()->spillerSpillPath().value_or("");
+}
+
+void PrestoServer::enableWorkerStatsReporting() {
+  // This flag must be set to register the counters.
+  bytedance::bolt::BaseStatsReporter::registered = true;
+  registerStatsCounters();
+}
+
+void PrestoServer::initBoltPlanValidator() {
+  BOLT_CHECK_NULL(planValidator_);
+  planValidator_ = std::make_shared<BoltPlanValidator>();
+}
+
+BoltPlanValidator* PrestoServer::getBoltPlanValidator() {
+  return planValidator_.get();
+}
+
+void PrestoServer::populateMemAndCPUInfo() {
+  auto systemConfig = SystemConfig::instance();
+  const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
+  protocol::MemoryInfo memoryInfo{
+      {double(nodeMemoryGb), protocol::DataUnit::GIGABYTE}};
+
+  // Fill the only memory pool info (general)
+  auto& poolInfo = memoryInfo.pools["general"];
+
+  // Fill global pool fields.
+  poolInfo.maxBytes = nodeMemoryGb * 1024 * 1024 * 1024;
+  poolInfo.reservedRevocableBytes = 0;
+
+  // Fill basic per-query fields.
+  const auto* queryCtxMgr = taskManager_->getQueryContextManager();
+  size_t numContexts{0};
+  queryCtxMgr->visitAllContexts([&](const protocol::QueryId& queryId,
+                                    const bytedance::bolt::core::QueryCtx* queryCtx) {
+    const protocol::Long bytes = queryCtx->pool()->usedBytes();
+    poolInfo.queryMemoryReservations.insert({queryId, bytes});
+    // TODO(spershin): Might want to see what Java exports and export similar
+    // info (like child memory pools).
+    poolInfo.queryMemoryAllocations.insert(
+        {queryId, {protocol::MemoryAllocation{"total", bytes}}});
+    ++numContexts;
+    poolInfo.reservedBytes += bytes;
+  });
+  RECORD_METRIC_VALUE(kCounterNumQueryContexts, numContexts);
+  cpuMon_.update();
+  **memoryInfo_.wlock() = std::move(memoryInfo);
+}
+
+static protocol::Duration getUptime(
+    std::chrono::steady_clock::time_point& start) {
+  auto seconds = std::chrono::duration_cast<std::chrono::seconds>(
+                     std::chrono::steady_clock::now() - start)
+                     .count();
+  if (seconds >= 86400) {
+    return protocol::Duration(seconds / 86400.0, protocol::TimeUnit::DAYS);
+  }
+  if (seconds >= 3600) {
+    return protocol::Duration(seconds / 3600.0, protocol::TimeUnit::HOURS);
+  }
+  if (seconds >= 60) {
+    return protocol::Duration(seconds / 60.0, protocol::TimeUnit::MINUTES);
+  }
+
+  return protocol::Duration(seconds, protocol::TimeUnit::SECONDS);
+}
+
+void PrestoServer::reportMemoryInfo(proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, json(**memoryInfo_.rlock()));
+}
+
+void PrestoServer::reportServerInfo(proxygen::ResponseHandler* downstream) {
+  const protocol::ServerInfo serverInfo{
+      {nodeVersion_},
+      environment_,
+      false,
+      false,
+      std::make_shared<protocol::Duration>(getUptime(start_))};
+  http::sendOkResponse(downstream, json(serverInfo));
+}
+
+void PrestoServer::reportNodeStatus(proxygen::ResponseHandler* downstream) {
+  http::sendOkResponse(downstream, json(fetchNodeStatus()));
+}
+
+void PrestoServer::handleGracefulShutdown(
+    const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+    proxygen::ResponseHandler* downstream) {
+  std::string bodyContent =
+      folly::trimWhitespace(body[0]->moveToFbString()).toString();
+  if (body.size() == 1 && bodyContent == http::kShuttingDown) {
+    LOG(INFO) << "Shutdown requested";
+    if (nodeState() == NodeState::kActive) {
+      // Run stop() in a separate thread to avoid blocking the main HTTP handler
+      // and ensure a timely 200 OK response to the client.
+      std::thread([this]() { this->stop(); }).detach();
+    } else {
+      LOG(INFO) << "Node is inactive or shutdown is already requested";
+    }
+    http::sendOkResponse(downstream);
+  } else {
+    LOG(ERROR) << "Bad Request. Received body content: " << bodyContent;
+    http::sendErrorResponse(downstream, "Bad Request", http::kHttpBadRequest);
+  }
+}
+
+void PrestoServer::registerSidecarEndpoints() {
+  BOLT_CHECK(httpServer_);
+  httpServer_->registerGet(
+      "/v1/properties/session",
+      [this](
+          proxygen::HTTPMessage* /*message*/,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+          proxygen::ResponseHandler* downstream) {
+        auto sessionProperties =
+            taskManager_->getQueryContextManager()->getSessionProperties();
+        http::sendOkResponse(downstream, sessionProperties.serialize());
+      });
+  //httpServer_->registerGet(
+  //    "/v1/functions",
+  //    [](proxygen::HTTPMessage* /*message*/,
+  //       const std::vector<std::unique_ptr<folly::IOBuf>>& /*body*/,
+  //       proxygen::ResponseHandler* downstream) {
+  //      http::sendOkResponse(downstream, getFunctionsMetadata());
+  //    });
+  httpServer_->registerPost(
+      "/v1/bolt/plan",
+      [server = this](
+          proxygen::HTTPMessage* message,
+          const std::vector<std::unique_ptr<folly::IOBuf>>& body,
+          proxygen::ResponseHandler* downstream) {
+        std::string planFragmentJson = util::extractMessageBody(body);
+        protocol::PlanConversionResponse response = prestoToBoltPlanConversion(
+            planFragmentJson,
+            server->nativeWorkerPool_.get(),
+            server->getBoltPlanValidator());
+        if (response.failures.empty()) {
+          http::sendOkResponse(downstream, json(response));
+        } else {
+          http::sendResponse(
+              downstream, json(response), http::kHttpUnprocessableContent);
+        }
+      });
+}
+
+protocol::NodeStatus PrestoServer::fetchNodeStatus() {
+  auto systemConfig = SystemConfig::instance();
+  const int64_t nodeMemoryGb = systemConfig->systemMemoryGb();
+
+  const double cpuLoadPct{cpuMon_.getCPULoadPct()};
+
+  // TODO(spershin): As 'nonHeapUsed' we could export the cache memory.
+  const int64_t nonHeapUsed{0};
+
+  protocol::NodeStatus nodeStatus{
+      nodeId_,
+      {nodeVersion_},
+      environment_,
+      false,
+      getUptime(start_),
+      address_,
+      address_,
+      **memoryInfo_.rlock(),
+      (int)std::thread::hardware_concurrency(),
+      cpuLoadPct,
+      cpuLoadPct,
+      pool_ ? pool_->usedBytes() : 0,
+      nodeMemoryGb * 1024 * 1024 * 1024,
+      nonHeapUsed};
+
+  return nodeStatus;
+}
+
+} // namespace facebook::presto
