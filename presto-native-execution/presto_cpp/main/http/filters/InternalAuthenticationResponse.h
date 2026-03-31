@@ -1,3 +1,5 @@
+#pragma once
+
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -11,5 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include "presto-native-execution/presto_cpp/main/http/HttpConstants.h"
+
+#include <proxygen/httpserver/ResponseBuilder.h>
+
+namespace facebook::presto::http::filters::detail {
+
+inline void sendRejectedResponse(
+    proxygen::RequestHandler*& upstream,
+    proxygen::ResponseHandler* downstream,
+    proxygen::ProxygenError error,
+    uint16_t status,
+    const char* reason) {
+  upstream->onError(error);
+  upstream = nullptr;
+  proxygen::ResponseBuilder(downstream).status(status, reason).sendWithEOM();
+}
+
+} // namespace facebook::presto::http::filters::detail

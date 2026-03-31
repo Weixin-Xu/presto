@@ -16,33 +16,26 @@
 
 #include <proxygen/httpserver/Filters.h>
 #include <proxygen/httpserver/RequestHandlerFactory.h>
+
 #include "presto_cpp/main/http/HttpServer.h"
-#include "bolt/common/base/SuccinctPrinter.h"
-#include "bolt/common/time/Timer.h"
+#include "presto_cpp/main/http/filters/HttpFilterBackend.h"
 
 namespace facebook::presto::http::filters {
 
 class HttpEndpointLatencyFilter : public proxygen::Filter {
  public:
   struct EndPointMetrics {
-    /// The endpoint of interest, with method and path information in it. e.g.
-    /// "GET /v1/task"
     std::string endpoint;
-
-    /// Maximum latency of the request on this endpoint
     uint64_t maxLatencyUs;
-
-    /// Average latency of the request on this endpoint
     uint64_t avgLatencyUs;
-
-    /// Number of requests on this endpoint
     uint64_t count;
 
     std::string toString() const {
       std::stringstream oss;
-      oss << "{'" << endpoint << "' : " << bytedance::bolt::succinctMicros(maxLatencyUs)
-          << "(max) " << bytedance::bolt::succinctMicros(avgLatencyUs) << "(avg) "
-          << count << "(count)}";
+      oss << "{'" << endpoint << "' : "
+          << detail::succinctMicrosString(maxLatencyUs) << "(max) "
+          << detail::succinctMicrosString(avgLatencyUs) << "(avg) " << count
+          << "(count)}";
       return oss.str();
     }
   };
@@ -71,20 +64,12 @@ class HttpEndpointLatencyFilter : public proxygen::Filter {
     return metricMap_;
   }
 
-  // The endpoints the server is listening on. This is used to match the current
-  // request's endpoint.
   const std::shared_ptr<std::unordered_map<
       proxygen::HTTPMethod,
       std::vector<std::unique_ptr<EndPoint>>>>
       endpoints_;
-
-  // The http endpoint of this request
   std::string requestEndpoint_;
-
-  // The timer used for keeping track of the duration of the request.
-  std::unique_ptr<bytedance::bolt::MicrosecondTimer> timer_;
-
-  // The duration in us this request takes.
+  std::unique_ptr<detail::HttpFilterMicrosecondTimer> timer_;
   uint64_t timeUs_{0};
 };
 

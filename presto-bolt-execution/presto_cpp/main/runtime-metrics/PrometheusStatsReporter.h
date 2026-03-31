@@ -12,6 +12,16 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <cstdlib>
+#include <map>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+#include "presto-native-execution/presto_cpp/main/runtime-metrics/PrometheusMetricRegistry.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "bolt/common/base/Exceptions.h"
 #include "bolt/common/base/GTestMacros.h"
@@ -35,8 +45,6 @@ struct StatsInfo {
 /// {method="POST"} etc. Prometheus treats {<metric_name>, [labels]} as unique
 /// metric object.
 class PrometheusStatsReporter : public bytedance::bolt::BaseStatsReporter {
-  class PrometheusImpl;
-
  public:
   explicit PrometheusStatsReporter(
       const std::map<std::string, std::string>& labels);
@@ -88,7 +96,7 @@ class PrometheusStatsReporter : public bytedance::bolt::BaseStatsReporter {
   }
 
  private:
-  std::shared_ptr<PrometheusImpl> impl_;
+  std::shared_ptr<detail::PrometheusMetricRegistry> metricRegistry_;
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
   mutable std::unordered_map<std::string, StatsInfo> registeredMetricsMap_;

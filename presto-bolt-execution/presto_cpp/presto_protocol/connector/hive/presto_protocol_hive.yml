@@ -11,6 +11,10 @@
 # limitations under the License.
 
 
+AddToOutput:
+  - ConnectorMetadataUpdateHandle
+  - HiveMetadataUpdateHandle
+
 AbstractClasses:
   ColumnHandle:
     super: JsonEncodedSubclass
@@ -91,5 +95,4 @@ JavaClasses:
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/Storage.java
   - presto-hive-metastore/src/main/java/com/facebook/presto/hive/metastore/StorageFormat.java
   - presto-hive/src/main/java/com/facebook/presto/hive/TableToPartitionMapping.java
-  - presto-hive/src/main/java/com/facebook/presto/hive/HiveMetadataUpdateHandle.java
   - presto-hive/src/main/java/com/facebook/presto/hive/HivePartitioningHandle.java

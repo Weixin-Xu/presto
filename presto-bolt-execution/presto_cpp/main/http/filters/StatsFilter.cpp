@@ -13,8 +13,8 @@
  */
 
 #include "presto_cpp/main/http/filters/StatsFilter.h"
-#include "presto_cpp/main/common/Counters.h"
-#include "bolt/common/base/StatsReporter.h"
+
+#include "presto_cpp/main/http/filters/StatsFilterBackend.h"
 
 namespace facebook::presto::http::filters {
 
@@ -24,22 +24,37 @@ StatsFilter::StatsFilter(proxygen::RequestHandler* upstream)
 void StatsFilter::onRequest(
     std::unique_ptr<proxygen::HTTPMessage> msg) noexcept {
   startTime_ = std::chrono::steady_clock::now();
-  RECORD_METRIC_VALUE(kCounterNumHTTPRequest, 1);
+  detail::recordHttpRequestCount();
   Filter::onRequest(std::move(msg));
 }
 
+void StatsFilter::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
+  if (body) {
+    requestBodySize_ += body->computeChainDataLength();
+  }
+  Filter::onBody(std::move(body));
+}
+
 void StatsFilter::requestComplete() noexcept {
-  RECORD_METRIC_VALUE(
-      kCounterHTTPRequestLatencyMs,
+  detail::recordHttpRequestLatencyMs(
       std::chrono::duration_cast<std::chrono::milliseconds>(
           std::chrono::steady_clock::now() - startTime_)
           .count());
-  delete this;
+  detail::recordHttpRequestBodySize(requestBodySize_);
+  if (detail::deleteStatsFilterOnTerminal()) {
+    delete this;
+    return;
+  }
+  Filter::requestComplete();
 }
 
 void StatsFilter::onError(proxygen::ProxygenError err) noexcept {
-  RECORD_METRIC_VALUE(kCounterNumHTTPRequestError, 1);
-  delete this;
+  detail::recordHttpRequestError();
+  if (detail::deleteStatsFilterOnTerminal()) {
+    delete this;
+    return;
+  }
+  Filter::onError(err);
 }
 
 } // namespace facebook::presto::http::filters

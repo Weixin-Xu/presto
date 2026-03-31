@@ -14,6 +14,8 @@
 
 #include "presto_cpp/main/PrestoTask.h"
 #include <sys/resource.h>
+#include "presto-native-execution/presto_cpp/main/task/PrestoTaskStatsHelpers.h"
+#include "presto_cpp/main/task/TaskBackend.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Exception.h"
 #include "presto_cpp/main/common/Utils.h"
@@ -287,7 +289,7 @@ PrestoTask::PrestoTask(
 
 void PrestoTask::updateHeartbeatLocked() {
   lastHeartbeatMs = bytedance::bolt::getCurrentTimeMs();
-  info.lastHeartbeat = util::toISOTimestamp(lastHeartbeatMs);
+  TaskBackend::setTaskInfoHeartbeat(info, lastHeartbeatMs);
 }
 
 void PrestoTask::updateCoordinatorHeartbeat() {
@@ -506,18 +508,15 @@ void PrestoTask::updateTimeInfoLocked(
   prestoTaskStats.totalCpuTimeInNanos = {};
   prestoTaskStats.totalBlockedTimeInNanos = {};
 
-  prestoTaskStats.createTime =
-      util::toISOTimestamp(boltTaskStats.executionStartTimeMs);
-  prestoTaskStats.firstStartTime =
-      util::toISOTimestamp(boltTaskStats.firstSplitStartTimeMs);
   createTimeMs = boltTaskStats.executionStartTimeMs;
   firstSplitStartTimeMs = boltTaskStats.firstSplitStartTimeMs;
-  prestoTaskStats.lastStartTime =
-      util::toISOTimestamp(boltTaskStats.lastSplitStartTimeMs);
-  prestoTaskStats.lastEndTime =
-      util::toISOTimestamp(boltTaskStats.executionEndTimeMs);
-  prestoTaskStats.endTime =
-      util::toISOTimestamp(boltTaskStats.executionEndTimeMs);
+  TaskBackend::setTaskTimeInfo(
+      prestoTaskStats,
+      boltTaskStats.executionStartTimeMs,
+      boltTaskStats.firstSplitStartTimeMs,
+      boltTaskStats.lastSplitStartTimeMs,
+      boltTaskStats.executionEndTimeMs,
+      boltTaskStats.executionEndTimeMs);
   lastEndTimeMs = boltTaskStats.executionEndTimeMs;
 
   if (boltTaskStats.executionEndTimeMs > boltTaskStats.executionStartTimeMs) {
@@ -611,10 +610,6 @@ void PrestoTask::updateExecutionInfoLocked(
     auto& boltPipeline = boltTaskStats.pipelineStats[i];
     prestoPipeline.inputPipeline = boltPipeline.inputPipeline;
     prestoPipeline.outputPipeline = boltPipeline.outputPipeline;
-    prestoPipeline.firstStartTime = prestoTaskStats.createTime;
-    prestoPipeline.lastStartTime = prestoTaskStats.endTime;
-    prestoPipeline.lastEndTime = prestoTaskStats.endTime;
-
     prestoPipeline.operatorSummaries.resize(boltPipeline.operatorStats.size());
     prestoPipeline.totalScheduledTimeInNanos = {};
     prestoPipeline.totalCpuTimeInNanos = {};
@@ -626,34 +621,10 @@ void PrestoTask::updateExecutionInfoLocked(
     // tasks may fail before any operators are created;
     // collect stats only when we have operators
     if (!boltPipeline.operatorStats.empty()) {
-      const auto& firstBoltOpStats = boltPipeline.operatorStats[0];
-      const auto& lastBoltOpStats = boltPipeline.operatorStats.back();
-
-      prestoPipeline.pipelineId = firstBoltOpStats.pipelineId;
-      prestoPipeline.totalDrivers = firstBoltOpStats.numDrivers;
-      prestoPipeline.rawInputPositions = firstBoltOpStats.rawInputPositions;
-      prestoPipeline.rawInputDataSizeInBytes = firstBoltOpStats.rawInputBytes;
-      prestoPipeline.processedInputPositions = firstBoltOpStats.inputPositions;
-      prestoPipeline.processedInputDataSizeInBytes =
-          firstBoltOpStats.inputBytes;
-      prestoPipeline.outputPositions = lastBoltOpStats.outputPositions;
-      prestoPipeline.outputDataSizeInBytes = lastBoltOpStats.outputBytes;
+      task::updatePipelineInputOutputStats(boltPipeline, prestoPipeline);
     }
 
-    if (prestoPipeline.inputPipeline) {
-      prestoTaskStats.rawInputPositions += prestoPipeline.rawInputPositions;
-      prestoTaskStats.rawInputDataSizeInBytes +=
-          prestoPipeline.rawInputDataSizeInBytes;
-      prestoTaskStats.processedInputPositions +=
-          prestoPipeline.processedInputPositions;
-      prestoTaskStats.processedInputDataSizeInBytes +=
-          prestoPipeline.processedInputDataSizeInBytes;
-    }
-    if (prestoPipeline.outputPipeline) {
-      prestoTaskStats.outputPositions += prestoPipeline.outputPositions;
-      prestoTaskStats.outputDataSizeInBytes +=
-          prestoPipeline.outputDataSizeInBytes;
-    }
+    task::updateTaskInputOutputStats(boltPipeline, prestoTaskStats);
 
     /*for (const auto& driverStat : boltPipeline.driverStats) {
       for (const auto& [name, value] : driverStat.runtimeStats) {
@@ -665,98 +636,18 @@ void PrestoTask::updateExecutionInfoLocked(
       auto& prestoOp = prestoPipeline.operatorSummaries[j];
       auto& boltOp = boltPipeline.operatorStats[j];
 
-      prestoOp.stageId = id.stageId();
-      prestoOp.stageExecutionId = id.stageExecutionId();
-      prestoOp.pipelineId = i;
-      prestoOp.planNodeId = boltOp.planNodeId;
-      prestoOp.planNodeId = toPrestoPlanNodeId(prestoOp.planNodeId);
-      prestoOp.operatorId = boltOp.operatorId;
-      prestoOp.operatorType = toPrestoOperatorType(boltOp.operatorType);
-
-      prestoOp.totalDrivers = boltOp.numDrivers;
-      prestoOp.inputPositions = boltOp.inputPositions;
-      prestoOp.sumSquaredInputPositions =
-          ((double)boltOp.inputPositions) * boltOp.inputPositions;
-      prestoOp.inputDataSize =
-          protocol::DataSize(boltOp.inputBytes, protocol::DataUnit::BYTE);
-      prestoOp.rawInputPositions = boltOp.rawInputPositions;
-      prestoOp.rawInputDataSize =
-          protocol::DataSize(boltOp.rawInputBytes, protocol::DataUnit::BYTE);
-
-      // Report raw input statistics on the Project node following TableScan, if
-      // exists.
-      if (j == 1 && boltOp.operatorType == "FilterProject" &&
-          boltPipeline.operatorStats[0].operatorType == "TableScan") {
-        const auto& scanOp = boltPipeline.operatorStats[0];
-        prestoOp.rawInputPositions = scanOp.rawInputPositions;
-        prestoOp.rawInputDataSize =
-            protocol::DataSize(scanOp.rawInputBytes, protocol::DataUnit::BYTE);
-      }
-
-      prestoOp.outputPositions = boltOp.outputPositions;
-      prestoOp.outputDataSize =
-          protocol::DataSize(boltOp.outputBytes, protocol::DataUnit::BYTE);
-
-      setTiming(
-          boltOp.isBlockedTiming,
-          prestoOp.isBlockedCalls,
-          prestoOp.isBlockedWall,
-          prestoOp.isBlockedCpu);
-      setTiming(
-          boltOp.addInputTiming,
-          prestoOp.addInputCalls,
-          prestoOp.addInputWall,
-          prestoOp.addInputCpu);
-      setTiming(
-          boltOp.getOutputTiming,
-          prestoOp.getOutputCalls,
-          prestoOp.getOutputWall,
-          prestoOp.getOutputCpu);
-      CpuWallTiming finishAndBackgroundTiming;
-      finishAndBackgroundTiming.add(boltOp.finishTiming);
-      finishAndBackgroundTiming.add(boltOp.backgroundTiming);
-      setTiming(
-          finishAndBackgroundTiming,
-          prestoOp.finishCalls,
-          prestoOp.finishWall,
-          prestoOp.finishCpu);
-
-      prestoOp.blockedWall = protocol::Duration(
-          boltOp.blockedWallNanos, protocol::TimeUnit::NANOSECONDS);
-
-      prestoOp.userMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.userMemoryReservation, protocol::DataUnit::BYTE);
-      prestoOp.revocableMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.revocableMemoryReservation,
-          protocol::DataUnit::BYTE);
-      prestoOp.systemMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.systemMemoryReservation,
-          protocol::DataUnit::BYTE);
-      prestoOp.peakUserMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.peakUserMemoryReservation,
-          protocol::DataUnit::BYTE);
-      prestoOp.peakSystemMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.peakSystemMemoryReservation,
-          protocol::DataUnit::BYTE);
-      prestoOp.peakTotalMemoryReservation = protocol::DataSize(
-          boltOp.memoryStats.peakTotalMemoryReservation,
-          protocol::DataUnit::BYTE);
-
-      prestoOp.spilledDataSize =
-          protocol::DataSize(boltOp.spilledBytes, protocol::DataUnit::BYTE);
-
-      if (boltOp.operatorType == "HashBuild") {
-        prestoOp.joinBuildKeyCount = boltOp.inputPositions;
-        prestoOp.nullJoinBuildKeyCount = boltOp.numNullKeys;
-      }
-      if (boltOp.operatorType == "HashProbe") {
-        prestoOp.joinProbeKeyCount = boltOp.inputPositions;
-        prestoOp.nullJoinProbeKeyCount = boltOp.numNullKeys;
-      }
-
-      if (!boltOp.dynamicFilterStats.empty()) {
-        prestoOp.dynamicFilterStats = toPrestoDynamicFilterStats(boltOp);
-      }
+      task::populateOperatorSummaryStats<TaskBackend>(
+          boltOp,
+          id.stageId(),
+          id.stageExecutionId(),
+          i,
+          prestoOp,
+          toPrestoPlanNodeId,
+          toPrestoOperatorType,
+          setTiming,
+          toPrestoDynamicFilterStats);
+      task::maybeCopyRawInputFromTableScan<TaskBackend>(
+          j, boltOp, boltPipeline.operatorStats, prestoOp);
 
       for (const auto& stat : boltOp.runtimeStats) {
         auto statName = generateRuntimeStatName(boltOp, stat.first);
@@ -781,23 +672,13 @@ void PrestoTask::updateExecutionInfoLocked(
         addSpillingOperatorMetrics(operatorStatsCollector);
       }
 
+      task::updatePipelineRunningTotals(boltOp, prestoPipeline);
       auto wallNanos = boltOp.isBlockedTiming.wallNanos +
           boltOp.addInputTiming.wallNanos + boltOp.getOutputTiming.wallNanos +
           boltOp.finishTiming.wallNanos;
       auto cpuNanos = boltOp.isBlockedTiming.cpuNanos +
           boltOp.addInputTiming.cpuNanos + boltOp.getOutputTiming.cpuNanos +
           boltOp.finishTiming.cpuNanos;
-
-      prestoPipeline.totalScheduledTimeInNanos += wallNanos;
-      prestoPipeline.totalCpuTimeInNanos += cpuNanos;
-      prestoPipeline.totalBlockedTimeInNanos += boltOp.blockedWallNanos;
-      prestoPipeline.userMemoryReservationInBytes +=
-          boltOp.memoryStats.userMemoryReservation;
-      prestoPipeline.revocableMemoryReservationInBytes +=
-          boltOp.memoryStats.revocableMemoryReservation;
-      prestoPipeline.systemMemoryReservationInBytes +=
-          boltOp.memoryStats.systemMemoryReservation;
-
       prestoTaskStats.totalScheduledTimeInNanos += wallNanos;
       prestoTaskStats.totalCpuTimeInNanos += cpuNanos;
       prestoTaskStats.totalBlockedTimeInNanos += boltOp.blockedWallNanos;

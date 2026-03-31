@@ -16,9 +16,9 @@
 
 #include <utility>
 
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
+#include "presto-native-execution/presto_cpp/main/task/TaskManagerHelpers.h"
+#include "presto_cpp/main/task/TaskBackend.h"
 #include "bolt/core/PlanNode.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -666,8 +666,8 @@ std::unique_ptr<TaskInfo> TaskManager::deleteTask(
     if (state == exec::TaskState::kRunning) {
       execTask->requestAbort();
     }
-    prestoTask->info.stats.endTime =
-        util::toISOTimestamp(bytedance::bolt::getCurrentTimeMs());
+    TaskBackend::setTaskEndTime(
+        prestoTask->info.stats, bytedance::bolt::getCurrentTimeMs());
     prestoTask->updateInfoLocked();
   } else {
     // If task is not found than we observe DELETE message coming before
@@ -1060,30 +1060,11 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
 
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
-  prestoTask->info.stats.createTime =
-      util::toISOTimestamp(bytedance::bolt::getCurrentTimeMs());
-  prestoTask->info.needsPlan = true;
-  prestoTask->info.metadataUpdates.connectorId = "unused";
-
-  struct UuidSplit {
-    int64_t lo;
-    int64_t hi;
-  };
-
-  union UuidParse {
-    boost::uuids::uuid uuid;
-    UuidSplit split;
-  };
-
-  UuidParse uuid = {boost::uuids::random_generator()()};
-
-  prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
-      uuid.split.lo;
-  prestoTask->info.taskStatus.taskInstanceIdMostSignificantBits = uuid.split.hi;
-
-  prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
-  prestoTask->info.taskStatus.self =
-      fmt::format("{}/v1/task/{}", baseUri_, taskId);
+  task::initializeNewTask<TaskBackend>(
+      baseUri_,
+      bytedance::bolt::getCurrentTimeMs(),
+      taskId,
+      prestoTask);
   prestoTask->updateHeartbeatLocked();
   ++prestoTask->info.taskStatus.version;
 

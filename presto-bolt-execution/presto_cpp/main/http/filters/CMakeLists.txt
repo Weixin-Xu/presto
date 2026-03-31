@@ -12,6 +12,7 @@
 
 add_library(http_filters AccessLogFilter.cpp HttpEndpointLatencyFilter.cpp
                          InternalAuthenticationFilter.cpp StatsFilter.cpp)
+target_include_directories(http_filters PUBLIC ${CMAKE_SOURCE_DIR}/..)
 
 if(PRESTO_ENABLE_JWT)
   target_include_directories(

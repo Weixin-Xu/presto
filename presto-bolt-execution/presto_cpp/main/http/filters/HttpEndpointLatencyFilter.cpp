@@ -13,6 +13,8 @@
  */
 
 #include "presto_cpp/main/http/filters/HttpEndpointLatencyFilter.h"
+
+#include "presto-native-execution/presto_cpp/main/http/filters/HttpEndpointLatencyHelpers.h"
 #include "bolt/common/base/Exceptions.h"
 
 namespace facebook::presto::http::filters {
@@ -30,17 +32,7 @@ void HttpEndpointLatencyFilter::updateLatency(
     uint64_t latencyUs) {
   metricMap().withWLock([&](std::unordered_map<std::string, EndPointMetrics>&
                                 map) {
-    auto itr = map.find(endpoint);
-    if (itr != map.end()) {
-      auto& metrics = itr->second;
-      metrics.maxLatencyUs = std::max(metrics.maxLatencyUs, latencyUs);
-      metrics.avgLatencyUs =
-          (metrics.avgLatencyUs * metrics.count + latencyUs) /
-          (metrics.count + 1);
-      ++metrics.count;
-    } else {
-      map.emplace(endpoint, EndPointMetrics{endpoint, latencyUs, latencyUs, 1});
-    }
+    detail::updateEndpointLatency(map, endpoint, latencyUs);
   });
 }
 
@@ -51,14 +43,7 @@ HttpEndpointLatencyFilter::retrieveLatencies() {
   metricMap().withWLock([&](std::unordered_map<
                             std::string,
                             HttpEndpointLatencyFilter::EndPointMetrics>& map) {
-    result.reserve(map.size());
-    for (const auto& pair : map) {
-      result.push_back(pair.second);
-    }
-    map.clear();
-  });
-  std::sort(result.begin(), result.end(), [](const auto& lhs, const auto& rhs) {
-    return lhs.maxLatencyUs > rhs.maxLatencyUs;
+    result = detail::retrieveEndpointLatencies(map);
   });
   return result;
 }
@@ -68,22 +53,12 @@ void HttpEndpointLatencyFilter::onRequest(
   auto path = msg->getPath();
   const auto method = msg->getMethod().value();
   const auto& endpoints = endpoints_->at(method);
-
-  // Allocate vector outside of loop to avoid repeated alloc/free.
-  std::vector<std::string> matches(4);
-  std::vector<RE2::Arg> args(4);
-  std::vector<RE2::Arg*> argPtrs(4);
-
-  for (const auto& endpoint : endpoints) {
-    if (endpoint->check(path, matches, args, argPtrs)) {
-      requestEndpoint_ = methodToString(method) + " " + endpoint->pattern();
-      break;
-    }
-  }
+  requestEndpoint_ =
+      detail::matchHttpEndpoint(msg->getMethodString(), path, endpoints);
   BOLT_CHECK(!requestEndpoint_.empty());
 
   // Starts the timer.
-  timer_ = std::make_unique<bytedance::bolt::MicrosecondTimer>(&timeUs_);
+  timer_ = std::make_unique<detail::HttpFilterMicrosecondTimer>(&timeUs_);
   proxygen::Filter::onRequest(std::move(msg));
 }
 

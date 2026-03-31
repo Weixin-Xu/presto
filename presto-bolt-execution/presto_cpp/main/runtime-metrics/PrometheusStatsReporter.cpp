@@ -34,22 +34,10 @@ folly::Singleton<bytedance::bolt::BaseStatsReporter> reporter(
 
 static constexpr std::string_view kSummarySuffix("_summary");
 
-struct PrometheusStatsReporter::PrometheusImpl {
-  explicit PrometheusImpl(const ::prometheus::Labels& labels) {
-    registry = std::make_shared<::prometheus::Registry>();
-    for (const auto& itr : labels) {
-      this->labels[itr.first] = itr.second;
-    }
-  }
-
-  ::prometheus::Labels labels;
-  std::shared_ptr<::prometheus::Registry> registry;
-};
-
 PrometheusStatsReporter::PrometheusStatsReporter(
-    const std::map<std::string, std::string>& labels) {
-  impl_ = std::make_shared<PrometheusImpl>(labels);
-}
+    const std::map<std::string, std::string>& labels)
+    : metricRegistry_(
+          std::make_shared<detail::PrometheusMetricRegistry>(labels)) {}
 
 void PrometheusStatsReporter::registerMetricExportType(
     const char* key,
@@ -58,16 +46,15 @@ void PrometheusStatsReporter::registerMetricExportType(
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
   }
-  // '.' is replaced with '_'.
-  std::string sanitizedMetricKey = std::string(key);
-  std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '.', '_');
+  auto sanitizedMetricKey =
+      detail::PrometheusMetricRegistry::sanitizeMetricKey(key);
   switch (statType) {
     case bytedance::bolt::StatType::COUNT: {
       // A new MetricFamily object is built for every new metric key.
       auto& counterFamily = ::prometheus::BuildCounter()
                                 .Name(sanitizedMetricKey)
-                                .Register(*impl_->registry);
-      auto& counter = counterFamily.Add(impl_->labels);
+                                .Register(metricRegistry_->registry());
+      auto& counter = counterFamily.Add(metricRegistry_->labels());
       registeredMetricsMap_.emplace(
           std::string(key), StatsInfo{statType, &counter});
     } break;
@@ -76,8 +63,8 @@ void PrometheusStatsReporter::registerMetricExportType(
     case bytedance::bolt::StatType::RATE: {
       auto& gaugeFamily = ::prometheus::BuildGauge()
                               .Name(sanitizedMetricKey)
-                              .Register(*impl_->registry);
-      auto& gauge = gaugeFamily.Add(impl_->labels);
+                              .Register(metricRegistry_->registry());
+      auto& gauge = gaugeFamily.Add(metricRegistry_->labels());
       registeredMetricsMap_.emplace(
           std::string(key), StatsInfo{statType, &gauge});
     } break;
@@ -104,24 +91,19 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     VLOG(1) << "Trying to register already registered metric " << key;
     return;
   }
-  auto numBuckets = (max - min) / bucketWidth;
-  auto bound = min + bucketWidth;
-  std::string sanitizedMetricKey = std::string(key);
-  // '.' is replaced with '_'.
-  std::replace(sanitizedMetricKey.begin(), sanitizedMetricKey.end(), '.', '_');
+  auto sanitizedMetricKey =
+      detail::PrometheusMetricRegistry::sanitizeMetricKey(key);
 
   auto& histogramFamily = ::prometheus::BuildHistogram()
                               .Name(sanitizedMetricKey)
-                              .Register(*impl_->registry);
+                              .Register(metricRegistry_->registry());
 
-  ::prometheus::Histogram::BucketBoundaries bucketBoundaries;
-  while (numBuckets > 0) {
-    bucketBoundaries.push_back(bound);
-    bound += bucketWidth;
-    numBuckets--;
-  }
+  auto bucketBoundaries =
+      detail::PrometheusMetricRegistry::createBucketBoundaries(
+          bucketWidth, min, max);
   BOLT_CHECK_GE(bucketBoundaries.size(), 1);
-  auto& histogramMetric = histogramFamily.Add(impl_->labels, bucketBoundaries);
+  auto& histogramMetric =
+      histogramFamily.Add(metricRegistry_->labels(), bucketBoundaries);
 
   registeredMetricsMap_.emplace(
       key, StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &histogramMetric});
@@ -130,13 +112,10 @@ void PrometheusStatsReporter::registerHistogramMetricExportType(
     auto summaryMetricKey = sanitizedMetricKey + std::string(kSummarySuffix);
     auto& summaryFamily = ::prometheus::BuildSummary()
                               .Name(summaryMetricKey)
-                              .Register(*impl_->registry);
-    ::prometheus::Summary::Quantiles quantiles;
-    for (auto pct : pcts) {
-      quantiles.push_back(
-          ::prometheus::detail::CKMSQuantiles::Quantile(pct / (double)100, 0));
-    }
-    auto& summaryMetric = summaryFamily.Add({impl_->labels}, quantiles);
+                              .Register(metricRegistry_->registry());
+    auto& summaryMetric = summaryFamily.Add(
+        {metricRegistry_->labels()},
+        detail::PrometheusMetricRegistry::createQuantiles(pcts));
     registeredMetricsMap_.emplace(
         std::string(key).append(kSummarySuffix),
         StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &summaryMetric});
@@ -236,9 +215,7 @@ std::string PrometheusStatsReporter::fetchMetrics() {
   if (registeredMetricsMap_.empty()) {
     return "";
   }
-  ::prometheus::TextSerializer serializer;
-  // Registry::Collect() acquires lock on a mutex.
-  return serializer.Serialize(impl_->registry->Collect());
+  return metricRegistry_->fetchMetrics();
 }
 
 } // namespace facebook::presto::prometheus

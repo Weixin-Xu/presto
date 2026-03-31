@@ -10,14 +10,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include:
+  - ../../../../presto-native-execution/presto_cpp/main/thrift/presto_protocol-to-thrift-json.base.yml
+
 StructMap:
   TaskStatus:
     class_name: TaskStatus
     fields:
       taskName: { field_name: self }
 
+WrapperStruct: {}
+
+Special:
+  HostAddress:
   Lifespan:
-    class_name: Lifespan
-    fields:
-      grouped: { field_name: isgroup }
-      groupId: { field_name: groupid }

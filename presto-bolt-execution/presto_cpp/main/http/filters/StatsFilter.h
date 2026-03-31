@@ -12,40 +12,4 @@
  * limitations under the License.
  */
 
-#pragma once
-
-#include <proxygen/httpserver/Filters.h>
-#include <proxygen/httpserver/RequestHandlerFactory.h>
-
-namespace facebook::presto::http::filters {
-
-class StatsFilter : public proxygen::Filter {
- public:
-  explicit StatsFilter(proxygen::RequestHandler* upstream);
-
-  void onRequest(std::unique_ptr<proxygen::HTTPMessage> msg) noexcept override;
-
-  void requestComplete() noexcept override;
-
-  void onError(proxygen::ProxygenError err) noexcept override;
-
- private:
-  std::chrono::steady_clock::time_point startTime_;
-};
-
-class StatsFilterFactory : public proxygen::RequestHandlerFactory {
- public:
-  explicit StatsFilterFactory() {}
-
-  void onServerStart(folly::EventBase* /*evb*/) noexcept override {}
-
-  void onServerStop() noexcept override {}
-
-  proxygen::RequestHandler* onRequest(
-      proxygen::RequestHandler* handler,
-      proxygen::HTTPMessage*) noexcept override {
-    return new StatsFilter(handler);
-  }
-};
-
-} // namespace facebook::presto::http::filters
+#include "presto-native-execution/presto_cpp/main/http/filters/StatsFilter.h"

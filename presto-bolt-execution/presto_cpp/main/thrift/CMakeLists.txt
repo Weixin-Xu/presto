@@ -35,7 +35,7 @@ thrift_library(
   cpp2
   ""
   ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_BINARY_DIR}/presto_cpp/main/thrift
+  ${CMAKE_CURRENT_BINARY_DIR}
   "..")
 
 target_link_libraries(presto_thrift-cpp2
@@ -58,6 +58,7 @@ add_library(presto_thrift_extra ProtocolToThrift.cpp)
 
 target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES}
                                                       ${THRIFT_INCLUDES}
+                                                      ${CMAKE_BINARY_DIR}
                                                       ${velox_INCLUDE_DIRS}
 
                                                       )

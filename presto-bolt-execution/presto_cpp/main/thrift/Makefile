@@ -22,9 +22,9 @@ ProtocolToThrift.cpp: ProtocolToThrift-cpp.mustache presto_protocol-to-thrift-js
 	chevron -d presto_protocol-to-thrift-json.json ProtocolToThrift-cpp.mustache >> ProtocolToThrift.cpp
 	clang-format -style=file -i ProtocolToThrift.cpp
 
-presto_protocol-to-thrift-json.json: presto_protocol-to-thrift-json.py presto_protocol-to-thrift-json.yml presto_thrift.json ../../presto_protocol/presto_protocol.json
-	./presto_protocol-to-thrift-json.py presto_thrift.json ../../presto_protocol/presto_protocol.json  | jq . > presto_protocol-to-thrift-json.json
+presto_protocol-to-thrift-json.json: presto_protocol-to-thrift-json.py presto_protocol-to-thrift-json.yml presto_thrift.json ../../presto_protocol/core/presto_protocol_core.json
+	./presto_protocol-to-thrift-json.py presto_thrift.json ../../presto_protocol/core/presto_protocol_core.json  | jq . > presto_protocol-to-thrift-json.json
 
 presto_thrift.json: presto_thrift.thrift ./thrift2json.py
-	./thrift2json.py presto_thrift.thrift | jq . > presto_thrift.json
+	python3 ./thrift2json.py presto_thrift.thrift | jq . > presto_thrift.json
 	

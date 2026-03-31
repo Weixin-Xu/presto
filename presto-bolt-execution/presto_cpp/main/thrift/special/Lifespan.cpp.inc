@@ -11,5 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#pragma once
-#include "presto-native-execution/presto_cpp/main/http/HttpConstants.h"
+
+void toThrift(const protocol::Lifespan& proto, thrift::Lifespan& thrift) {
+  thrift.grouped_ref() = proto.isgroup;
+  thrift.groupId_ref() = proto.groupid;
+}
+
+void fromThrift(const thrift::Lifespan& thrift, protocol::Lifespan& proto) {
+  proto.isgroup = *thrift.grouped_ref();
+  proto.groupid = *thrift.groupId_ref();
+}

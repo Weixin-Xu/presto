@@ -19,6 +19,7 @@
 #include <jwt-cpp/traits/nlohmann-json/traits.h> //@manual
 #endif // PRESTO_ENABLE_JWT
 #include <proxygen/httpserver/ResponseBuilder.h>
+#include "presto_cpp/main/http/filters/InternalAuthenticationResponse.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/http/HttpConstants.h"
 
@@ -104,25 +105,21 @@ void InternalAuthenticationFilter::onError(
 }
 
 void InternalAuthenticationFilter::sendGenericErrorResponse() {
-  /// Indicate to upstream an error occurred and make sure
-  /// no further forwarding occurs.
-  upstream_->onError(proxygen::kErrorUnsupportedExpectation);
-  upstream_ = nullptr;
-
-  proxygen::ResponseBuilder(downstream_)
-      .status(kHttpInternalServerError, "Internal Server Error")
-      .sendWithEOM();
+  detail::sendRejectedResponse(
+      upstream_,
+      downstream_,
+      proxygen::kErrorUnsupportedExpectation,
+      kHttpInternalServerError,
+      "Internal Server Error");
 }
 
 void InternalAuthenticationFilter::sendUnauthorizedResponse() {
-  /// Indicate to upstream an error occurred and make sure
-  /// no further processing occurs.
-  upstream_->onError(proxygen::kErrorUnauthorized);
-  upstream_ = nullptr;
-
-  proxygen::ResponseBuilder(downstream_)
-      .status(kHttpUnauthorized, "Unauthorized")
-      .sendWithEOM();
+  detail::sendRejectedResponse(
+      upstream_,
+      downstream_,
+      proxygen::kErrorUnauthorized,
+      kHttpUnauthorized,
+      "Unauthorized");
 }
 
 void InternalAuthenticationFilter::processAndVerifyJwt(

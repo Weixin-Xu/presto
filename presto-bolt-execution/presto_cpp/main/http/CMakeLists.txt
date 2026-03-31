@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 add_library(presto_http HttpClient.cpp HttpServer.cpp)
+target_include_directories(presto_http PUBLIC ${CMAKE_SOURCE_DIR}/..)
 
 if(PRESTO_ENABLE_JWT)
   add_compile_definitions(JWT_DISABLE_PICOJSON)

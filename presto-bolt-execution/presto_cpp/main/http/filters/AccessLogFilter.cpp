@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-#include <fmt/format.h>
+#include "presto-native-execution/presto_cpp/main/http/filters/AccessLogFormatter.h"
 #include "presto_cpp/main/http/filters/AccessLogFilter.h"
 
 namespace facebook::presto::http::filters {
@@ -70,27 +70,16 @@ void AccessLogFilter::writeLog(std::string logLine) const noexcept {
 }
 
 std::string AccessLogFilter::generateLog() const noexcept {
-  std::time_t requestStartTime = proxygen::toTimeT(proxygen::getCurrentTime());
-  static struct tm formattedStartTime;
-  localtime_r(&requestStartTime, &formattedStartTime);
-  char timeBuf[64];
-  std::strftime(timeBuf, 64, "%F %T", &formattedStartTime);
-  const auto latency = proxygen::millisecondsSince(startTime_);
-
-  std::string logLine = fmt::format(
-      "{} - - [{}] \"{} {} {}\" {:d} {:d} {} {} {:d}",
-      remoteAddr_.c_str(),
-      timeBuf,
-      method_.c_str(),
-      url_.c_str(),
-      version_.c_str(),
+  return detail::formatAccessLogLine(
+      startTime_,
+      method_,
+      url_,
+      version_,
+      remoteAddr_,
       statusCode_,
       bytesSent_,
-      httpReferer_.c_str(),
-      httpUserAgent_.c_str(),
-      latency.count());
-
-  return logLine;
+      httpReferer_,
+      httpUserAgent_);
 }
 
 } // namespace facebook::presto::http::filters
