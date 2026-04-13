@@ -10,6 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+.PHONY: presto_protocol-to-thrift-json.json presto_thrift.json
 all: ProtocolToThrift.h ProtocolToThrift.cpp
 
 ProtocolToThrift.h: ProtocolToThrift-hpp.mustache presto_protocol-to-thrift-json.json
@@ -26,5 +27,4 @@ presto_protocol-to-thrift-json.json: presto_protocol-to-thrift-json.py presto_pr
 	./presto_protocol-to-thrift-json.py presto_thrift.json ../../presto_protocol/core/presto_protocol_core.json  | jq . > presto_protocol-to-thrift-json.json
 
 presto_thrift.json: presto_thrift.thrift ./thrift2json.py
-	python3 ./thrift2json.py presto_thrift.thrift | jq . > presto_thrift.json
-	
+	./thrift2json.py presto_thrift.thrift | jq . > presto_thrift.json
