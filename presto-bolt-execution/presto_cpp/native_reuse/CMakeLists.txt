@@ -53,13 +53,11 @@ find_library(THRIFT_METADATA thriftmetadata)
 find_library(THRIFT_TRANSPORT transport)
 find_library(THRIFT_TYPEREP thrifttyperep)
 get_filename_component(THRIFT_BIN_DIR ${THRIFT1} DIRECTORY)
-find_path(
-  FBTHRIFT_THRIFT_INCLUDE_DIR
-  thrift/annotation/cpp.thrift
-  PATHS
-    ${THRIFT_BIN_DIR}/../../..
-    ${THRIFT_BIN_DIR}/../../../..
-)
+get_filename_component(THRIFT_PACKAGE_DIR ${THRIFT_BIN_DIR}/../.. ABSOLUTE)
+set(FBTHRIFT_THRIFT_INCLUDE_DIR ${THRIFT_PACKAGE_DIR}/b)
+if(NOT EXISTS ${FBTHRIFT_THRIFT_INCLUDE_DIR}/thrift/annotation/cpp.thrift)
+  message(FATAL_ERROR "Unable to locate fbthrift thrift includes under ${FBTHRIFT_THRIFT_INCLUDE_DIR}")
+endif()
 
 set(THRIFT_INCLUDES ${fbthrift_INCLUDE_DIRS})
 include(${PRESTO_NATIVE_THRIFT_DIR}/ThriftLibrary.cmake)
