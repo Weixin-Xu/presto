@@ -68,6 +68,16 @@ thrift_library(
   THRIFT_INCLUDE_DIRECTORIES
   ${FBTHRIFT_THRIFT_INCLUDE_DIR})
 
+get_target_property(PRESTO_THRIFT_OBJ_SOURCES presto_thrift-cpp2-obj SOURCES)
+list(REMOVE_ITEM PRESTO_THRIFT_OBJ_SOURCES
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_binary.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_compact.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_serialization.cpp)
+list(APPEND PRESTO_THRIFT_OBJ_SOURCES
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/PrestoThrift_processmap_binary.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/PrestoThrift_processmap_compact.cpp)
+set_property(TARGET presto_thrift-cpp2-obj PROPERTY SOURCES "${PRESTO_THRIFT_OBJ_SOURCES}")
+
 target_link_libraries(presto_thrift-cpp2
                       ${THRIFT_PROTOCOL}
                       ${THRIFT_METADATA}
@@ -82,6 +92,7 @@ target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES})
 target_include_directories(presto_thrift-cpp2-obj PUBLIC
   ${PRESTO_NATIVE_INCLUDE_ROOT}
   ${THRIFT_INCLUDES}
+  ${FOLLY_INCLUDE_DIRS}
   ${wangle_INCLUDE_DIRS}
   ${jemalloc_INCLUDE_DIRS})
 
