@@ -93,6 +93,10 @@ target_include_directories(presto_thrift-cpp2-obj PUBLIC
   $<TARGET_PROPERTY:Folly::folly,INTERFACE_INCLUDE_DIRECTORIES>
   ${wangle_INCLUDE_DIRS}
   ${jemalloc_INCLUDE_DIRS})
+target_link_libraries(presto_thrift-cpp2-obj PUBLIC
+  Folly::folly
+  glog::glog
+  gflags::gflags)
 
 add_library(presto_thrift_extra ${CMAKE_SOURCE_DIR}/presto_cpp/main/ProtocolToThrift.cpp)
 
