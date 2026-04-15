@@ -81,12 +81,7 @@ void toThrift(
   toThrift(proto.columnNumber, *thrift.columnNumber_ref());
 }
 void toThrift(const protocol::HostAddress& proto, thrift::HostAddress& thrift) {
-  std::vector<std::string> parts;
-  folly::split(":", proto, parts);
-  if (parts.size() == 2) {
-    thrift.host_ref() = parts[0];
-    thrift.port_ref() = std::stoi(parts[1]);
-  }
+  thrift.hostPortString_ref() = proto;
 }
 void toThrift(const protocol::TaskStatus& proto, thrift::TaskStatus& thrift) {
   toThrift(
@@ -97,7 +92,7 @@ void toThrift(const protocol::TaskStatus& proto, thrift::TaskStatus& thrift) {
       *thrift.taskInstanceIdMostSignificantBits_ref());
   toThrift(proto.version, *thrift.version_ref());
   toThrift(proto.state, *thrift.state_ref());
-  toThrift(proto.self, *thrift.taskName_ref());
+  toThrift(proto.self, *thrift.selfUri_ref());
   toThrift(proto.completedDriverGroups, *thrift.completedDriverGroups_ref());
   toThrift(proto.failures, *thrift.failures_ref());
   toThrift(

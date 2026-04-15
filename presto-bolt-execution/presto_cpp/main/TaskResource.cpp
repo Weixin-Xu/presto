@@ -530,7 +530,8 @@ proxygen::RequestHandler* TaskResource::getTaskStatus(
                         if (!handlerState->requestExpired()) {
                           if (useThrift) {
                             thrift::TaskStatus thriftTaskStatus;
-                            toThrift(*taskStatus, thriftTaskStatus);
+                            facebook::presto::thrift::toThrift(
+                                *taskStatus, thriftTaskStatus);
                             http::sendOkThriftResponse(
                                 downstream, thriftWrite(thriftTaskStatus));
                           } else {

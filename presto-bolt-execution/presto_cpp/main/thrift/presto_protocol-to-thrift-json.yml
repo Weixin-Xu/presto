@@ -17,7 +17,7 @@ StructMap:
   TaskStatus:
     class_name: TaskStatus
     fields:
-      taskName: { field_name: self }
+      selfUri: { field_name: self }
 
 WrapperStruct: {}
 

@@ -13,7 +13,6 @@ add_subdirectory(operators)
 add_subdirectory(types)
 add_subdirectory(http)
 add_subdirectory(common)
-add_subdirectory(thrift)
 
 add_library(
   presto_server_lib

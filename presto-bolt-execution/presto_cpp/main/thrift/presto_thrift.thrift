@@ -41,8 +41,7 @@ struct ErrorLocation {
 }
 
 struct HostAddress {
-  1: string host;
-  2: i32 port;
+  1: string hostPortString;
 }
 
 struct TaskStatus {
@@ -50,7 +49,7 @@ struct TaskStatus {
   2: i64 taskInstanceIdMostSignificantBits;
   3: i64 version;
   4: TaskState state;
-  5: string taskName;
+  5: string selfUri;
   6: set<Lifespan> completedDriverGroups;
   7: list<ExecutionFailureInfo> failures;
   8: i32 queuedPartitionedDrivers;

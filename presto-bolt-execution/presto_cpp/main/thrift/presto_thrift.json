@@ -99,18 +99,11 @@
     "class_name": "HostAddress",
     "fields": [
       {
-        "field_name": "host",
+        "field_name": "hostPortString",
         "field_type": "string",
         "optional": false,
         "required": false,
         "tag": 1
-      },
-      {
-        "field_name": "port",
-        "field_type": "int32_t",
-        "optional": false,
-        "required": false,
-        "tag": 2
       }
     ]
   },
@@ -147,7 +140,7 @@
         "tag": 4
       },
       {
-        "field_name": "taskName",
+        "field_name": "selfUri",
         "field_type": "string",
         "optional": false,
         "required": false,

@@ -109,23 +109,15 @@
     "class_name": "HostAddress",
     "fields": [
       {
-        "field_name": "host",
+        "field_name": "hostPortString",
         "field_type": "string",
         "optional": false,
         "required": false,
         "tag": 1,
-        "proto_name": "host"
-      },
-      {
-        "field_name": "port",
-        "field_type": "int32_t",
-        "optional": false,
-        "required": false,
-        "tag": 2,
-        "proto_name": "port"
+        "proto_name": "hostPortString"
       }
     ],
-    "cinc": "void toThrift(const protocol::HostAddress& proto, thrift::HostAddress& thrift) {\n  std::vector<std::string> parts;\n  folly::split(\":\", proto, parts);\n  if (parts.size() == 2) {\n    thrift.host_ref() = parts[0];\n    thrift.port_ref() = std::stoi(parts[1]);\n  }\n}"
+    "cinc": "void toThrift(const protocol::HostAddress& proto, thrift::HostAddress& thrift) {\n  thrift.hostPortString_ref() = proto;\n}"
   },
   {
     "struct": true,
@@ -168,7 +160,7 @@
         "convert": true
       },
       {
-        "field_name": "taskName",
+        "field_name": "selfUri",
         "field_type": "string",
         "optional": false,
         "required": false,
