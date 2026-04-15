@@ -11,17 +11,15 @@
 # limitations under the License.
 
 set(PRESTO_NATIVE_CPP_DIR ${CMAKE_SOURCE_DIR}/../presto-native-execution/presto_cpp)
-set(PRESTO_NATIVE_PROTOCOL_DIR ${PRESTO_NATIVE_CPP_DIR}/presto_protocol)
 set(PRESTO_NATIVE_THRIFT_DIR ${PRESTO_NATIVE_CPP_DIR}/main/thrift)
 set(PRESTO_NATIVE_THRIFT_FILE ${PRESTO_NATIVE_THRIFT_DIR}/presto_thrift.thrift)
-set(PRESTO_NATIVE_EXTERNAL_JSON_DIR ${PRESTO_NATIVE_CPP_DIR}/external/json)
 set(PRESTO_NATIVE_INCLUDE_ROOT ${CMAKE_CURRENT_BINARY_DIR}/include)
 set(PRESTO_NATIVE_THRIFT_BUILD_DIR ${CMAKE_CURRENT_BINARY_DIR}/thrift)
 set(PRESTO_NATIVE_THRIFT_PREPROCESSED ${PRESTO_NATIVE_THRIFT_BUILD_DIR}/presto_thrift.thrift)
 
 file(MAKE_DIRECTORY ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp)
-file(MAKE_DIRECTORY ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/external)
 file(MAKE_DIRECTORY ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/main)
+file(MAKE_DIRECTORY ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/main/thrift)
 file(MAKE_DIRECTORY ${PRESTO_NATIVE_THRIFT_BUILD_DIR})
 file(READ ${PRESTO_NATIVE_THRIFT_FILE} PRESTO_NATIVE_THRIFT_CONTENT)
 string(REPLACE
@@ -31,30 +29,11 @@ string(REPLACE
   "${PRESTO_NATIVE_THRIFT_CONTENT}")
 file(WRITE ${PRESTO_NATIVE_THRIFT_PREPROCESSED} "${PRESTO_NATIVE_THRIFT_CONTENT}")
 file(CREATE_LINK
-     ${PRESTO_NATIVE_PROTOCOL_DIR}
-     ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/presto_protocol
-     SYMBOLIC COPY_ON_ERROR)
-file(CREATE_LINK
-     ${PRESTO_NATIVE_EXTERNAL_JSON_DIR}
-     ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/external/json
-     SYMBOLIC COPY_ON_ERROR)
-file(CREATE_LINK
-     ${PRESTO_NATIVE_THRIFT_DIR}
-     ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/main/thrift
+     ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2
+     ${PRESTO_NATIVE_INCLUDE_ROOT}/presto_cpp/main/thrift/gen-cpp2
      SYMBOLIC COPY_ON_ERROR)
 
 set(PRESTO_NATIVE_INCLUDE_ROOT ${PRESTO_NATIVE_INCLUDE_ROOT} PARENT_SCOPE)
-
-add_library(
-  presto_protocol OBJECT
-  ${PRESTO_NATIVE_PROTOCOL_DIR}/presto_protocol.cpp
-  ${PRESTO_NATIVE_PROTOCOL_DIR}/Base64Util.cpp
-  ${PRESTO_NATIVE_PROTOCOL_DIR}/core/DataSize.cpp
-  ${PRESTO_NATIVE_PROTOCOL_DIR}/core/Duration.cpp
-  ${PRESTO_NATIVE_PROTOCOL_DIR}/core/ConnectorProtocol.cpp)
-
-target_link_libraries(presto_protocol bolt::bolt ${RE2})
-target_include_directories(presto_protocol BEFORE PRIVATE ${PRESTO_NATIVE_INCLUDE_ROOT})
 
 find_program(THRIFT1 thrift1)
 find_library(THRIFTCPP2 thriftcpp2)
@@ -120,8 +99,3 @@ target_link_libraries(presto_thrift_extra
   re2::re2)
 target_include_directories(presto_thrift_extra PUBLIC ${presto_thrift_INCLUDES})
 add_dependencies(presto_thrift_extra presto_thrift-cpp2)
-
-if(PRESTO_ENABLE_TESTING)
-  add_subdirectory(${PRESTO_NATIVE_PROTOCOL_DIR}/tests
-                   ${CMAKE_CURRENT_BINARY_DIR}/presto_protocol_tests)
-endif()
