@@ -42,6 +42,10 @@ class SystemTableHandle
       std::string schemaName,
       std::string tableName);
 
+  const std::string& name() const override {
+    return tableName_;
+  }
+
   std::string toString() const override;
 
   const std::string& schemaName() {

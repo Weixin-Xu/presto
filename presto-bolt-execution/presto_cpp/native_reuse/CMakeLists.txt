@@ -69,13 +69,11 @@ thrift_library(
   ${FBTHRIFT_THRIFT_INCLUDE_DIR})
 
 get_target_property(PRESTO_THRIFT_OBJ_SOURCES presto_thrift-cpp2-obj SOURCES)
-list(REMOVE_ITEM PRESTO_THRIFT_OBJ_SOURCES
-  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_binary.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_compact.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types_serialization.cpp)
-list(APPEND PRESTO_THRIFT_OBJ_SOURCES
-  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/PrestoThrift_processmap_binary.cpp
-  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/PrestoThrift_processmap_compact.cpp)
+set(PRESTO_THRIFT_OBJ_SOURCES
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_constants.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_data.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_metadata.cpp
+  ${CMAKE_CURRENT_BINARY_DIR}/gen-cpp2/presto_thrift_types.cpp)
 set_property(TARGET presto_thrift-cpp2-obj PROPERTY SOURCES "${PRESTO_THRIFT_OBJ_SOURCES}")
 
 target_link_libraries(presto_thrift-cpp2
