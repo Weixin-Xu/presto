@@ -92,7 +92,7 @@ target_include_directories(presto_thrift-cpp2 PUBLIC ${presto_thrift_INCLUDES})
 target_include_directories(presto_thrift-cpp2-obj PUBLIC
   ${PRESTO_NATIVE_INCLUDE_ROOT}
   ${THRIFT_INCLUDES}
-  ${FOLLY_INCLUDE_DIRS}
+  $<TARGET_PROPERTY:Folly::folly,INTERFACE_INCLUDE_DIRECTORIES>
   ${wangle_INCLUDE_DIRS}
   ${jemalloc_INCLUDE_DIRS})
 
