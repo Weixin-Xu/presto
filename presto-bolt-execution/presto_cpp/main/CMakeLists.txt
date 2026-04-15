@@ -9,6 +9,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+include_directories(BEFORE ${PRESTO_NATIVE_INCLUDE_ROOT})
+
 add_subdirectory(operators)
 add_subdirectory(types)
 add_subdirectory(http)

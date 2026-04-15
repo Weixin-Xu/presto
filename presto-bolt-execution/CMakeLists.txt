@@ -79,7 +79,6 @@ include_directories(SYSTEM ${FBTHRIFT_INCLUDE_DIR})
 find_package(nlohmann_json REQUIRED CONFIG)
 include_directories(SYSTEM ${nlohmann_json_INCLUDE_DIR})
 
-include_directories(BEFORE ../presto-native-execution)
 include_directories(.)
 include_directories(${bolt_INCLUDE_DIR})
 
