@@ -55,10 +55,10 @@ find_library(THRIFT_TYPEREP thrifttyperep)
 get_filename_component(THRIFT_BIN_DIR ${THRIFT1} DIRECTORY)
 find_path(
   FBTHRIFT_THRIFT_INCLUDE_DIR
-  annotation/cpp.thrift
+  thrift/annotation/cpp.thrift
   PATHS
-    ${THRIFT_BIN_DIR}/../../b/thrift
-    ${THRIFT_BIN_DIR}/../../s/thrift
+    ${THRIFT_BIN_DIR}/../../..
+    ${THRIFT_BIN_DIR}/../../../..
 )
 
 set(THRIFT_INCLUDES ${fbthrift_INCLUDE_DIRS})
