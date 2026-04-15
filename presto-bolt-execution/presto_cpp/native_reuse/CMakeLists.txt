@@ -52,6 +52,14 @@ find_library(THRIFT_PROTOCOL thriftprotocol)
 find_library(THRIFT_METADATA thriftmetadata)
 find_library(THRIFT_TRANSPORT transport)
 find_library(THRIFT_TYPEREP thrifttyperep)
+get_filename_component(THRIFT_BIN_DIR ${THRIFT1} DIRECTORY)
+find_path(
+  FBTHRIFT_THRIFT_INCLUDE_DIR
+  annotation/cpp.thrift
+  PATHS
+    ${THRIFT_BIN_DIR}/../../b/thrift
+    ${THRIFT_BIN_DIR}/../../s/thrift
+)
 
 set(THRIFT_INCLUDES ${fbthrift_INCLUDE_DIRS})
 include(${PRESTO_NATIVE_THRIFT_DIR}/ThriftLibrary.cmake)
@@ -66,7 +74,9 @@ thrift_library(
   ""
   ${PRESTO_NATIVE_THRIFT_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
-  "..")
+  ".."
+  THRIFT_INCLUDE_DIRECTORIES
+  ${FBTHRIFT_THRIFT_INCLUDE_DIR})
 
 target_link_libraries(presto_thrift-cpp2
                       ${THRIFT_PROTOCOL}
@@ -85,15 +95,13 @@ target_include_directories(presto_thrift-cpp2-obj PUBLIC
   ${wangle_INCLUDE_DIRS}
   ${jemalloc_INCLUDE_DIRS})
 
-add_library(presto_thrift_extra ${PRESTO_NATIVE_THRIFT_DIR}/ProtocolToThrift.cpp)
+add_library(presto_thrift_extra ${CMAKE_SOURCE_DIR}/presto_cpp/main/ProtocolToThrift.cpp)
 
 target_include_directories(presto_thrift_extra PUBLIC
   ${PRESTO_NATIVE_INCLUDE_ROOT}
   ${presto_thrift_INCLUDES}
   ${THRIFT_INCLUDES}
-  ${CMAKE_BINARY_DIR}
-  ${velox_INCLUDE_DIRS}
-  ${PRESTO_NATIVE_THRIFT_DIR})
+  ${CMAKE_BINARY_DIR})
 
 find_package(nlohmann_json CONFIG REQUIRED)
 target_link_libraries(presto_thrift_extra

@@ -15,8 +15,8 @@
 #include <presto_cpp/main/common/Exception.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Utils.h"
-#include "presto_cpp/main/thrift/ProtocolToThrift.h"
-#include "presto_cpp/main/thrift/ThriftIO.h"
+#include "presto_cpp/main/ProtocolToThrift.h"
+#include "presto_cpp/main/ThriftIO.h"
 #include "presto_cpp/main/thrift/gen-cpp2/PrestoThrift.h"
 #include "presto_cpp/main/types/PrestoToBoltQueryPlan.h"
 
