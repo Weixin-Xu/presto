@@ -19,6 +19,7 @@
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <folly/container/F14Set.h>
+#include "presto_cpp/main/task/TaskManagerHelpers.h"
 #include <velox/core/PlanNode.h>
 #include "presto_cpp/main/common/Configs.h"
 #include "presto_cpp/main/common/Counters.h"
@@ -39,6 +40,12 @@ namespace facebook::presto {
 constexpr uint32_t kMaxConcurrentLifespans{16};
 
 namespace {
+
+struct NativeTaskBackend {
+  static void setTaskCreateTime(protocol::TaskStats& taskStats, int64_t timeMs) {
+    taskStats.createTimeInMillis = timeMs;
+  }
+};
 
 // We request cancellation for tasks which haven't been accessed by coordinator
 // for a considerable time.
@@ -1298,28 +1305,8 @@ std::shared_ptr<PrestoTask> TaskManager::findOrCreateTask(
 
   prestoTask =
       std::make_shared<PrestoTask>(taskId, nodeId_, startProcessCpuTime);
-  prestoTask->info.stats.createTimeInMillis = velox::getCurrentTimeMs();
-  prestoTask->info.needsPlan = true;
-
-  struct UuidSplit {
-    int64_t lo;
-    int64_t hi;
-  };
-
-  union UuidParse {
-    boost::uuids::uuid uuid;
-    UuidSplit split;
-  };
-
-  UuidParse uuid = {boost::uuids::random_generator()()};
-
-  prestoTask->info.taskStatus.taskInstanceIdLeastSignificantBits =
-      uuid.split.lo;
-  prestoTask->info.taskStatus.taskInstanceIdMostSignificantBits = uuid.split.hi;
-
-  prestoTask->info.taskStatus.state = protocol::TaskState::RUNNING;
-  prestoTask->info.taskStatus.self =
-      fmt::format("{}/v1/task/{}", baseUri_, taskId);
+  task::initializeNewTask<NativeTaskBackend>(
+      baseUri_, velox::getCurrentTimeMs(), taskId, prestoTask);
   prestoTask->updateHeartbeatLocked();
   ++prestoTask->info.taskStatus.version;
 

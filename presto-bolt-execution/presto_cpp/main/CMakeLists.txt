@@ -1,0 +1,127 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+include_directories(BEFORE ${PRESTO_NATIVE_INCLUDE_ROOT})
+
+add_subdirectory(operators)
+add_subdirectory(types)
+add_subdirectory(http)
+add_subdirectory(common)
+
+add_library(
+  presto_server_lib
+  Announcer.cpp
+  CPUMon.cpp
+  CoordinatorDiscoverer.cpp
+  PeriodicMemoryChecker.cpp
+  PeriodicTaskManager.cpp
+  PrestoExchangeSource.cpp
+  PrestoServer.cpp
+  PrestoServerOperations.cpp
+  PrestoTask.cpp
+  QueryContextManager.cpp
+  ServerOperation.cpp
+  SignalHandler.cpp
+  SystemConnector.cpp
+  SessionProperties.cpp
+  TaskManager.cpp
+  TaskResource.cpp
+  PeriodicHeartbeatManager.cpp
+  PeriodicServiceInventoryManager.cpp)
+
+add_dependencies(presto_server_lib presto_operators presto_protocol
+                 presto_types presto_thrift-cpp2 presto_thrift_extra)
+
+target_include_directories(presto_server_lib PRIVATE ${presto_thrift_INCLUDES}
+                                                      ${CMAKE_SOURCE_DIR}/..)
+target_link_libraries(
+  presto_server_lib
+  $<TARGET_OBJECTS:presto_type_converter>
+  $<TARGET_OBJECTS:presto_types>
+  $<TARGET_OBJECTS:presto_protocol>
+  presto_common
+  presto_exception
+  # presto_function_metadata
+  presto_http
+  presto_operators
+  presto_bolt_conversion
+  bolt::bolt
+  re2::re2
+  Folly::folly
+  gflags::gflags
+  nlohmann_json::nlohmann_json
+  pthread)
+
+# Enabling Parquet causes build errors with missing symbols on MacOS. This is
+# likely due to a conflict between Arrow Thrift from bolt_hive_connector and
+# FBThrift libraries. The build issue is fixed by linking bolt_hive_connector
+# dependencies first followed by FBThrift.
+target_link_libraries(presto_server_lib presto_thrift-cpp2 presto_thrift_extra)
+
+set_property(TARGET presto_server_lib PROPERTY JOB_POOL_LINK
+                                               presto_link_job_pool)
+
+add_executable(presto_server PrestoMain.cpp)
+
+# Moving bolt_hive_connector and bolt_tpch_connector to presto_server_lib
+# results in multiple link errors similar to the one below only on GCC.
+# "undefined reference to `vtable for bolt::connector::tpch::TpchTableHandle`"
+# TODO: Fix these errors.
+target_link_libraries(presto_server presto_server_lib bolt::bolt)
+
+if(PRESTO_ENABLE_REMOTE_FUNCTIONS)
+  add_library(presto_server_remote_function JsonSignatureParser.cpp
+                                            RemoteFunctionRegisterer.cpp)
+
+  target_link_libraries(presto_server_remote_function bolt::bolt folly::folly)
+  target_link_libraries(presto_server_lib presto_server_remote_function)
+endif()
+
+set_property(TARGET presto_server PROPERTY JOB_POOL_LINK presto_link_job_pool)
+
+if(PRESTO_ENABLE_TESTING)
+  add_subdirectory(tests)
+endif()
+
+if(PRESTO_STATS_REPORTER_TYPE)
+  add_compile_definitions(PRESTO_STATS_REPORTER_TYPE)
+  if(PRESTO_STATS_REPORTER_TYPE STREQUAL "PROMETHEUS")
+    add_subdirectory(runtime-metrics)
+    target_link_libraries(presto_server presto_prometheus_reporter)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_STATS_REPORTER_TYPE} is not a valid stats reporter name")
+  endif()
+endif()
+
+if(PRESTO_MEMORY_CHECKER_TYPE)
+  add_compile_definitions(PRESTO_MEMORY_CHECKER_TYPE)
+  # Check if the current platform is Linux and the memory checker type is
+  # LINUX_MEMORY_CHECKER.
+  if(UNIX
+     AND NOT APPLE
+     AND (PRESTO_MEMORY_CHECKER_TYPE STREQUAL "LINUX_MEMORY_CHECKER"))
+    add_library(presto_linux_memory_checker OBJECT LinuxMemoryChecker.cpp)
+    target_link_libraries(presto_server presto_linux_memory_checker)
+  else()
+    message(
+      FATAL_ERROR
+        "${PRESTO_MEMORY_CHECKER_TYPE} is not a valid memory checker name")
+  endif()
+endif()
+
+if(PRESTO_ENABLE_JEMALLOC)
+  find_package(jemalloc CONFIG REQUIRED)
+  target_link_libraries(presto_server jemalloc::jemalloc)
+endif()
+
+target_link_options(presto_server PRIVATE "-no-pie")

@@ -1,0 +1,42 @@
+
+syntax = "proto3";
+
+package presto_protocol;
+
+
+message TpchColumnHandle {
+    String columnName = 1;
+    Type type = 2;
+}
+
+message TpchPartitioningHandle {
+    String table = 1;
+    int64_t totalRows = 2;
+}
+
+message ColumnHandle {
+    oneof columnHandle {
+        TpchColumnHandle tpchColumnHandle = 1;
+    }
+}
+
+message TpchTableHandle {
+    String tableName = 1;
+    double scaleFactor = 2;
+}
+
+message TpchSplit {
+    TpchTableHandle tableHandle = 1;
+    int partNumber = 2;
+    int totalParts = 3;
+    List<HostAddress> addresses = 4;
+    TupleDomain<std::shared_ptr<ColumnHandle>> predicate = 5;
+}
+
+message TpchTableLayoutHandle {
+    TpchTableHandle table = 1;
+    TupleDomain<std::shared_ptr<ColumnHandle>> predicate = 2;
+}
+
+    
+

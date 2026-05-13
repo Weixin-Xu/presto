@@ -1,0 +1,221 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+#include "presto_cpp/main/runtime-metrics/PrometheusStatsReporter.h"
+
+#include <prometheus/collectable.h>
+#include <prometheus/counter.h>
+#include <prometheus/gauge.h>
+#include <prometheus/histogram.h>
+#include <prometheus/registry.h>
+#include <prometheus/summary.h>
+#include <prometheus/text_serializer.h>
+
+namespace facebook::presto::prometheus {
+
+// Initialize singleton for the reporter
+folly::Singleton<bytedance::bolt::BaseStatsReporter> reporter(
+    []() -> bytedance::bolt::BaseStatsReporter* {
+      return facebook::presto::prometheus::PrometheusStatsReporter::
+          createPrometheusReporter()
+              .release();
+    });
+
+static constexpr std::string_view kSummarySuffix("_summary");
+
+PrometheusStatsReporter::PrometheusStatsReporter(
+    const std::map<std::string, std::string>& labels)
+    : metricRegistry_(
+          std::make_shared<detail::PrometheusMetricRegistry>(labels)) {}
+
+void PrometheusStatsReporter::registerMetricExportType(
+    const char* key,
+    bytedance::bolt::StatType statType) const {
+  if (registeredMetricsMap_.count(key)) {
+    VLOG(1) << "Trying to register already registered metric " << key;
+    return;
+  }
+  auto sanitizedMetricKey =
+      detail::PrometheusMetricRegistry::sanitizeMetricKey(key);
+  switch (statType) {
+    case bytedance::bolt::StatType::COUNT: {
+      // A new MetricFamily object is built for every new metric key.
+      auto& counterFamily = ::prometheus::BuildCounter()
+                                .Name(sanitizedMetricKey)
+                                .Register(metricRegistry_->registry());
+      auto& counter = counterFamily.Add(metricRegistry_->labels());
+      registeredMetricsMap_.emplace(
+          std::string(key), StatsInfo{statType, &counter});
+    } break;
+    case bytedance::bolt::StatType::SUM:
+    case bytedance::bolt::StatType::AVG:
+    case bytedance::bolt::StatType::RATE: {
+      auto& gaugeFamily = ::prometheus::BuildGauge()
+                              .Name(sanitizedMetricKey)
+                              .Register(metricRegistry_->registry());
+      auto& gauge = gaugeFamily.Add(metricRegistry_->labels());
+      registeredMetricsMap_.emplace(
+          std::string(key), StatsInfo{statType, &gauge});
+    } break;
+    default:
+      BOLT_UNSUPPORTED(
+          "Unsupported metric type {}", bytedance::bolt::statTypeString(statType));
+  }
+}
+
+void PrometheusStatsReporter::registerMetricExportType(
+    folly::StringPiece key,
+    bytedance::bolt::StatType statType) const {
+  registerMetricExportType(key.toString().c_str(), statType);
+}
+
+void PrometheusStatsReporter::registerHistogramMetricExportType(
+    const char* key,
+    int64_t bucketWidth,
+    int64_t min,
+    int64_t max,
+    const std::vector<int32_t>& pcts) const {
+  if (registeredMetricsMap_.count(key)) {
+    // Already registered;
+    VLOG(1) << "Trying to register already registered metric " << key;
+    return;
+  }
+  auto sanitizedMetricKey =
+      detail::PrometheusMetricRegistry::sanitizeMetricKey(key);
+
+  auto& histogramFamily = ::prometheus::BuildHistogram()
+                              .Name(sanitizedMetricKey)
+                              .Register(metricRegistry_->registry());
+
+  auto bucketBoundaries =
+      detail::PrometheusMetricRegistry::createBucketBoundaries(
+          bucketWidth, min, max);
+  BOLT_CHECK_GE(bucketBoundaries.size(), 1);
+  auto& histogramMetric =
+      histogramFamily.Add(metricRegistry_->labels(), bucketBoundaries);
+
+  registeredMetricsMap_.emplace(
+      key, StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &histogramMetric});
+  // If percentiles are provided, create a Summary type metric and register.
+  if (pcts.size() > 0) {
+    auto summaryMetricKey = sanitizedMetricKey + std::string(kSummarySuffix);
+    auto& summaryFamily = ::prometheus::BuildSummary()
+                              .Name(summaryMetricKey)
+                              .Register(metricRegistry_->registry());
+    auto& summaryMetric = summaryFamily.Add(
+        {metricRegistry_->labels()},
+        detail::PrometheusMetricRegistry::createQuantiles(pcts));
+    registeredMetricsMap_.emplace(
+        std::string(key).append(kSummarySuffix),
+        StatsInfo{bytedance::bolt::StatType::HISTOGRAM, &summaryMetric});
+  }
+}
+
+void PrometheusStatsReporter::registerHistogramMetricExportType(
+    folly::StringPiece key,
+    int64_t bucketWidth,
+    int64_t min,
+    int64_t max,
+    const std::vector<int32_t>& pcts) const {
+  registerHistogramMetricExportType(
+      key.toString().c_str(), bucketWidth, min, max, pcts);
+}
+
+void PrometheusStatsReporter::addMetricValue(
+    const std::string& key,
+    size_t value) const {
+  addMetricValue(key.c_str(), value);
+}
+
+void PrometheusStatsReporter::addMetricValue(const char* key, size_t value)
+    const {
+  auto metricIterator = registeredMetricsMap_.find(key);
+  if (metricIterator == registeredMetricsMap_.end()) {
+    VLOG(1) << "addMetricValue called for unregistered metric " << key;
+    return;
+  }
+  auto statsInfo = metricIterator->second;
+  switch (statsInfo.statType) {
+    case bytedance::bolt::StatType::COUNT: {
+      auto* counter =
+          reinterpret_cast<::prometheus::Counter*>(statsInfo.metricPtr);
+      counter->Increment(static_cast<double>(value));
+      break;
+    }
+    case bytedance::bolt::StatType::SUM: {
+      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+      gauge->Increment(static_cast<double>(value));
+      break;
+    }
+    case bytedance::bolt::StatType::AVG:
+    case bytedance::bolt::StatType::RATE: {
+      // Overrides the existing state.
+      auto* gauge = reinterpret_cast<::prometheus::Gauge*>(statsInfo.metricPtr);
+      gauge->Set(static_cast<double>(value));
+      break;
+    }
+    default:
+      BOLT_UNSUPPORTED(
+          "Unsupported metric type {}",
+          bytedance::bolt::statTypeString(statsInfo.statType));
+  };
+}
+
+void PrometheusStatsReporter::addMetricValue(
+    folly::StringPiece key,
+    size_t value) const {
+  addMetricValue(key.toString().c_str(), value);
+}
+
+void PrometheusStatsReporter::addHistogramMetricValue(
+    const std::string& key,
+    size_t value) const {
+  addHistogramMetricValue(key.c_str(), value);
+}
+
+void PrometheusStatsReporter::addHistogramMetricValue(
+    const char* key,
+    size_t value) const {
+  auto metricIterator = registeredMetricsMap_.find(key);
+  if (metricIterator == registeredMetricsMap_.end()) {
+    VLOG(1) << "addMetricValue for unregistered metric " << key;
+    return;
+  }
+  auto histogram = reinterpret_cast<::prometheus::Histogram*>(
+      metricIterator->second.metricPtr);
+  histogram->Observe(value);
+
+  std::string summaryKey = std::string(key).append(kSummarySuffix);
+  metricIterator = registeredMetricsMap_.find(summaryKey);
+  if (metricIterator != registeredMetricsMap_.end()) {
+    auto summary = reinterpret_cast<::prometheus::Summary*>(
+        metricIterator->second.metricPtr);
+    summary->Observe(value);
+  }
+}
+
+void PrometheusStatsReporter::addHistogramMetricValue(
+    folly::StringPiece key,
+    size_t value) const {
+  addHistogramMetricValue(key.toString().c_str(), value);
+}
+
+std::string PrometheusStatsReporter::fetchMetrics() {
+  if (registeredMetricsMap_.empty()) {
+    return "";
+  }
+  return metricRegistry_->fetchMetrics();
+}
+
+} // namespace facebook::presto::prometheus

@@ -12,8 +12,17 @@
  * limitations under the License.
  */
 
+#pragma once
+
+#include <cstdlib>
 #include <folly/concurrency/ConcurrentHashMap.h>
 #include <folly/executors/CPUThreadPoolExecutor.h>
+#include <map>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include "presto_cpp/main/runtime-metrics/PrometheusMetricRegistry.h"
 #include "presto_cpp/main/common/Configs.h"
 #include "velox/common/base/Exceptions.h"
 #include "velox/common/base/GTestMacros.h"
@@ -37,8 +46,6 @@ struct StatsInfo {
 /// {method="POST"} etc. Prometheus treats {<metric_name>, [labels]} as unique
 /// metric object.
 class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
-  class PrometheusImpl;
-
  public:
   explicit PrometheusStatsReporter(
       const std::map<std::string, std::string>& labels,
@@ -147,7 +154,7 @@ class PrometheusStatsReporter : public facebook::velox::BaseStatsReporter {
 
  private:
   std::shared_ptr<folly::CPUThreadPoolExecutor> executor_;
-  std::shared_ptr<PrometheusImpl> impl_;
+  std::shared_ptr<detail::PrometheusMetricRegistry> metricRegistry_;
   // A map of labels assigned to each metric which helps in filtering at client
   // end.
   mutable folly::ConcurrentHashMap<std::string, StatsInfo>

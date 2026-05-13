@@ -1,0 +1,108 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+add_library(presto_type_test_utils OBJECT TestUtils.cpp)
+
+add_executable(presto_bolt_split_test PrestoToBoltSplitTest.cpp)
+
+add_test(presto_bolt_split_test presto_bolt_split_test)
+
+target_link_libraries(
+  presto_bolt_split_test
+  GTest::gtest
+  GTest::gtest_main
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  bolt::bolt)
+
+add_executable(presto_expressions_test RowExpressionTest.cpp ValuesPipeTest.cpp
+                                       PlanConverterTest.cpp)
+
+add_test(
+  NAME presto_expressions_test
+  COMMAND presto_expressions_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+add_dependencies(presto_expressions_test presto_operators presto_protocol
+                 presto_types)
+
+target_link_libraries(
+  presto_expressions_test
+  GTest::gtest
+  GTest::gtest_main
+  $<TARGET_OBJECTS:presto_protocol>
+  $<TARGET_OBJECTS:presto_type_converter>
+  $<TARGET_OBJECTS:presto_types>
+  presto_operators
+  presto_type_test_utils
+  bolt::bolt
+  Boost::filesystem
+  re2::re2
+  Folly::folly
+  glog::glog
+  gflags::gflags
+  pthread)
+
+set_property(TARGET presto_expressions_test PROPERTY JOB_POOL_LINK
+                                                     presto_link_job_pool)
+
+add_executable(presto_to_bolt_connector_test PrestoToBoltConnectorTest.cpp)
+
+add_test(
+  NAME presto_to_bolt_connector_test
+  COMMAND presto_to_bolt_connector_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_to_bolt_connector_test
+  presto_protocol
+  presto_operators
+  presto_type_converter
+  presto_types
+  bolt::bolt
+  GTest::gtest
+  GTest::gtest_main)
+
+add_executable(presto_function_metadata_test FunctionMetadataTest.cpp)
+
+add_test(
+  NAME presto_function_metadata_test
+  COMMAND presto_function_metadata_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_function_metadata_test
+  presto_function_metadata
+  presto_protocol
+  presto_type_test_utils
+  bolt::bolt
+  GTest::gtest
+  GTest::gtest_main)
+
+add_executable(presto_to_bolt_query_plan_test PrestoToBoltQueryPlanTest.cpp)
+
+add_test(
+  NAME presto_to_bolt_query_plan_test
+  COMMAND presto_to_bolt_query_plan_test
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+target_link_libraries(
+  presto_to_bolt_query_plan_test
+  presto_operators
+  presto_protocol
+  presto_type_converter
+  presto_types
+  bolt::bolt
+  GTest::gtest
+  GTest::gtest_main)

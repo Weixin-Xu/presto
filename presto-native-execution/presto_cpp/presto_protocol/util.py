@@ -13,10 +13,11 @@
 import gzip
 import json
 import os
+import re
 import subprocess
 import sys
+from copy import deepcopy
 
-import re
 import yaml
 
 
@@ -94,8 +95,47 @@ def file_read(filename):
         return file.read()
 
 
+def _deep_merge_dict(base, override):
+    result = deepcopy(base)
+    for key, value in override.items():
+        if (
+            key in result
+            and isinstance(result[key], dict)
+            and isinstance(value, dict)
+        ):
+            result[key] = _deep_merge_dict(result[key], value)
+        else:
+            result[key] = deepcopy(value)
+    return result
+
+
+def _load_yaml_file(filename):
+    return yaml.load(file_read(filename), Loader=yaml.Loader)
+
+
+def _load_yaml_with_includes(filename):
+    filename = os.path.abspath(filename)
+    data = _load_yaml_file(filename)
+    includes = data.pop("include", []) if isinstance(data, dict) else []
+    if isinstance(includes, str):
+        includes = [includes]
+
+    merged = {}
+    for include in includes:
+        include_path = os.path.join(os.path.dirname(filename), include)
+        merged = _deep_merge_dict(merged, _load_yaml_with_includes(include_path))
+
+    if isinstance(data, dict):
+        merged = _deep_merge_dict(merged, data)
+    else:
+        merged = data
+
+    return merged
+
+
 def load_yaml(filename):
-    return string(json.dumps(yaml.load(file_read(filename), Loader=yaml.Loader))).json()
+    merged = _load_yaml_with_includes(filename)
+    return string(json.dumps(merged)).json()
 
 
 class ExtendedJsonEncoder(json.JSONEncoder):
